@@ -11,5 +11,6 @@ require (
 require (
 	github.com/creack/goselect v0.1.2 // indirect
 	github.com/pkg/errors v0.8.1 // indirect
+	golang.org/x/exp v0.0.0-20191002040644-a1355ae1e2c3 // indirect
 	golang.org/x/sys v0.7.0 // indirect
 )

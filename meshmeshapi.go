@@ -17,19 +17,29 @@ type SerialSession struct {
 	Reply     *ApiFrame
 	WaitReply uint8
 	Wait      sync.WaitGroup
+	SentTime  time.Time
+}
+
+func NewSimpleSerialSession(request *ApiFrame) *SerialSession {
+	s := SerialSession{Request: request, WaitReply: 0}
+	return &s
 }
 
 func NewSerialSession(request *ApiFrame) *SerialSession {
 	s := SerialSession{Request: request, WaitReply: request.AwaitedReply()}
+	s.SentTime = time.Now()
 	return &s
 }
 
 type SerialConnection struct {
-	connected bool
-	port      serial.Port
-	incoming  chan []byte
-	session   *SerialSession
-	Sessions  *list.List
+	connected  bool
+	port       serial.Port
+	incoming   chan []byte
+	session    *SerialSession
+	Sessions   *list.List
+	NextHandle uint16
+	LocalNode  uint32
+	ConnPathFn func(*ConnectedPathApiReply)
 }
 
 const (
@@ -38,12 +48,23 @@ const (
 	waitEndByte    = iota
 )
 
+func (serialConn *SerialConnection) GetNextHandle() uint16 {
+	nh := serialConn.NextHandle
+	serialConn.NextHandle += 1
+	return nh
+}
+
 func (serialConn *SerialConnection) ReadFrame(buffer []byte, position int) {
 	frame := NewApiFrame(buffer[0:position], true)
-	if serialConn.session != nil && frame.AssertType(serialConn.session.WaitReply) {
-		serialConn.session.Reply = frame
-		serialConn.session.Wait.Done()
-		serialConn.session = nil
+	fmt.Printf("<-- %s\n", hex.EncodeToString(frame.data))
+	if serialConn.session != nil {
+		if serialConn.session.WaitReply > 0 {
+			if frame.AssertType(serialConn.session.WaitReply) {
+				serialConn.session.Reply = frame
+				serialConn.session.Wait.Done()
+				serialConn.session = nil
+			}
+		}
 	} else {
 		v, err := frame.Decode()
 		if err != nil {
@@ -52,9 +73,25 @@ func (serialConn *SerialConnection) ReadFrame(buffer []byte, position int) {
 			switch t := v.(type) {
 			case LogEventApiReply:
 				log.Printf("From %06X Log %s\n", t.From, t.Line)
+			case ConnectedPathApiReply:
+				if serialConn.ConnPathFn != nil {
+					serialConn.ConnPathFn(&t)
+				}
 			default:
 				log.Printf("Received packet %v", v)
 			}
+		}
+	}
+}
+
+func (conn *SerialConnection) checkTimeout() {
+	if conn.session != nil {
+		if time.Since(conn.session.SentTime).Milliseconds() > 500 {
+			conn.session.Reply = nil
+			if conn.session.WaitReply > 0 {
+				conn.session.Wait.Done()
+			}
+			conn.session = nil
 		}
 	}
 }
@@ -67,13 +104,15 @@ func (serialConn *SerialConnection) Read() {
 
 	for {
 		var buffer = make([]byte, 1)
-		serialConn.port.SetReadTimeout(100 * time.Millisecond)
+		serialConn.port.SetReadTimeout(50 * time.Millisecond)
 		n, err := serialConn.port.Read(buffer)
 		if err != nil {
 			break
 		}
 
-		if n > 0 {
+		if n == 0 {
+			serialConn.checkTimeout()
+		} else if n > 0 {
 			b := buffer[0]
 			//fmt.Println(hex.EncodeToString(buffer))
 			if decodeState == waitStartByte {
@@ -91,6 +130,7 @@ func (serialConn *SerialConnection) Read() {
 				if b == stopApiFrame {
 					decodeState = waitStartByte
 					serialConn.ReadFrame(inputBuffer, inputBufferPos)
+					inputBufferPos = 0
 				} else if b == escapeApiFrame {
 					decodeState = escapeNextByte
 				} else {
@@ -111,19 +151,25 @@ func (serialConn *SerialConnection) Write() {
 			if serialConn.Sessions.Len() == 0 {
 				time.Sleep(50 * time.Millisecond)
 			} else {
-				serialConn.session = serialConn.Sessions.Front().Value.(*SerialSession)
+				session := serialConn.Sessions.Front().Value.(*SerialSession)
 				serialConn.Sessions.Remove(serialConn.Sessions.Front())
 
-				b := serialConn.session.Request.Output()
+				b := session.Request.Output()
 				fmt.Printf("--> %s\n", hex.EncodeToString(b))
 				n, err := serialConn.port.Write(b)
+
 				if err != nil {
 					log.Println(err)
 					break
 				}
+
 				if n < len(b) {
 					log.Println("not sent all bytes")
 					break
+				}
+
+				if session.WaitReply > 0 {
+					serialConn.session = session
 				}
 			}
 		} else {
@@ -139,14 +185,15 @@ func (serialConn *SerialConnection) QueueApiSession(session *SerialSession) {
 	serialConn.Sessions.PushBack(session)
 }
 
-func (serialConn *SerialConnection) WriteApiFrame(frame *ApiFrame) error {
-	b := frame.Output()
-	fmt.Printf("--> %s\n", hex.EncodeToString(b))
-	n, err := serialConn.port.Write(b)
-	if n < len(b) {
-		err = errors.New("not sent all bytes")
+func (serialConn *SerialConnection) SendApi(cmd interface{}) error {
+	frame, err := NewApiFrameFromStruct(cmd)
+	if err != nil {
+		return err
 	}
-	return err
+
+	session := NewSimpleSerialSession(frame)
+	serialConn.QueueApiSession(session)
+	return nil
 }
 
 func (serialConn *SerialConnection) SendReceiveApi(cmd interface{}) (interface{}, error) {
@@ -159,9 +206,12 @@ func (serialConn *SerialConnection) SendReceiveApi(cmd interface{}) (interface{}
 	session.Wait.Add(1)
 	serialConn.QueueApiSession(session)
 	session.Wait.Wait()
-	v, err := session.Reply.Decode()
 
-	return v, err
+	if session.Reply == nil {
+		return nil, errors.New("reply timeout")
+	} else {
+		return session.Reply.Decode()
+	}
 }
 
 func NewSerial(portName string, baudRate int) (*SerialConnection, error) {
@@ -171,53 +221,55 @@ func NewSerial(portName string, baudRate int) (*SerialConnection, error) {
 		return nil, err
 	}
 
-	client := &SerialConnection{
+	serial := &SerialConnection{
 		connected: true,
 		port:      p,
 		incoming:  make(chan []byte),
 		Sessions:  list.New(),
 	}
 
-	go client.Write()
-	go client.Read()
+	go serial.Write()
+	go serial.Read()
 
-	reply1, err := client.SendReceiveApi(EchoApiRequest{Echo: "CIAO"})
+	reply1, err := serial.SendReceiveApi(EchoApiRequest{Echo: "CIAO"})
 	if err != nil {
-		client.port.Close()
+		serial.port.Close()
 		return nil, err
 	}
 	echo, ok := reply1.(EchoApiReply)
 	if !ok {
-		client.port.Close()
+		serial.port.Close()
 		return nil, errors.New("invalid echo reply type")
 	}
 	if echo.Echo != "CIAO" {
-		client.port.Close()
+		serial.port.Close()
 		return nil, errors.New("invalid echo reply")
 	}
 
-	reply2, err := client.SendReceiveApi(NodeIdApiRequest{})
+	reply2, err := serial.SendReceiveApi(NodeIdApiRequest{})
 	if err != nil {
-		client.port.Close()
+		serial.port.Close()
 		return nil, err
 	}
 	nodeid, ok := reply2.(NodeIdApiReply)
 	if !ok {
-		client.port.Close()
+		serial.port.Close()
 		return nil, errors.New("invalid nodeid reply")
 	}
 
-	reply3, err := client.SendReceiveApi(FirmRevApiRequest{})
+	reply3, err := serial.SendReceiveApi(FirmRevApiRequest{})
 	if err != nil {
-		client.port.Close()
+		serial.port.Close()
 		return nil, err
 	}
 	firmrev, ok := reply3.(FirmRevApiReply)
 	if !ok {
-		client.port.Close()
+		serial.port.Close()
 		return nil, errors.New("invalid firmware reply")
 	}
 
-	log.Printf("NodeId is %06X with firmware %s\n", nodeid.Serial, firmrev.Revision)
-	return client, nil
+	//serial.LocalNode = nodeid.Serial
+	serial.LocalNode = 0x4A9F25
+	log.Printf("NodeId is %06X/%06X with firmware %s\n", nodeid.Serial, serial.LocalNode, firmrev.Revision)
+	return serial, nil
 }

@@ -64,9 +64,22 @@ type LogEventApiReply struct {
 	Line  string `struct:"string"`
 }
 
+const meshmeshProtocolConnectedPath uint8 = 7
+
 const connectedPathApiRequest uint8 = 122
 
 type ConnectedPathApiRequest struct {
+	Id       uint8  `struct:"uint8"`
+	Protocol uint8  `struct:"uint8"`
+	Command  uint8  `struct:"uint8"`
+	Handle   uint16 `struct:"uint16"`
+	Dummy    uint16 `struct:"uint16"`
+	Sequence uint16 `struct:"uint16"`
+	DataSize uint16 `struct:"uint16"`
+	Data     []byte `struct:"[]byte,sizefrom=DataSize"`
+}
+
+type ConnectedPathApiRequest2 struct {
 	Id       uint8   `struct:"uint8"`
 	Protocol uint8   `struct:"uint8"`
 	Command  uint8   `struct:"uint8"`
@@ -75,8 +88,17 @@ type ConnectedPathApiRequest struct {
 	Sequence uint16  `struct:"uint16"`
 	DataSize uint16  `struct:"uint16"`
 	Port     uint16  `struct:"uint16"`
-	PathLen  uint8   `struct:"uint8,sizeof=Records"`
-	Path     []int32 `struct:"[]int32"`
+	PathLen  uint8   `struct:"uint8"`
+	Path     []int32 `struct:"[]int32,sizefrom=PathLen"`
+}
+
+const connectedPathApiReply uint8 = 123
+
+type ConnectedPathApiReply struct {
+	Id      uint8  `struct:"uint8"`
+	Command uint8  `struct:"uint8"`
+	Handle  uint16 `struct:"uint16"`
+	Data    []byte `struct:"[]byte"`
 }
 
 type ApiFrame struct {
@@ -149,6 +171,13 @@ func (frame *ApiFrame) Decode() (interface{}, error) {
 		restruct.Unpack(frame.data, binary.LittleEndian, &v)
 		v.Line = string(frame.data[7:])
 		return v, nil
+	case connectedPathApiReply:
+		v := ConnectedPathApiReply{}
+		restruct.Unpack(frame.data, binary.LittleEndian, &v)
+		if len(frame.data) > 4 {
+			v.Data = frame.data[4:]
+		}
+		return v, nil
 	}
 
 	return EchoApiReply{}, errors.New("unknow api frame")
@@ -168,6 +197,9 @@ func (frame *ApiFrame) Encode(cmd interface{}) error {
 		v.Id = nodeIdApiRequest
 		b, err = restruct.Pack(binary.LittleEndian, &v)
 	case ConnectedPathApiRequest:
+		v.Id = connectedPathApiRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case ConnectedPathApiRequest2:
 		v.Id = connectedPathApiRequest
 		b, err = restruct.Pack(binary.LittleEndian, &v)
 	}

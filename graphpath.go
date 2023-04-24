@@ -10,6 +10,8 @@ import (
 	"os"
 	"strconv"
 
+	"gonum.org/v1/gonum/graph"
+	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
 )
 
@@ -61,7 +63,8 @@ type GraphPathConnection struct {
 }
 
 type GraphPath struct {
-	Graph *simple.WeightedDirectedGraph
+	SourceNode int64
+	Graph      *simple.WeightedDirectedGraph
 }
 
 func parseNodeId(id string) (int64, error) {
@@ -110,19 +113,29 @@ func (gpath *GraphPath) readGraphXml() {
 					log.Println("ReadGraphXml", err)
 					continue
 				}
-				_ = gpath.Graph.NewWeightedEdge(gpath.Graph.Node(src_id), gpath.Graph.Node(dst_id), weight)
+
+				edge := gpath.Graph.NewWeightedEdge(gpath.Graph.Node(src_id), gpath.Graph.Node(dst_id), weight)
+				gpath.Graph.SetWeightedEdge(edge)
+
 			}
 		}
 	}
+
+	fmt.Printf("Readed graph with %d nodes and %d edges", gpath.Graph.Nodes().Len(), gpath.Graph.Edges().Len())
 }
 
-func NewGraphPathConnection(target uint32, port uint16) *GraphPathConnection {
-	conn := GraphPathConnection{Target: target, Port: port}
-	return &conn
+func (g *GraphPath) GetPath(to int64) ([]graph.Node, error) {
+	allShortest := path.DijkstraAllPaths(g.Graph)
+	allBetween, weight := allShortest.AllBetween(g.SourceNode, to)
+	if len(allBetween) == 0 {
+		return nil, fmt.Errorf("no path found between 0x%06X and 0x%06X", g.SourceNode, to)
+	}
+	log.Printf("Get path from %06X to %06X of lenght %d and weight %f", g.SourceNode, to, len(allBetween[0]), weight)
+	return allBetween[0], nil
 }
 
-func NewGraphPath(filename string) (*GraphPath, error) {
-	graph := GraphPath{}
+func NewGraphPath(filename string, sourcenode int64) (*GraphPath, error) {
+	graph := GraphPath{SourceNode: sourcenode}
 	graph.readGraphXml()
 	return &graph, nil
 }

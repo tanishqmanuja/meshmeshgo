@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
@@ -13,108 +13,128 @@ import (
 
 var allClients map[*ApiConnection]int
 
+const esphomeapiWaitPacketHead int = 0
+const esphomeapiWaitPacketSize int = 1
+const esphomeapiWaitPacketData int = 3
+
 type ApiConnection struct {
-	// incoming chan string
 	handshakeDone bool
-	handshakeProg bool
-	outgoing      chan []byte
-	reader        *bufio.Reader
-	writer        *bufio.Writer
+	inState       int
+	inAwaitSize   int
 	inBuffer      *bytes.Buffer
 	conn          net.Conn
-	connection    *ApiConnection
+	connpath      *ConnPathConnection
 }
 
-func (client *ApiConnection) InitConnection(addr string, port int) error {
-	fmt.Printf("InitConnection %s:%d\n", addr, port)
-	return errors.New("invalid handshake")
+func (client *ApiConnection) forward(lastbyte byte) {
+	if client.inState == esphomeapiWaitPacketHead {
+		if lastbyte == 0x00 {
+			client.inState = esphomeapiWaitPacketSize
+		}
+	} else if client.inState == esphomeapiWaitPacketSize {
+		client.inAwaitSize = int(lastbyte) + 3
+		client.inState = esphomeapiWaitPacketData
+	} else {
+		if client.inBuffer.Len() == client.inAwaitSize {
+			client.inState = esphomeapiWaitPacketHead
+			fmt.Println("fromha ", hex.EncodeToString(client.inBuffer.Bytes()))
+			err := client.connpath.SendData(client.inBuffer.Bytes())
+			if err != nil {
+				log.Printf("Warning: %s", err.Error())
+			}
+			client.inBuffer.Reset()
+		}
+	}
 }
 
-func (client *ApiConnection) Forward(buffer []byte) {
+func (client *ApiConnection) handshake() error {
+	line := strings.TrimSpace(client.inBuffer.String())
+	client.inBuffer.Reset()
+
+	log.Println("ApiConnection.handshake", line)
+	fields := strings.Split(strings.TrimSpace(line), "|")
+	if len(fields) == 3 {
+		var port int
+		addr := strings.TrimSpace(fields[1])
+		port, err := strconv.Atoi(strings.TrimSpace(fields[2]))
+		if err == nil {
+			err = client.connpath.OpenConnection(addr, uint16(port))
+			if err != nil {
+				client.conn.Write([]byte{'!', '!', 'K', 'O', '!'})
+				return err
+			} else {
+				client.handshakeDone = true
+				client.conn.Write([]byte{'!', '!', 'O', 'K', '!'})
+			}
+		} else {
+			return err
+		}
+	} else {
+		return errors.New("wrong hadshake header")
+	}
+
+	return nil
 }
 
 func (client *ApiConnection) Close() {
 	client.conn.Close()
 	delete(allClients, client)
-	if client.connection != nil {
-		client.connection.connection = nil
-	}
-
-	log.Println("client closed.")
+	log.Printf("ApiConnection.Close remaining %d active connections", len(allClients))
 }
 
 func (client *ApiConnection) Read() {
+	var err error
+
 	for {
-
 		var buffer = make([]byte, 1)
-		_, err := client.conn.Read(buffer)
-
+		_, err = client.conn.Read(buffer)
 		if err == nil {
-			if !client.handshakeDone {
-				client.inBuffer.Write(buffer)
-
-				if !client.handshakeProg {
-					client.handshakeProg = true
-				} else {
-					if buffer[0] == '\n' {
-						line := client.inBuffer.String()
-						client.inBuffer.Reset()
-						fields := strings.Split(strings.TrimSpace(line), "|")
-						if len(fields) == 3 {
-							port, err := strconv.Atoi(strings.TrimSpace(fields[1]))
-							addr := strings.TrimSpace(fields[2])
-							if err == nil {
-								err = client.InitConnection(addr, port)
-								if err != nil {
-									break
-								}
-							} else {
-								break
-							}
-						} else {
-							break
-						}
+			client.inBuffer.WriteByte(buffer[0])
+			// FIXME check for if buffer grown outside limits
+			if client.handshakeDone {
+				client.forward(buffer[0])
+			} else {
+				if buffer[0] == '\n' {
+					err = client.handshake()
+					client.inState = esphomeapiWaitPacketHead
+					if err != nil {
+						break
 					}
 				}
-
-			} else {
-				client.Forward(buffer)
 			}
-
 		} else {
-			log.Println(err.Error())
 			break
 		}
 	}
 
+	if err != nil {
+		log.Printf("ApiConnection.Read closing connection with error: %s", err)
+	}
+
 	client.Close()
-	client = nil
 }
 
-/*func (client *ApiConnection) Write() {
-	for data := range client.outgoing {
-		client.writer.WriteString(data)
-		client.writer.Flush()
+func (client *ApiConnection) ForwardData(data []byte) error {
+	log.Printf("ForwardData O-- %s", hex.EncodeToString(data))
+	n, err := client.conn.Write(data)
+	if err != nil {
+		return err
 	}
-}*/
+	if n < len(data) {
+		return errors.New("socket can't receive all bytes")
+	}
+	return nil
+}
 
 func (client *ApiConnection) Listen() {
 	go client.Read()
-	//go client.Write()
 }
 
-func NewApiConnection(connection net.Conn) *ApiConnection {
-	//writer := bufio.NewWriter(connection)
-	//reader := bufio.NewReader(connection)
-
+func NewApiConnection(connection net.Conn, serial *SerialConnection, graph *GraphPath) *ApiConnection {
 	client := &ApiConnection{
-		// incoming: make(chan string),
 		handshakeDone: false,
-		handshakeProg: false,
-		outgoing:      make(chan []byte),
+		connpath:      NewConnPathConnection(serial, graph),
 		conn:          connection,
-		reader:        nil,
-		writer:        nil,
 		inBuffer:      bytes.NewBuffer([]byte{}),
 	}
 	client.Listen()
@@ -122,7 +142,32 @@ func NewApiConnection(connection net.Conn) *ApiConnection {
 	return client
 }
 
-func mainTcp() {
+func HandleConnectedPathReply(v *ConnectedPathApiReply) {
+	log.Printf("received cmd:%d handle:%d size:%d %s", v.Command, v.Handle, len(v.Data), hex.EncodeToString(v.Data))
+	if v.Command == 5 && len(v.Data) >= 2 {
+		msgsize := v.Data[1]
+		msgtype := v.Data[2]
+		log.Printf("  proto size:%d type:%d %s", msgsize, msgtype, hex.EncodeToString(v.Data[3:]))
+	}
+	if len(v.Data) > 0 {
+		var handled bool = false
+		for client := range allClients {
+			if client.connpath.handle == v.Handle {
+				handled = true
+				err := client.ForwardData(v.Data)
+				if err != nil {
+					client.Close()
+				}
+			}
+		}
+		if !handled {
+			log.Printf("Warning cmd is not handled")
+		}
+	}
+}
+
+func ListenToApiConnetions(serial *SerialConnection, graph *GraphPath) {
+	serial.ConnPathFn = HandleConnectedPathReply
 	allClients = make(map[*ApiConnection]int)
 	l, err := net.Listen("tcp4", ":6053")
 	if err != nil {
@@ -138,15 +183,7 @@ func mainTcp() {
 			continue
 		}
 
-		client := NewApiConnection(c)
-		for clientList := range allClients {
-			if clientList.connection == nil {
-				client.connection = clientList
-				clientList.connection = client
-				fmt.Println("Connected")
-			}
-		}
+		client := NewApiConnection(c, serial, graph)
 		allClients[client] = 1
-		fmt.Println(len(allClients))
 	}
 }
