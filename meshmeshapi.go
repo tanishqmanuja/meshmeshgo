@@ -5,10 +5,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"go.bug.st/serial"
 )
 
@@ -75,7 +75,7 @@ func (serialConn *SerialConnection) ReadFrame(buffer []byte, position int) {
 		} else {
 			switch t := v.(type) {
 			case LogEventApiReply:
-				log.Printf("From %06X Log %s\n", t.From, t.Line)
+				log.WithFields(logrus.Fields{"from": t.From}).Info(t.Line)
 			case ConnectedPathApiReply:
 				if serialConn.ConnPathFn != nil {
 					serialConn.ConnPathFn(&t)
@@ -275,8 +275,7 @@ func NewSerial(portName string, baudRate int, debug bool) (*SerialConnection, er
 		return nil, errors.New("invalid firmware reply")
 	}
 
-	//serial.LocalNode = nodeid.Serial
-	serial.LocalNode = 0x4A9F25
+	serial.LocalNode = nodeid.Serial
 	log.Printf("NodeId is %06X/%06X with firmware %s\n", nodeid.Serial, serial.LocalNode, firmrev.Revision)
 	return serial, nil
 }

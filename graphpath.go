@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"os"
 	"strconv"
 
+	"github.com/sirupsen/logrus"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
@@ -121,7 +121,7 @@ func (gpath *GraphPath) readGraphXml() {
 		}
 	}
 
-	fmt.Printf("Readed graph with %d nodes and %d edges", gpath.Graph.Nodes().Len(), gpath.Graph.Edges().Len())
+	log.WithFields(logrus.Fields{"nodes": gpath.Graph.Nodes().Len(), "edges": gpath.Graph.Edges().Len()}).Info("Readed graphml from file")
 }
 
 func (g *GraphPath) GetPath(to int64) ([]graph.Node, error) {
@@ -130,7 +130,8 @@ func (g *GraphPath) GetPath(to int64) ([]graph.Node, error) {
 	if len(allBetween) == 0 {
 		return nil, fmt.Errorf("no path found between 0x%06X and 0x%06X", g.SourceNode, to)
 	}
-	log.Printf("Get path from %06X to %06X of length %d and weight %f", g.SourceNode, to, len(allBetween[0]), weight)
+	log.WithFields(logrus.Fields{"length": len(allBetween[0]), "weight": weight}).
+		Info("Get path from %06X to %06X of length %d and weight %f", g.SourceNode, to)
 	return allBetween[0], nil
 }
 

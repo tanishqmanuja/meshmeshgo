@@ -1,20 +1,40 @@
 package main
 
 import (
-	"log"
+	"fmt"
+	"os"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
-func main() {
-	const portName string = "/dev/ttyUSB0"
-	const baudRate int = 460800
+var log = &logrus.Logger{
+	Out:       os.Stderr,
+	Formatter: &logrus.TextFormatter{FullTimestamp: false, DisableColors: false},
+	Hooks:     make(logrus.LevelHooks),
+	Level:     logrus.DebugLevel,
+}
 
-	serialPort, err := NewSerial(portName, baudRate, false)
+func main() {
+	config, err := NewConfig()
+	if err != nil {
+		log.Fatal("Invalid config options: ", err)
+	}
+
+	if config.WantHelp {
+		os.Exit(0)
+	}
+
+	serialPort, err := NewSerial(config.SerialPortName, config.SerialPortBaudRate, false)
 	if err != nil {
 		log.Fatal("Serial port error: ", err)
 	}
 
-	log.Printf("Valid local node found 0x%06X in %s@%d", serialPort.LocalNode, portName, baudRate)
+	log.WithFields(logrus.Fields{
+		"nodeId":   fmt.Sprintf("0x%06X", serialPort.LocalNode),
+		"portName": config.SerialPortName,
+		"baudRate": config.SerialPortBaudRate,
+	}).Info("Valid local node found")
 
 	graph, err := NewGraphPath("meshmesh.graphml", int64(serialPort.LocalNode))
 	if err != nil {
