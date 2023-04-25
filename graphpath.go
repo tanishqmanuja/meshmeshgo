@@ -67,11 +67,51 @@ type GraphPath struct {
 	Graph      *simple.WeightedDirectedGraph
 }
 
+type MeshNode struct {
+	id    int64
+	inUse bool
+}
+
+func (n MeshNode) ID() int64 {
+	return n.id
+}
+
+func (n MeshNode) GetInUse() bool {
+	return n.inUse
+}
+
+func NewMeshNode(id int64) MeshNode {
+	return MeshNode{id: id, inUse: true}
+}
+
 func parseNodeId(id string) (int64, error) {
 	if len(id) < 3 {
 		return 0, errors.New("invalid id string")
 	}
 	return strconv.ParseInt(id, 0, 32)
+}
+
+func keyForAttribute(data []XmlKey, attribute string) string {
+	for i := range data {
+		if data[i].AttrName == attribute {
+			return data[i].Id
+		}
+	}
+	return ""
+}
+
+func attribteOfNode(data []XmlData, key string) string {
+	for i := range data {
+		if data[i].Key == key {
+			return data[i].Text
+		}
+	}
+	return ""
+}
+
+func boolAttribteOfNode(data []XmlData, key string) (bool, error) {
+	ret, err := strconv.ParseBool(attribteOfNode(data, key))
+	return ret, err
 }
 
 func (gpath *GraphPath) readGraphXml() {
@@ -84,7 +124,11 @@ func (gpath *GraphPath) readGraphXml() {
 	byteValue, _ := io.ReadAll(xmlFile)
 	var xmlgraphml XmlGraphml
 	xml.Unmarshal(byteValue, &xmlgraphml)
-
+	inusekey := keyForAttribute(xmlgraphml.Keys, "inuse")
+	if inusekey == "" {
+		log.Error("Missing inuse field in graph")
+		return
+	}
 	for i, graph := range xmlgraphml.Graphs {
 		if i == 0 {
 			gpath.Graph = simple.NewWeightedDirectedGraph(0, math.Inf(1))
@@ -94,7 +138,12 @@ func (gpath *GraphPath) readGraphXml() {
 					log.Println("ReadGraphXml", err)
 					continue
 				}
-				gpath.Graph.AddNode(simple.NewSimpleNode(int(node_id)))
+				n := NewMeshNode(node_id)
+				n.inUse, err = boolAttribteOfNode(node.Data, inusekey)
+				if err != nil {
+					log.WithField("node", node.Id).Error("Mssing inuse field in node")
+				}
+				gpath.Graph.AddNode(n)
 			}
 
 			for _, edge := range graph.Edges {
@@ -125,13 +174,21 @@ func (gpath *GraphPath) readGraphXml() {
 }
 
 func (g *GraphPath) GetPath(to int64) ([]graph.Node, error) {
+	node := g.Graph.Node(to)
+	if node == nil {
+		return nil, fmt.Errorf("node is 0x%06X is not prsent in graph", to)
+	}
+	meshNode := node.(MeshNode)
+	if !meshNode.inUse {
+		return nil, fmt.Errorf("node is 0x%06X is not active", to)
+	}
 	allShortest := path.DijkstraAllPaths(g.Graph)
 	allBetween, weight := allShortest.AllBetween(g.SourceNode, to)
 	if len(allBetween) == 0 {
 		return nil, fmt.Errorf("no path found between 0x%06X and 0x%06X", g.SourceNode, to)
 	}
 	log.WithFields(logrus.Fields{"length": len(allBetween[0]), "weight": weight}).
-		Info("Get path from %06X to %06X of length %d and weight %f", g.SourceNode, to)
+		Info(fmt.Sprintf("Get path from 0x%06X to 0x%06X", g.SourceNode, to))
 	return allBetween[0], nil
 }
 

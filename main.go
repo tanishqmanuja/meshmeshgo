@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"time"
 
@@ -12,7 +11,7 @@ var log = &logrus.Logger{
 	Out:       os.Stderr,
 	Formatter: &logrus.TextFormatter{FullTimestamp: false, DisableColors: false},
 	Hooks:     make(logrus.LevelHooks),
-	Level:     logrus.DebugLevel,
+	Level:     logrus.WarnLevel,
 }
 
 func main() {
@@ -25,20 +24,40 @@ func main() {
 		os.Exit(0)
 	}
 
+	if config.VerboseLevel > 3 {
+		log.SetLevel(logrus.TraceLevel)
+	} else if config.VerboseLevel > 2 {
+		log.SetLevel(logrus.DebugLevel)
+	} else if config.VerboseLevel > 1 {
+		log.SetLevel(logrus.InfoLevel)
+	}
+
+	log.WithFields(logrus.Fields{"portName": config.SerialPortName, "baudRate": config.SerialPortBaudRate}).
+		Debug("Opening serial port")
+
 	serialPort, err := NewSerial(config.SerialPortName, config.SerialPortBaudRate, false)
 	if err != nil {
 		log.Fatal("Serial port error: ", err)
 	}
 
-	log.WithFields(logrus.Fields{
-		"nodeId":   fmt.Sprintf("0x%06X", serialPort.LocalNode),
-		"portName": config.SerialPortName,
-		"baudRate": config.SerialPortBaudRate,
-	}).Info("Valid local node found")
-
 	graph, err := NewGraphPath("meshmesh.graphml", int64(serialPort.LocalNode))
 	if err != nil {
 		log.Fatal("GraphPath error: ", err)
+	}
+
+	if len(config.FirmwarePath) > 0 {
+		if _, err := os.Stat(config.FirmwarePath); err != nil {
+			log.WithField("err", err).Error("Check firmware file failed")
+			os.Exit(-1)
+		}
+
+		err = UploadFirmware(MeshNodeId(config.TargetNode), config.FirmwarePath, serialPort)
+		if err != nil {
+			log.WithField("err", err).Error("Upload firmware failed")
+			os.Exit(-1)
+		}
+
+		os.Exit(0)
 	}
 
 	go ListenToApiConnetions(serialPort, graph)

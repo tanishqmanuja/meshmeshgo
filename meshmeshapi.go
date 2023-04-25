@@ -57,8 +57,8 @@ func (serialConn *SerialConnection) GetNextHandle() uint16 {
 
 func (serialConn *SerialConnection) ReadFrame(buffer []byte, position int) {
 	frame := NewApiFrame(buffer[0:position], true)
-	if serialConn.debug {
-		fmt.Printf("<-- %s\n", hex.EncodeToString(frame.data))
+	if log.GetLevel() >= logrus.TraceLevel {
+		log.WithFields(logrus.Fields{"data": hex.EncodeToString(frame.data)}).Trace("From serial")
 	}
 	if serialConn.session != nil {
 		if serialConn.session.WaitReply > 0 {
@@ -75,7 +75,7 @@ func (serialConn *SerialConnection) ReadFrame(buffer []byte, position int) {
 		} else {
 			switch t := v.(type) {
 			case LogEventApiReply:
-				log.WithFields(logrus.Fields{"from": t.From}).Info(t.Line)
+				log.WithFields(logrus.Fields{"from": t.From}).Debug(t.Line)
 			case ConnectedPathApiReply:
 				if serialConn.ConnPathFn != nil {
 					serialConn.ConnPathFn(&t)
@@ -154,28 +154,35 @@ func (serialConn *SerialConnection) Write() {
 			if serialConn.Sessions.Len() == 0 {
 				time.Sleep(50 * time.Millisecond)
 			} else {
-				session := serialConn.Sessions.Front().Value.(*SerialSession)
+				element := serialConn.Sessions.Front().Value
+				session, ok := element.(*SerialSession)
 				serialConn.Sessions.Remove(serialConn.Sessions.Front())
 
-				b := session.Request.Output()
-				if serialConn.debug {
-					fmt.Printf("--> %s\n", hex.EncodeToString(b))
-				}
-				n, err := serialConn.port.Write(b)
+				if ok {
+					b := session.Request.Output()
+					if log.GetLevel() >= logrus.TraceLevel {
+						log.WithFields(logrus.Fields{"data": hex.EncodeToString(b)}).Trace("To serial")
+					}
+					n, err := serialConn.port.Write(b)
 
-				if err != nil {
-					log.Println(err)
-					break
+					if err != nil {
+						log.Println(err)
+						break
+					}
+
+					if n < len(b) {
+						log.Println("not sent all bytes")
+						break
+					}
+
+					if session.WaitReply > 0 {
+						serialConn.session = session
+					}
+				} else {
+					log.WithFields(logrus.Fields{"queue": serialConn.Sessions.Len(), "val": element}).Error("interface conversion invalid")
+					time.Sleep(50 * time.Millisecond)
 				}
 
-				if n < len(b) {
-					log.Println("not sent all bytes")
-					break
-				}
-
-				if session.WaitReply > 0 {
-					serialConn.session = session
-				}
 			}
 		} else {
 			time.Sleep(50 * time.Millisecond)
@@ -191,7 +198,7 @@ func (serialConn *SerialConnection) QueueApiSession(session *SerialSession) {
 }
 
 func (serialConn *SerialConnection) SendApi(cmd interface{}) error {
-	frame, err := NewApiFrameFromStruct(cmd)
+	frame, err := NewApiFrameFromStruct(cmd, directProtocol, 0)
 	if err != nil {
 		return err
 	}
@@ -201,8 +208,8 @@ func (serialConn *SerialConnection) SendApi(cmd interface{}) error {
 	return nil
 }
 
-func (serialConn *SerialConnection) SendReceiveApi(cmd interface{}) (interface{}, error) {
-	frame, err := NewApiFrameFromStruct(cmd)
+func (serialConn *SerialConnection) SendReceiveApiProt(cmd interface{}, protocol MeshProtocol, target MeshNodeId) (interface{}, error) {
+	frame, err := NewApiFrameFromStruct(cmd, protocol, target)
 	if err != nil {
 		return nil, err
 	}
@@ -217,6 +224,10 @@ func (serialConn *SerialConnection) SendReceiveApi(cmd interface{}) (interface{}
 	} else {
 		return session.Reply.Decode()
 	}
+}
+
+func (serialConn *SerialConnection) SendReceiveApi(cmd interface{}) (interface{}, error) {
+	return serialConn.SendReceiveApiProt(cmd, directProtocol, 0)
 }
 
 func NewSerial(portName string, baudRate int, debug bool) (*SerialConnection, error) {
@@ -275,7 +286,8 @@ func NewSerial(portName string, baudRate int, debug bool) (*SerialConnection, er
 		return nil, errors.New("invalid firmware reply")
 	}
 
-	serial.LocalNode = nodeid.Serial
-	log.Printf("NodeId is %06X/%06X with firmware %s\n", nodeid.Serial, serial.LocalNode, firmrev.Revision)
+	serial.LocalNode = uint32(nodeid.Serial)
+	log.WithFields(logrus.Fields{"nodeId": fmt.Sprintf("0x%06X", serial.LocalNode), "firmware": firmrev.Revision}).
+		Info("Valid local node found")
 	return serial, nil
 }

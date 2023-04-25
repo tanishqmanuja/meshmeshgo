@@ -8,6 +8,8 @@ import (
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 var allClients map[*ApiConnection]int
@@ -52,7 +54,7 @@ func (client *ApiConnection) handshake() error {
 	line := strings.TrimSpace(client.inBuffer.String())
 	client.inBuffer.Reset()
 
-	log.Println("ApiConnection.handshake", line)
+	log.WithFields(logrus.Fields{"line": line}).Debug("Request handshake from HA")
 	fields := strings.Split(strings.TrimSpace(line), "|")
 	if len(fields) == 3 {
 		var port int
@@ -62,11 +64,13 @@ func (client *ApiConnection) handshake() error {
 			err = client.connpath.OpenConnection(addr, uint16(port))
 			if err != nil {
 				client.conn.Write([]byte{'!', '!', 'K', 'O', '!'})
-				log.Printf("ApiConnection.handshake OpenConnection failed")
+				log.WithFields(logrus.Fields{"addr": addr, "port": port}).
+					Warning("ApiConnection.handshake OpenConnection failed")
 				return err
 			} else {
 				client.handshakeDone = true
-				log.Printf("ApiConnection.handshake OpenConnection succesfull %s:%d with handle %d", addr, port, client.connpath.handle)
+				log.WithFields(logrus.Fields{"addr": addr, "port": port, "handle": client.connpath.handle}).
+					Info("ApiConnection.handshake OpenConnection succesfull")
 				client.conn.Write([]byte{'!', '!', 'O', 'K', '!'})
 			}
 		} else {
@@ -82,7 +86,7 @@ func (client *ApiConnection) handshake() error {
 func (client *ApiConnection) Close() {
 	client.conn.Close()
 	delete(allClients, client)
-	log.Printf("ApiConnection.Close remaining %d active connections", len(allClients))
+	log.WithFields(logrus.Fields{"size": len(allClients)}).Debug("Close EspHomeApi connection")
 }
 
 func (client *ApiConnection) Read() {
@@ -111,7 +115,7 @@ func (client *ApiConnection) Read() {
 	}
 
 	if err != nil {
-		log.Printf("ApiConnection.Read closing connection with error: %s", err)
+		log.Warn(fmt.Sprintf("Closing ApiConnection for error: %s", err))
 	}
 
 	client.Close()

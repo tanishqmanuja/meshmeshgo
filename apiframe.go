@@ -7,6 +7,16 @@ import (
 	"github.com/go-restruct/restruct"
 )
 
+type MeshNodeId uint32
+
+type MeshProtocol byte
+
+const (
+	directProtocol MeshProtocol = iota
+	bradcastProtocol
+	unicastProtocol
+)
+
 const startApiFrame byte = 0xFE
 const escapeApiFrame byte = 0xEA
 const stopApiFrame byte = 0xEF
@@ -47,17 +57,25 @@ type FirmRevApiReply struct {
 const nodeIdApiReply uint8 = 5
 
 type NodeIdApiReply struct {
-	Id     uint8  `struct:"uint8"`
-	Serial uint32 `struct:"uint32"`
+	Id     uint8      `struct:"uint8"`
+	Serial MeshNodeId `struct:"uint32"`
 }
 
 const logEventApiReply uint8 = 57
 
 type LogEventApiReply struct {
-	Id    uint8  `struct:"uint8"`
-	Level uint16 `struct:"uint16"`
-	From  uint32 `struct:"uint32"`
-	Line  string `struct:"string"`
+	Id    uint8      `struct:"uint8"`
+	Level uint16     `struct:"uint16"`
+	From  MeshNodeId `struct:"uint32"`
+	Line  string     `struct:"string"`
+}
+
+const connectedUnicastRequest uint8 = 114
+
+type UnicastRequest struct {
+	Id      uint8      `struct:"uint8"`
+	Target  MeshNodeId `struct:"uint32"`
+	Payload []byte     `struct:"[]byte"`
 }
 
 const meshmeshProtocolConnectedPath uint8 = 7
@@ -165,7 +183,9 @@ func (frame *ApiFrame) Decode() (interface{}, error) {
 	case logEventApiReply:
 		v := LogEventApiReply{}
 		restruct.Unpack(frame.data, binary.LittleEndian, &v)
-		v.Line = string(frame.data[7:])
+		if len(frame.data) > 7 {
+			v.Line = string(frame.data[7:])
+		}
 		return v, nil
 	case connectedPathApiReply:
 		v := ConnectedPathApiReply{}
@@ -179,9 +199,10 @@ func (frame *ApiFrame) Decode() (interface{}, error) {
 	return EchoApiReply{}, errors.New("unknow api frame")
 }
 
-func (frame *ApiFrame) Encode(cmd interface{}) error {
+func EncodeBuffer(cmd interface{}) ([]byte, error) {
 	var b []byte
 	var err error
+
 	switch v := cmd.(type) {
 	case EchoApiRequest:
 		v.Id = echoApiRequest
@@ -198,7 +219,16 @@ func (frame *ApiFrame) Encode(cmd interface{}) error {
 	case ConnectedPathApiRequest2:
 		v.Id = connectedPathApiRequest
 		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case UnicastRequest:
+		v.Id = connectedUnicastRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
 	}
+
+	return b, err
+}
+
+func (frame *ApiFrame) EncodeFrame(cmd interface{}) error {
+	b, err := EncodeBuffer(cmd)
 
 	if err == nil {
 		if len(b) == 0 {
@@ -221,8 +251,19 @@ func NewApiFrame(buffer []byte, escaped bool) *ApiFrame {
 	return f
 }
 
-func NewApiFrameFromStruct(v interface{}) (*ApiFrame, error) {
+func NewApiFrameFromStruct(v interface{}, protocol MeshProtocol, target MeshNodeId) (*ApiFrame, error) {
+	var err error
 	f := &ApiFrame{}
-	err := f.Encode(v)
+	if protocol == directProtocol {
+		err = f.EncodeFrame(v)
+	} else if protocol == unicastProtocol {
+		p := UnicastRequest{Id: connectedUnicastRequest, Target: target}
+		p.Payload, err = EncodeBuffer(v)
+		if err == nil {
+			err = f.EncodeFrame(p)
+		}
+	} else {
+		log.Error("Unknow protocol requested")
+	}
 	return f, err
 }
