@@ -130,7 +130,7 @@ func (g *GraphPath) GetPath(to int64) ([]graph.Node, error) {
 	if len(allBetween) == 0 {
 		return nil, fmt.Errorf("no path found between 0x%06X and 0x%06X", g.SourceNode, to)
 	}
-	log.Printf("Get path from %06X to %06X of lenght %d and weight %f", g.SourceNode, to, len(allBetween[0]), weight)
+	log.Printf("Get path from %06X to %06X of length %d and weight %f", g.SourceNode, to, len(allBetween[0]), weight)
 	return allBetween[0], nil
 }
 

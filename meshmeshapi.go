@@ -34,6 +34,7 @@ func NewSerialSession(request *ApiFrame) *SerialSession {
 type SerialConnection struct {
 	connected  bool
 	port       serial.Port
+	debug      bool
 	incoming   chan []byte
 	session    *SerialSession
 	Sessions   *list.List
@@ -56,7 +57,9 @@ func (serialConn *SerialConnection) GetNextHandle() uint16 {
 
 func (serialConn *SerialConnection) ReadFrame(buffer []byte, position int) {
 	frame := NewApiFrame(buffer[0:position], true)
-	fmt.Printf("<-- %s\n", hex.EncodeToString(frame.data))
+	if serialConn.debug {
+		fmt.Printf("<-- %s\n", hex.EncodeToString(frame.data))
+	}
 	if serialConn.session != nil {
 		if serialConn.session.WaitReply > 0 {
 			if frame.AssertType(serialConn.session.WaitReply) {
@@ -155,7 +158,9 @@ func (serialConn *SerialConnection) Write() {
 				serialConn.Sessions.Remove(serialConn.Sessions.Front())
 
 				b := session.Request.Output()
-				fmt.Printf("--> %s\n", hex.EncodeToString(b))
+				if serialConn.debug {
+					fmt.Printf("--> %s\n", hex.EncodeToString(b))
+				}
 				n, err := serialConn.port.Write(b)
 
 				if err != nil {
@@ -214,7 +219,7 @@ func (serialConn *SerialConnection) SendReceiveApi(cmd interface{}) (interface{}
 	}
 }
 
-func NewSerial(portName string, baudRate int) (*SerialConnection, error) {
+func NewSerial(portName string, baudRate int, debug bool) (*SerialConnection, error) {
 	mode := &serial.Mode{BaudRate: baudRate}
 	p, err := serial.Open(portName, mode)
 	if err != nil {
@@ -222,10 +227,12 @@ func NewSerial(portName string, baudRate int) (*SerialConnection, error) {
 	}
 
 	serial := &SerialConnection{
-		connected: true,
-		port:      p,
-		incoming:  make(chan []byte),
-		Sessions:  list.New(),
+		connected:  true,
+		port:       p,
+		debug:      debug,
+		incoming:   make(chan []byte),
+		Sessions:   list.New(),
+		NextHandle: 1,
 	}
 
 	go serial.Write()

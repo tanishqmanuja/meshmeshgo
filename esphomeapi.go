@@ -37,7 +37,9 @@ func (client *ApiConnection) forward(lastbyte byte) {
 	} else {
 		if client.inBuffer.Len() == client.inAwaitSize {
 			client.inState = esphomeapiWaitPacketHead
-			fmt.Println("fromha ", hex.EncodeToString(client.inBuffer.Bytes()))
+			if client.connpath.serial.debug {
+				log.Println("HA: ", hex.EncodeToString(client.inBuffer.Bytes()))
+			}
 			err := client.connpath.SendData(client.inBuffer.Bytes())
 			if err != nil {
 				log.Printf("Warning: %s", err.Error())
@@ -61,9 +63,11 @@ func (client *ApiConnection) handshake() error {
 			err = client.connpath.OpenConnection(addr, uint16(port))
 			if err != nil {
 				client.conn.Write([]byte{'!', '!', 'K', 'O', '!'})
+				log.Printf("ApiConnection.handshake OpenConnection failed")
 				return err
 			} else {
 				client.handshakeDone = true
+				log.Printf("ApiConnection.handshake OpenConnection succesfull %s:%d with handle %d", addr, port, client.connpath.handle)
 				client.conn.Write([]byte{'!', '!', 'O', 'K', '!'})
 			}
 		} else {
@@ -115,7 +119,6 @@ func (client *ApiConnection) Read() {
 }
 
 func (client *ApiConnection) ForwardData(data []byte) error {
-	log.Printf("ForwardData O-- %s", hex.EncodeToString(data))
 	n, err := client.conn.Write(data)
 	if err != nil {
 		return err
@@ -126,10 +129,6 @@ func (client *ApiConnection) ForwardData(data []byte) error {
 	return nil
 }
 
-func (client *ApiConnection) Listen() {
-	go client.Read()
-}
-
 func NewApiConnection(connection net.Conn, serial *SerialConnection, graph *GraphPath) *ApiConnection {
 	client := &ApiConnection{
 		handshakeDone: false,
@@ -137,31 +136,43 @@ func NewApiConnection(connection net.Conn, serial *SerialConnection, graph *Grap
 		conn:          connection,
 		inBuffer:      bytes.NewBuffer([]byte{}),
 	}
-	client.Listen()
+
+	go client.Read()
 
 	return client
 }
 
 func HandleConnectedPathReply(v *ConnectedPathApiReply) {
-	log.Printf("received cmd:%d handle:%d size:%d %s", v.Command, v.Handle, len(v.Data), hex.EncodeToString(v.Data))
+	/*log.Printf("NODE: received cmd:%d handle:%d size:%d %s", v.Command, v.Handle, len(v.Data), hex.EncodeToString(v.Data))
 	if v.Command == 5 && len(v.Data) >= 2 {
 		msgsize := v.Data[1]
 		msgtype := v.Data[2]
-		log.Printf("  proto size:%d type:%d %s", msgsize, msgtype, hex.EncodeToString(v.Data[3:]))
-	}
+		log.Printf("      proto size:%d type:%d %s", msgsize, msgtype, hex.EncodeToString(v.Data[3:]))
+	}*/
 	if len(v.Data) > 0 {
 		var handled bool = false
 		for client := range allClients {
 			if client.connpath.handle == v.Handle {
 				handled = true
-				err := client.ForwardData(v.Data)
-				if err != nil {
+				if v.Command == connectedPathSendDataRequest {
+					err := client.ForwardData(v.Data)
+					if err != nil {
+						client.Close()
+					}
+				} else if v.Command == connectedPathSendDataError {
+					log.Printf("HandleConnectedPathReply: SendDataError on handle %d", v.Handle)
+				} else if v.Command == connectedPathInvalidHandleReply {
+					log.Printf("HandleConnectedPathReply: InvalidHandleReply on handle %d", v.Handle)
 					client.Close()
+				} else if v.Command == connectedPathOpenConnectionAck || v.Command == connectedPathOpenConnectionNack {
+					log.Printf("Unscheduled OpenConnectionAck/Nack received %d wuth handle %d", v.Command, v.Handle)
+				} else {
+					log.Printf("HandleConnectedPathReply: unknow command received cmd %d handle %d", v.Command, v.Handle)
 				}
 			}
 		}
 		if !handled {
-			log.Printf("Warning cmd is not handled")
+			log.Printf("HandleConnectedPathReply: Warning cmd %d with handle %d is not handled", v.Command, v.Handle)
 		}
 	}
 }
@@ -176,6 +187,8 @@ func ListenToApiConnetions(serial *SerialConnection, graph *GraphPath) {
 	}
 	defer l.Close()
 
+	ClearConnections(serial)
+
 	for {
 		c, err := l.Accept()
 		if err != nil {
@@ -185,5 +198,6 @@ func ListenToApiConnetions(serial *SerialConnection, graph *GraphPath) {
 
 		client := NewApiConnection(c, serial, graph)
 		allClients[client] = 1
+		log.Printf("ListenToApiConnetions: connection added, %d active connections", len(allClients))
 	}
 }

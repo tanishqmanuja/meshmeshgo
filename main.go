@@ -9,7 +9,7 @@ func main() {
 	const portName string = "/dev/ttyUSB0"
 	const baudRate int = 460800
 
-	serialPort, err := NewSerial(portName, baudRate)
+	serialPort, err := NewSerial(portName, baudRate, false)
 	if err != nil {
 		log.Fatal("Serial port error: ", err)
 	}
