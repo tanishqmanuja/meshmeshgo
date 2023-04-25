@@ -48,11 +48,7 @@ const nodeIdApiReply uint8 = 5
 
 type NodeIdApiReply struct {
 	Id     uint8  `struct:"uint8"`
-	Index  uint8  `struct:"uint8"`
 	Serial uint32 `struct:"uint32"`
-	Rssi1  int16  `struct:"int16"`
-	Rssi2  int16  `struct:"int16"`
-	Flags  uint16 `struct:"uint16"`
 }
 
 const logEventApiReply uint8 = 57
