@@ -9,14 +9,13 @@ import (
 )
 
 const connectedPathOpenConnectionRequest uint8 = 1
-const connectedPathOpenConnectionReply uint8 = 2
 const connectedPathInvalidHandleReply uint8 = 4
 const connectedPathSendDataRequest uint8 = 5
 const connectedPathOpenConnectionAck uint8 = 6
 const connectedPathOpenConnectionNack uint8 = 7
 const CONNPATH_DISCONNECT_REQ uint8 = 8
-const CONNPATH_SEND_DATA_ERROR uint8 = 9
-const CONNPATH_CLEAR_CONNECTIONS uint8 = 10
+const connectedPathSendDataError uint8 = 9
+const connectedPathClearConnections uint8 = 10
 
 type ConnPathConnection struct {
 	connected bool
@@ -68,6 +67,20 @@ func (client *ConnPathConnection) SendData(data []byte) error {
 	return err
 }
 
+func ClearConnections(serial *SerialConnection) error {
+	err := serial.SendApi(ConnectedPathApiRequest{
+		Protocol: meshmeshProtocolConnectedPath,
+		Command:  connectedPathClearConnections,
+		Handle:   0,
+		Dummy:    0,
+		Sequence: 0,
+		DataSize: 0,
+		Data:     []byte{},
+	})
+
+	return err
+}
+
 func (client *ConnPathConnection) OpenConnection(textaddr string, port uint16) error {
 
 	addr, err := parseAddress(textaddr)
@@ -92,7 +105,6 @@ func (client *ConnPathConnection) OpenConnection(textaddr string, port uint16) e
 		path[i] = int32(item.ID())
 	}
 
-	client.handle = client.serial.GetNextHandle()
 	i, err := client.serial.SendReceiveApi(ConnectedPathApiRequest2{
 		Protocol: meshmeshProtocolConnectedPath,
 		Command:  connectedPathOpenConnectionRequest,
