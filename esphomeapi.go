@@ -5,11 +5,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -22,6 +22,12 @@ const (
 	esphomeapiWaitPacketData int = 3
 )
 
+type ApiConnectionStats struct {
+	address  MeshNodeId
+	port     uint16
+	openTime time.Time
+}
+
 type ApiConnection struct {
 	inState         int
 	inAwaitSize     int
@@ -32,6 +38,7 @@ type ApiConnection struct {
 	connpath        *ConnPathConnection
 	reqAddress      string
 	reqPort         int
+	stats           ApiConnectionStats
 }
 
 func (client *ApiConnection) forward(lastbyte byte) {
@@ -74,6 +81,10 @@ func (client *ApiConnection) startHandshake() error {
 		if err == nil {
 			client.reqAddress = addr
 			client.reqPort = port
+
+			client.stats.address, _ = ParseAddress(addr)
+			client.stats.port = uint16(port)
+
 			err = client.connpath.OpenConnectionAsync(addr, uint16(port))
 		}
 	} else {
@@ -132,7 +143,8 @@ func (client *ApiConnection) Read() {
 				// FIXME handle error
 				client.forward(buffer[0])
 			} else {
-				log.Error("Aaaaaaaaaaaaaa")
+				log.WithField("state", client.connpath.connState).
+					Error("Readed data while in wrong connection state")
 			}
 		} else {
 			break
@@ -142,9 +154,6 @@ func (client *ApiConnection) Read() {
 	if err != nil {
 		log.WithFields(logrus.Fields{"handle": client.connpath.handle, "err": err}).
 			Warn("ApiConnection.Read exit with error")
-		if err == io.EOF {
-			log.Fatal("EOF received terminating")
-		}
 	}
 
 	client.socketWaitGroup.Done()
@@ -174,6 +183,7 @@ func NewApiConnection(connection net.Conn, serial *SerialConnection, graph *Grap
 		socketOpen: true,
 		socket:     connection,
 		inBuffer:   bytes.NewBuffer([]byte{}),
+		stats:      ApiConnectionStats{address: 0, port: 0, openTime: time.Now()},
 	}
 
 	client.socketWaitGroup.Add(1)
@@ -219,6 +229,22 @@ func HandleConnectedPathReply(v *ConnectedPathApiReply) {
 		log.WithFields(logrus.Fields{"cmd": v.Command, "handle": v.Handle}).
 			Error("HandleConnectedPathReply: Connection not found for this handle")
 	}
+}
+
+func PrintStats() {
+	fmt.Println("|----------------------------------------------------")
+	fmt.Printf("| Active connections: %d\n", len(allClients))
+	fmt.Println("|----------------------------------------------------")
+	fmt.Printf("| ID | Address  | Duration\n")
+
+	var i = 0
+	for c := range allClients {
+		i += 1
+		fmt.Printf("| %02d | %s | %s\n", i, FmtNodeId(c.stats.address), time.Since(c.stats.openTime))
+	}
+
+	fmt.Println("|----------------------------------------------------")
+	fmt.Println("")
 }
 
 func ListenToApiConnetions(serial *SerialConnection, graph *GraphPath) {

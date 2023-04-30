@@ -62,10 +62,15 @@ func main() {
 
 	go ListenToApiConnetions(serialPort, graph)
 
+	var lastStatsTime time.Time
 	for {
 		time.Sleep(1 * time.Second)
 		if !serialPort.connected {
 			break
+		}
+		if time.Since(lastStatsTime) > 1*time.Minute {
+			lastStatsTime = time.Now()
+			PrintStats()
 		}
 	}
 }
