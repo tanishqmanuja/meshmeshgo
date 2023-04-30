@@ -10,7 +10,7 @@ client.settimeout(5)
 # connect to the server
 client.connect(("127.0.0.1", 6053))
 
-client.send(b"INIT|0.28.135.104|6053\n")
+client.send(b"INIT|0.28.139.56|6053\n")
 
 # receive
 response = client.recv(4096)
@@ -23,10 +23,15 @@ if response == b"!!OK!":
     while True:
         try:
             response = client.recv(4096)
+            if response == b"\x00\x00\x07":
+                client.send(b"\x00\x00\x08")
             print(binascii.hexlify(response))
         except KeyboardInterrupt:
             break
         except TimeoutError:
-            break
+            time.sleep(0.1)
+
+while True:
+    time.sleep(1)
 
 client.close()

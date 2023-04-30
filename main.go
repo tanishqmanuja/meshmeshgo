@@ -9,7 +9,7 @@ import (
 
 var log = &logrus.Logger{
 	Out:       os.Stderr,
-	Formatter: &logrus.TextFormatter{FullTimestamp: false, DisableColors: false},
+	Formatter: &logrus.TextFormatter{DisableTimestamp: false, FullTimestamp: true, DisableColors: false},
 	Hooks:     make(logrus.LevelHooks),
 	Level:     logrus.WarnLevel,
 }
