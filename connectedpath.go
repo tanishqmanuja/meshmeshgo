@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -34,7 +33,7 @@ type ConnPathConnection struct {
 	graph     *GraphPath
 }
 
-func parseAddress(address string) (uint32, error) {
+func ParseAddress(address string) (MeshNodeId, error) {
 	fields := strings.Split(address, ".")
 	if len(fields) != 4 {
 		return 0, errors.New("invalid address string")
@@ -53,7 +52,7 @@ func parseAddress(address string) (uint32, error) {
 	if err != nil {
 		return 0, err
 	} else {
-		return (uint32(addr[1]) << 16) + (uint32(addr[2]) << 8) + uint32(addr[3]), nil
+		return (MeshNodeId(addr[1]) << 16) + (MeshNodeId(addr[2]) << 8) + MeshNodeId(addr[3]), nil
 	}
 }
 
@@ -91,7 +90,7 @@ func ClearConnections(serial *SerialConnection) error {
 }
 
 func (client *ConnPathConnection) OpenConnectionAsync(textaddr string, port uint16) error {
-	addr, err := parseAddress(textaddr)
+	addr, err := ParseAddress(textaddr)
 	if err != nil {
 		return err
 	}
@@ -160,66 +159,6 @@ func (client *ConnPathConnection) HandleIncomingReply(v *ConnectedPathApiReply) 
 	} else {
 		log.WithFields(logrus.Fields{"handle": v.Handle, "reply": v.Command}).
 			Error("HandleIncomingReply: unknow command reply received", v.Command, v.Handle)
-	}
-}
-
-func (client *ConnPathConnection) OpenConnection(textaddr string, port uint16) error {
-
-	addr, err := parseAddress(textaddr)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("ConnPathConnection.OpenConnection %06X:%d", addr, port)
-
-	nodes, err := client.graph.GetPath(int64(addr))
-	if err != nil {
-		return err
-	}
-
-	if len(nodes) == 1 {
-		return errors.New("speak with local node is not yet supported")
-	}
-
-	nodes = nodes[1:]
-	path := make([]int32, len(nodes))
-	for i, item := range nodes {
-		path[i] = int32(item.ID())
-	}
-
-	i, err := client.serial.SendReceiveApi(ConnectedPathApiRequest2{
-		Protocol: meshmeshProtocolConnectedPath,
-		Command:  connectedPathOpenConnectionRequest,
-		Handle:   client.handle,
-		Dummy:    0,
-		Sequence: client.getNextSequence(),
-		DataSize: uint16(len(nodes)*4 + 3),
-		Port:     port,
-		PathLen:  uint8(len(nodes)),
-		Path:     path,
-	})
-
-	if err != nil {
-		return err
-	}
-
-	v, ok := i.(ConnectedPathApiReply)
-	if !ok {
-		return errors.New("invalid reply to connected path request")
-	}
-
-	if v.Handle == client.handle {
-		if v.Command == connectedPathOpenConnectionAck {
-			client.connState = connPathConnectionStateActive
-			log.Printf("Connection accepted from remote party")
-			return nil
-		} else if v.Command == connectedPathOpenConnectionNack {
-			return errors.New("open connection nack")
-		} else {
-			return errors.New("unwanted reply command")
-		}
-	} else {
-		return fmt.Errorf("invalid handle in reply %d!=%d", v.Handle, client.handle)
 	}
 }
 
