@@ -52,6 +52,10 @@ const (
 func (serialConn *SerialConnection) GetNextHandle() uint16 {
 	nh := serialConn.NextHandle
 	serialConn.NextHandle += 1
+	// Never use handle 0
+	if serialConn.NextHandle == 0 {
+		serialConn.NextHandle += 1
+	}
 	return nh
 }
 
