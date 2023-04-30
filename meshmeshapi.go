@@ -32,16 +32,15 @@ func NewSerialSession(request *ApiFrame) *SerialSession {
 }
 
 type SerialConnection struct {
-	connected   bool
-	port        serial.Port
-	debug       bool
-	incoming    chan []byte
-	session     *SerialSession
-	sessionTime time.Time
-	Sessions    *list.List
-	NextHandle  uint16
-	LocalNode   uint32
-	ConnPathFn  func(*ConnectedPathApiReply)
+	connected  bool
+	port       serial.Port
+	debug      bool
+	incoming   chan []byte
+	session    *SerialSession
+	Sessions   *list.List
+	NextHandle uint16
+	LocalNode  uint32
+	ConnPathFn func(*ConnectedPathApiReply)
 }
 
 const (
