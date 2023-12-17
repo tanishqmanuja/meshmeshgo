@@ -32,15 +32,16 @@ func NewSerialSession(request *ApiFrame) *SerialSession {
 }
 
 type SerialConnection struct {
-	connected  bool
-	port       serial.Port
-	debug      bool
-	incoming   chan []byte
-	session    *SerialSession
-	Sessions   *list.List
-	NextHandle uint16
-	LocalNode  uint32
-	ConnPathFn func(*ConnectedPathApiReply)
+	connected    bool
+	port         serial.Port
+	debug        bool
+	incoming     chan []byte
+	session      *SerialSession
+	Sessions     *list.List
+	SessionsLock sync.Mutex
+	NextHandle   uint16
+	LocalNode    uint32
+	ConnPathFn   func(*ConnectedPathApiReply)
 }
 
 const (
@@ -178,42 +179,54 @@ func (serialConn *SerialConnection) Write() {
 				time.Sleep(50 * time.Millisecond)
 			} else {
 				// We are idle but we have work to do...
+				serialConn.SessionsLock.Lock()
 				element := serialConn.Sessions.Front().Value
-				// Get next session and remove from list
-				session, ok := element.(*SerialSession)
+				// Remove from sessions list
 				serialConn.Sessions.Remove(serialConn.Sessions.Front())
+				serialConn.SessionsLock.Unlock()
 
-				if ok {
-					b := session.Request.Output()
-					if log.GetLevel() >= logrus.TraceLevel {
-						log.WithFields(logrus.Fields{"data": hex.EncodeToString(b)}).Trace("To serial")
-					}
+				if element == nil {
+					// Ok we don't really need this
+					log.WithFields(logrus.Fields{"queue": serialConn.Sessions.Len()}).Error("got sessionwith nil value")
+					// Sleep a time slot
+					time.Sleep(50 * time.Millisecond)
+				} else {
+					// Get next session and remove from list
+					session, ok := element.(*SerialSession)
 
-					// Write session on serial port
-					n, err := serialConn.port.Write(b)
+					if ok {
+						b := session.Request.Output()
+						if log.GetLevel() >= logrus.TraceLevel {
+							log.WithFields(logrus.Fields{"data": hex.EncodeToString(b)}).Trace("To serial")
+						}
 
-					if err != nil {
-						log.WithField("err", err).Error("Write to serial port error")
-						break
-					}
+						// Write session on serial port
+						n, err := serialConn.port.Write(b)
 
-					if n < len(b) {
-						log.WithFields(logrus.Fields{"sent": n, "want": len(b)}).Error("Write to serial port incomplete")
-						break
-					}
+						if err != nil {
+							log.WithField("err", err).Error("Write to serial port error")
+							break
+						}
 
-					if session.WaitReply > 0 {
-						// If we need a reply mark we as busy
-						serialConn.session = session
+						if n < len(b) {
+							log.WithFields(logrus.Fields{"sent": n, "want": len(b)}).Error("Write to serial port incomplete")
+							break
+						}
+
+						if session.WaitReply > 0 {
+							// If we need a reply mark we as busy
+							serialConn.session = session
+						} else {
+							// Sleep a time slot beofre send next session
+							// Is a guard time for wifi retransmissions
+							time.Sleep(50 * time.Millisecond)
+						}
 					} else {
-						// Sleep a time slot beofre send next session
-						// Is a guard time for wifi retransmissions
+						// Ok we don't really need this
+						log.WithFields(logrus.Fields{"queue": serialConn.Sessions.Len(), "val": element}).Error("interface conversion invalid")
+						// Sleep a time slot
 						time.Sleep(50 * time.Millisecond)
 					}
-				} else {
-					// Ok we don't really need this
-					log.WithFields(logrus.Fields{"queue": serialConn.Sessions.Len(), "val": element}).
-						Error("interface conversion invalid")
 				}
 
 			}
@@ -228,7 +241,9 @@ func (serialConn *SerialConnection) Write() {
 }
 
 func (serialConn *SerialConnection) QueueApiSession(session *SerialSession) {
+	serialConn.SessionsLock.Lock()
 	serialConn.Sessions.PushBack(session)
+	serialConn.SessionsLock.Unlock()
 }
 
 func (serialConn *SerialConnection) SendApi(cmd interface{}) error {

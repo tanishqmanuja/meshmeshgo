@@ -15,18 +15,14 @@ import (
 )
 
 var allClients map[*ApiConnection]int
+var _allStats *EspApiStats
+var _serial *SerialConnection
 
 const (
 	esphomeapiWaitPacketHead int = 0
 	esphomeapiWaitPacketSize int = 1
 	esphomeapiWaitPacketData int = 3
 )
-
-type ApiConnectionStats struct {
-	address  MeshNodeId
-	port     uint16
-	openTime time.Time
-}
 
 type ApiConnection struct {
 	inState         int
@@ -38,7 +34,8 @@ type ApiConnection struct {
 	connpath        *ConnPathConnection
 	reqAddress      string
 	reqPort         int
-	stats           ApiConnectionStats
+	stats           *EspApiConnectionStats
+	timeout         time.Time
 }
 
 func (client *ApiConnection) forward(lastbyte byte) {
@@ -71,7 +68,7 @@ func (client *ApiConnection) startHandshake() error {
 	line := strings.TrimSpace(client.inBuffer.String())
 	client.inBuffer.Reset()
 
-	log.WithFields(logrus.Fields{"line": line}).Debug("startHandshake: Request handshake from HA")
+	log.WithFields(logrus.Fields{"line": line}).Debug("startHandshake: Requested handshake from HA")
 	fields := strings.Split(strings.TrimSpace(line), "|")
 
 	if len(fields) == 3 {
@@ -81,11 +78,11 @@ func (client *ApiConnection) startHandshake() error {
 		if err == nil {
 			client.reqAddress = addr
 			client.reqPort = port
-
-			client.stats.address, _ = ParseAddress(addr)
-			client.stats.port = uint16(port)
-
 			err = client.connpath.OpenConnectionAsync(addr, uint16(port))
+			if err == nil {
+				_addr, _ := ParseAddress(addr)
+				client.stats = _allStats.StartConnection(_addr)
+			}
 		}
 	} else {
 		err = errors.New("wrong hadshake header")
@@ -109,6 +106,7 @@ func (client *ApiConnection) finishHandshake(result bool) {
 		log.WithFields(logrus.Fields{"addr": client.reqAddress, "port": client.reqPort, "handle": client.connpath.handle}).
 			Info("ApiConnection.handshake OpenConnection succesfull")
 		client.socket.Write([]byte{'!', '!', 'O', 'K', '!'})
+		client.stats.GotHandle(client.connpath.handle)
 	}
 }
 
@@ -120,6 +118,23 @@ func (client *ApiConnection) Close() {
 	log.WithFields(logrus.Fields{"handle": client.connpath.handle, "size": len(allClients) - 1}).
 		Debug("Closed EspHomeApi connection")
 	delete(allClients, client)
+}
+
+func (client *ApiConnection) CheckTimeout() {
+	for {
+		if !client.socketOpen {
+			break
+		}
+		if client.connpath.connState == connPathConnectionStateInit {
+			if time.Since(client.timeout).Milliseconds() > 3000 {
+				log.Error("Closing connection beacuse timeout in connPathConnectionStateInit")
+				client.Close()
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	log.Debug("ApiConnection.CheckTimeout exited")
 }
 
 func (client *ApiConnection) Read() {
@@ -183,11 +198,12 @@ func NewApiConnection(connection net.Conn, serial *SerialConnection, graph *Grap
 		socketOpen: true,
 		socket:     connection,
 		inBuffer:   bytes.NewBuffer([]byte{}),
-		stats:      ApiConnectionStats{address: 0, port: 0, openTime: time.Now()},
+		timeout:    time.Now(),
 	}
 
 	client.socketWaitGroup.Add(1)
 	go client.Read()
+	go client.CheckTimeout()
 
 	return client
 }
@@ -228,23 +244,14 @@ func HandleConnectedPathReply(v *ConnectedPathApiReply) {
 	if !handled {
 		log.WithFields(logrus.Fields{"cmd": v.Command, "handle": v.Handle}).
 			Error("HandleConnectedPathReply: Connection not found for this handle")
+		SendInvalidHandle(_serial, v.Handle)
 	}
 }
 
 func PrintStats() {
-	fmt.Println("|----------------------------------------------------")
-	fmt.Printf("| Active connections: %d\n", len(allClients))
-	fmt.Println("|----------------------------------------------------")
-	fmt.Printf("| ID | Address  | Duration\n")
-
-	var i = 0
-	for c := range allClients {
-		i += 1
-		fmt.Printf("| %02d | %s | %s\n", i, FmtNodeId(c.stats.address), time.Since(c.stats.openTime))
+	if _allStats != nil {
+		_allStats.PrintStats()
 	}
-
-	fmt.Println("|----------------------------------------------------")
-	fmt.Println("")
 }
 
 func ListenToApiConnetions(serial *SerialConnection, graph *GraphPath) {
@@ -257,7 +264,9 @@ func ListenToApiConnetions(serial *SerialConnection, graph *GraphPath) {
 	}
 	defer l.Close()
 
-	ClearConnections(serial)
+	_serial = serial
+	_allStats = NewEspApiStats()
+	SendClearConnections(serial)
 
 	for {
 		c, err := l.Accept()
@@ -268,6 +277,6 @@ func ListenToApiConnetions(serial *SerialConnection, graph *GraphPath) {
 
 		client := NewApiConnection(c, serial, graph)
 		allClients[client] = 1
-		log.Printf("ListenToApiConnetions: connection added, %d active connections", len(allClients))
+		log.WithField("active", len(allClients)).Info("EspHome connection added")
 	}
 }

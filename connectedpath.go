@@ -26,6 +26,7 @@ const (
 )
 
 type ConnPathConnection struct {
+	address   MeshNodeId
 	connState uint8
 	serial    *SerialConnection
 	handle    uint16
@@ -58,6 +59,9 @@ func ParseAddress(address string) (MeshNodeId, error) {
 
 func (client *ConnPathConnection) getNextSequence() uint16 {
 	client.sequence += 1
+	if client.sequence == 0 {
+		client.sequence = 1
+	}
 	return client.sequence
 }
 
@@ -75,7 +79,21 @@ func (client *ConnPathConnection) SendData(data []byte) error {
 	return err
 }
 
-func ClearConnections(serial *SerialConnection) error {
+func SendInvalidHandle(serial *SerialConnection, handle uint16) error {
+	err := serial.SendApi(ConnectedPathApiRequest{
+		Protocol: meshmeshProtocolConnectedPath,
+		Command:  connectedPathInvalidHandleReply,
+		Handle:   handle,
+		Dummy:    0,
+		Sequence: 0,
+		DataSize: 0,
+		Data:     []byte{},
+	})
+
+	return err
+}
+
+func SendClearConnections(serial *SerialConnection) error {
 	err := serial.SendApi(ConnectedPathApiRequest{
 		Protocol: meshmeshProtocolConnectedPath,
 		Command:  connectedPathClearConnections,
@@ -114,17 +132,19 @@ func (client *ConnPathConnection) OpenConnectionAsync(textaddr string, port uint
 	}
 
 	client.connState = connPathConnectionStateHandshakeStarted
-	err = client.serial.SendApi(ConnectedPathApiRequest2{
-		Protocol: meshmeshProtocolConnectedPath,
-		Command:  connectedPathOpenConnectionRequest,
-		Handle:   client.handle,
-		Dummy:    0,
-		Sequence: client.getNextSequence(),
-		DataSize: uint16(len(nodes)*4 + 3),
-		Port:     port,
-		PathLen:  uint8(len(nodes)),
-		Path:     path,
-	})
+	err = client.serial.SendApi(
+		ConnectedPathApiRequest2{
+			Protocol: meshmeshProtocolConnectedPath,
+			Command:  connectedPathOpenConnectionRequest,
+			Handle:   client.handle,
+			Dummy:    0,
+			Sequence: client.getNextSequence(),
+			DataSize: uint16(len(nodes)*4 + 3),
+			Port:     port,
+			PathLen:  uint8(len(nodes)),
+			Path:     path,
+		},
+	)
 
 	return err
 }
