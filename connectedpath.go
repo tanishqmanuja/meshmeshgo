@@ -116,19 +116,19 @@ func (client *ConnPathConnection) OpenConnectionAsync(textaddr string, port uint
 	log.WithFields(logrus.Fields{"addr": FmtNodeId(MeshNodeId(addr)), "port": port, "handle": client.handle}).
 		Debug("ConnPathConnection.OpenConnectionAsync")
 
-	nodes, err := client.graph.GetPath(int64(addr))
+	_path, _, err := client.graph.GetPath(int64(addr))
 	if err != nil {
 		return err
 	}
 
-	if len(nodes) == 1 {
+	if len(_path) == 1 {
 		return errors.New("speak with local node is not yet supported")
 	}
 
-	nodes = nodes[1:]
-	path := make([]int32, len(nodes))
-	for i, item := range nodes {
-		path[i] = int32(item.ID())
+	_path = _path[1:]
+	path := make([]int32, len(_path))
+	for i, item := range _path {
+		path[i] = int32(item)
 	}
 
 	client.connState = connPathConnectionStateHandshakeStarted
@@ -139,9 +139,9 @@ func (client *ConnPathConnection) OpenConnectionAsync(textaddr string, port uint
 			Handle:   client.handle,
 			Dummy:    0,
 			Sequence: client.getNextSequence(),
-			DataSize: uint16(len(nodes)*4 + 3),
+			DataSize: uint16(len(path)*4 + 3),
 			Port:     port,
-			PathLen:  uint8(len(nodes)),
+			PathLen:  uint8(len(path)),
 			Path:     path,
 		},
 	)

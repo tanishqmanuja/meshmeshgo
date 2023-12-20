@@ -67,9 +67,15 @@ type GraphPath struct {
 	Graph      *simple.WeightedDirectedGraph
 }
 
+type MeshGraph struct {
+	SourceNodeId int64
+	simple.WeightedDirectedGraph
+}
+
 type MeshNode struct {
-	id    int64
-	inUse bool
+	id         int64
+	inUse      bool
+	Discovered bool
 }
 
 func (n MeshNode) ID() int64 {
@@ -173,26 +179,82 @@ func (gpath *GraphPath) readGraphXml() {
 	log.WithFields(logrus.Fields{"nodes": gpath.Graph.Nodes().Len(), "edges": gpath.Graph.Edges().Len()}).Info("Readed graphml from file")
 }
 
-func (g *GraphPath) GetPath(to int64) ([]graph.Node, error) {
+func (g *GraphPath) GetPath(to int64) ([]int64, float64, error) {
 	node := g.Graph.Node(to)
 	if node == nil {
-		return nil, fmt.Errorf("node is 0x%06X is not prsent in graph", to)
+		return nil, 0, fmt.Errorf("node is 0x%06X is not prsent in graph", to)
 	}
 	meshNode := node.(MeshNode)
 	if !meshNode.inUse {
-		return nil, fmt.Errorf("node is 0x%06X is not active", to)
+		return nil, 0, fmt.Errorf("node is 0x%06X is not active", to)
 	}
 	allShortest := path.DijkstraAllPaths(g.Graph)
 	allBetween, weight := allShortest.AllBetween(g.SourceNode, to)
 	if len(allBetween) == 0 {
-		return nil, fmt.Errorf("no path found between 0x%06X and 0x%06X", g.SourceNode, to)
+		return nil, 0, fmt.Errorf("no path found between 0x%06X and 0x%06X", g.SourceNode, to)
 	}
 	log.WithFields(logrus.Fields{"length": len(allBetween[0]), "weight": weight}).
 		Info(fmt.Sprintf("Get path from 0x%06X to 0x%06X", g.SourceNode, to))
-	return allBetween[0], nil
+
+	nodes := allBetween[0]
+	path := make([]int64, len(nodes))
+	for i, item := range nodes {
+		path[i] = item.ID()
+	}
+
+	return path, 0, nil
 }
 
-func NewGraphPath(filename string, sourcenode int64) (*GraphPath, error) {
+func (g *GraphPath) AddNode(id int64) error {
+	n := NewMeshNode(id)
+	g.Graph.AddNode(n)
+	return nil
+}
+
+func (g *GraphPath) AddNodeIfNotExists(id int64) graph.Node {
+	n := g.Graph.Node(id)
+	if n == nil {
+		n = NewMeshNode(id)
+		g.Graph.AddNode(n)
+	}
+	return n
+}
+
+func (g *GraphPath) ChangeEdgetWeight(fromId int64, toId int64, weightFrom float64, weightTo float64) {
+	fromNode := g.Graph.Node(fromId)
+	toNode := g.AddNodeIfNotExists(toId)
+
+	if !g.Graph.HasEdgeFromTo(fromId, toId) {
+		edgeTo := g.Graph.NewWeightedEdge(fromNode, toNode, weightTo)
+		g.Graph.SetWeightedEdge(edgeTo)
+	} else {
+		edgeTo := g.Graph.WeightedEdge(fromId, toId)
+		oldWeightTo := edgeTo.Weight()
+		newWeightTo := (oldWeightTo + weightTo) / 2
+		newEdgeTo := g.Graph.NewWeightedEdge(fromNode, toNode, newWeightTo)
+		g.Graph.SetWeightedEdge(newEdgeTo)
+	}
+
+	if !g.Graph.HasEdgeFromTo(toId, fromId) {
+		edgeFrom := g.Graph.NewWeightedEdge(toNode, fromNode, weightFrom)
+		g.Graph.SetWeightedEdge(edgeFrom)
+	} else {
+		edgeFrom := g.Graph.WeightedEdge(toId, fromId)
+		oldWeightFrom := edgeFrom.Weight()
+		newWeightFrom := (oldWeightFrom + weightFrom) / 2
+		newEdgeFrom := g.Graph.NewWeightedEdge(toNode, fromNode, newWeightFrom)
+		g.Graph.SetWeightedEdge(newEdgeFrom)
+	}
+}
+
+func NewGraphPath(sourcenode int64) (*GraphPath, error) {
+	graph := GraphPath{SourceNode: sourcenode}
+	graph.Graph = simple.NewWeightedDirectedGraph(0, math.Inf(1))
+	graph.AddNode(sourcenode)
+	return &graph, nil
+}
+
+func NewGraphPathFromFile(filename string, sourcenode int64) (*GraphPath, error) {
 	graph := GraphPath{SourceNode: sourcenode}
 	graph.readGraphXml()
 	return &graph, nil

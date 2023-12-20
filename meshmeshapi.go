@@ -99,6 +99,8 @@ func (serialConn *SerialConnection) ReadFrame(buffer []byte, position int) {
 					serialConn.session.Reply = frame
 					serialConn.session.Wait.Done()
 					serialConn.session = nil
+				} else {
+					logrus.WithField("Type", serialConn.session.WaitReply).Error("Serial reply assertion failed")
 				}
 			}
 		} else {
@@ -318,6 +320,7 @@ func NewSerial(portName string, baudRate int, debug bool) (*SerialConnection, er
 		serial.port.Close()
 		return nil, err
 	}
+
 	nodeid, ok := reply2.(NodeIdApiReply)
 	if !ok {
 		serial.port.Close()

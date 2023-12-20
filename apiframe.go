@@ -15,6 +15,7 @@ const (
 	directProtocol MeshProtocol = iota
 	bradcastProtocol
 	unicastProtocol
+	multipathProtocol
 )
 
 const startApiFrame byte = 0xFE
@@ -28,23 +29,17 @@ type EchoApiRequest struct {
 	Echo string `struct:"string"`
 }
 
-const firmRevApiRequest uint8 = 2
-
-type FirmRevApiRequest struct {
-	Id uint8 `struct:"uint8"`
-}
-
-const nodeIdApiRequest uint8 = 4
-
-type NodeIdApiRequest struct {
-	Id uint8 `struct:"uint8"`
-}
-
 const echoApiReply uint8 = 1
 
 type EchoApiReply struct {
 	Id   uint8  `struct:"uint8"`
 	Echo string `struct:"string"`
+}
+
+const firmRevApiRequest uint8 = 2
+
+type FirmRevApiRequest struct {
+	Id uint8 `struct:"uint8"`
 }
 
 const firmRevApiReply uint8 = 3
@@ -54,11 +49,31 @@ type FirmRevApiReply struct {
 	Revision string `struct:"string"`
 }
 
+const nodeIdApiRequest uint8 = 4
+
+type NodeIdApiRequest struct {
+	Id uint8 `struct:"uint8"`
+}
+
 const nodeIdApiReply uint8 = 5
 
 type NodeIdApiReply struct {
 	Id     uint8      `struct:"uint8"`
 	Serial MeshNodeId `struct:"uint32"`
+}
+
+const discoveryApiRequest uint8 = 26
+
+type DiscoveryApiRequest struct {
+	Id    uint8 `struct:"uint8"`
+	ApiId uint8 `struct:"uint8"`
+}
+
+const discoveryApiReply uint8 = 27
+
+type DiscoveryApiReply struct {
+	Id    uint8 `struct:"uint8"`
+	ApiId uint8 `struct:"uint8"`
 }
 
 const logEventApiReply uint8 = 57
@@ -76,6 +91,15 @@ type UnicastRequest struct {
 	Id      uint8      `struct:"uint8"`
 	Target  MeshNodeId `struct:"uint32"`
 	Payload []byte     `struct:"[]byte"`
+}
+
+const multipathRequest uint8 = 118
+
+type MultiPathRequest struct {
+	Id      uint8      `struct:"uint8"`
+	Target  MeshNodeId `struct:"uint32"`
+	PathLen uint8      `struct:"uint8"`
+	Path    []uint32   `struct:"[]uint32,sizefrom=[PathLen]"`
 }
 
 const meshmeshProtocolConnectedPath uint8 = 7
@@ -114,6 +138,80 @@ type ConnectedPathApiReply struct {
 	Handle  uint16 `struct:"uint16"`
 	Data    []byte `struct:"[]byte"`
 }
+
+/* ----------------------------------------------------------------
+   Discovery
+ ---------------------------------------------------------------- */
+
+const discResetTableApiRequest uint8 = 0x00
+
+type DiscResetTableApiRequest struct {
+	Id    uint8 `struct:"uint8"`
+	ApiId uint8 `struct:"uint8"`
+}
+
+const discResetTableApiReply uint8 = 0x01
+
+type DiscResetTableApiReply struct {
+	Id    uint8 `struct:"uint8"`
+	ApiId uint8 `struct:"uint8"`
+}
+
+const discTableSizeApiRequest uint8 = 0x02
+
+type DiscTableSizeApiRequest struct {
+	Id    uint8 `struct:"uint8"`
+	ApiId uint8 `struct:"uint8"`
+}
+
+const discTableSizeApiReply uint8 = 0x03
+
+type DiscTableSizeApiReply struct {
+	Id    uint8 `struct:"uint8"`
+	ApiId uint8 `struct:"uint8"`
+	Size  uint8 `struct:"uint8"`
+}
+
+const discTableItemGetApiRequest uint8 = 0x04
+
+type DiscTableItemGetApiRequest struct {
+	Id    uint8 `struct:"uint8"`
+	ApiId uint8 `struct:"uint8"`
+	Index uint8 `struct:"uint8"`
+}
+
+const discTableItemGetApiReply uint8 = 0x05
+
+type DiscTableItemGetApiReply struct {
+	Id     uint8  `struct:"uint8"`
+	ApiId  uint8  `struct:"uint8"`
+	Index  uint8  `struct:"uint8"`
+	NodeId uint32 `struct:"uint32"`
+	Rssi1  int16  `struct:"int16"`
+	Rssi2  int16  `struct:"int16"`
+	Flags  uint16 `struct:"uint16"`
+}
+
+const discStartDiscoverApiRequest uint8 = 0x06
+
+type DiscStartDiscoverApiRequest struct {
+	Id      uint8 `struct:"uint8"`
+	ApiId   uint8 `struct:"uint8"`
+	Mask    uint8 `struct:"uint8"`
+	Filter  uint8 `struct:"uint8"`
+	Slotnum uint8 `struct:"uint8"`
+}
+
+const discStartDiscoverApiReply uint8 = 0x07
+
+type DiscStartDiscoverApiReply struct {
+	Id    uint8 `struct:"uint8"`
+	ApiId uint8 `struct:"uint8"`
+}
+
+/* ----------------------------------------------------------------
+   ApiFrame
+ ---------------------------------------------------------------- */
 
 type ApiFrame struct {
 	data    []byte
@@ -194,6 +292,27 @@ func (frame *ApiFrame) Decode() (interface{}, error) {
 			v.Data = frame.data[4:]
 		}
 		return v, nil
+	case discoveryApiReply:
+		v := DiscoveryApiReply{}
+		restruct.Unpack(frame.data, binary.LittleEndian, &v)
+		switch v.ApiId {
+		case discResetTableApiReply:
+			vv := DiscResetTableApiReply{}
+			restruct.Unpack(frame.data, binary.LittleEndian, &vv)
+			return vv, nil
+		case discTableSizeApiReply:
+			vv := DiscTableSizeApiReply{}
+			restruct.Unpack(frame.data, binary.LittleEndian, &vv)
+			return vv, nil
+		case discTableItemGetApiReply:
+			vv := DiscTableItemGetApiReply{}
+			restruct.Unpack(frame.data, binary.LittleEndian, &vv)
+			return vv, nil
+		case discStartDiscoverApiReply:
+			vv := DiscStartDiscoverApiReply{}
+			restruct.Unpack(frame.data, binary.LittleEndian, &vv)
+			return vv, nil
+		}
 	}
 
 	return EchoApiReply{}, errors.New("unknow api frame")
@@ -222,6 +341,27 @@ func EncodeBuffer(cmd interface{}) ([]byte, error) {
 	case UnicastRequest:
 		v.Id = connectedUnicastRequest
 		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case MultiPathRequest:
+		v.Id = multipathRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case DiscResetTableApiRequest:
+		v.Id = discoveryApiRequest
+		v.ApiId = discResetTableApiRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case DiscTableSizeApiRequest:
+		v.Id = discoveryApiRequest
+		v.ApiId = discTableSizeApiRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case DiscTableItemGetApiRequest:
+		v.Id = discoveryApiRequest
+		v.ApiId = discTableItemGetApiRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case DiscStartDiscoverApiRequest:
+		v.Id = discoveryApiRequest
+		v.ApiId = discStartDiscoverApiRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
+	default:
+		err = errors.New("unknow type request")
 	}
 
 	return b, err

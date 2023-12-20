@@ -14,6 +14,7 @@ type Config struct {
 	VerboseLevel       int
 	FirmwarePath       string
 	TargetNode         int
+	Discovery          bool
 }
 
 func NewConfig() (*Config, error) {
@@ -50,6 +51,13 @@ func NewConfig() (*Config, error) {
 				Aliases:     []string{"t"},
 				Destination: &config.TargetNode,
 				Base:        16,
+			},
+			&cli.BoolFlag{
+				Name:        "discovery",
+				Value:       false,
+				Usage:       "Execute a round of discovey on the network",
+				Aliases:     []string{"d"},
+				Destination: &config.Discovery,
 			},
 		},
 		Action: func(cCtx *cli.Context) error {

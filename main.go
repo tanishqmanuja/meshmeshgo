@@ -40,7 +40,7 @@ func main() {
 		log.Fatal("Serial port error: ", err)
 	}
 
-	graph, err := NewGraphPath("meshmesh.graphml", int64(serialPort.LocalNode))
+	graph, err := NewGraphPathFromFile("meshmesh.graphml", int64(serialPort.LocalNode))
 	if err != nil {
 		log.Fatal("GraphPath error: ", err)
 	}
@@ -54,6 +54,14 @@ func main() {
 		err = UploadFirmware(MeshNodeId(config.TargetNode), config.FirmwarePath, serialPort)
 		if err != nil {
 			log.WithField("err", err).Error("Upload firmware failed")
+			os.Exit(-1)
+		}
+
+		os.Exit(0)
+	} else if config.Discovery {
+		err = DoDiscovery(serialPort)
+		if err != nil {
+			log.WithField("err", err).Error("Error during discovery")
 			os.Exit(-1)
 		}
 
