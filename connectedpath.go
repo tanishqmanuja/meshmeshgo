@@ -26,7 +26,7 @@ const (
 )
 
 type ConnPathConnection struct {
-	address   MeshNodeId
+	//address   MeshNodeId
 	connState uint8
 	serial    *SerialConnection
 	handle    uint16

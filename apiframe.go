@@ -94,7 +94,7 @@ type UnicastRequest struct {
 	Payload []byte     `struct:"[]byte"`
 }
 
-const connectedUnicastReply uint8 = 115
+//const connectedUnicastReply uint8 = 115
 
 const multipathRequest uint8 = 118
 
