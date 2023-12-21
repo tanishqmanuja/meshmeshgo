@@ -8,6 +8,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gonum.org/v1/gonum/graph"
+	"gonum.org/v1/gonum/graph/simple"
 )
 
 type _weightsStats struct {
@@ -24,7 +25,7 @@ func _rssi2weight(rssi int16) float64 {
 	return 1.0 - float64(rssi)/45.0
 }
 
-func _mapOfNeighbors(g graph.WeightedDirected, n graph.Node, w map[int64]_weightsStats) error {
+func _mapOfNeighbors(g *simple.WeightedDirectedGraph, n graph.Node, w map[int64]_weightsStats) error {
 	neighbors := g.From(n.ID())
 	for neighbors.Next() {
 		neighbor := neighbors.Node()
@@ -48,14 +49,14 @@ func _findNextNode(g *GraphPath) MeshNode {
 	for nodes.Next() {
 		_node := nodes.Node()
 		node := _node.(MeshNode)
-		if node.inUse && !node.Discovered {
+		if g.NodeIsInUse(node.ID()) && !g.NodeIsDiscovered(node.ID()) {
 			path, weight, err := g.GetPath(node.id)
 			if weight < found_weight {
 				found_weight = weight
 				found_node = node
 			}
 			log.Println("path", path, weight, err)
-			//node.Discovered
+			g.SetNodeIsDiscovered(node.ID(), true)
 		}
 	}
 	return found_node
@@ -74,7 +75,7 @@ func DoDiscovery(serial *SerialConnection) error {
 	}
 
 	currentNode := _findNextNode(g)
-	for ; currentNode.GetInUse(); currentNode = _findNextNode(g) {
+	for ; g.NodeIsDiscovered(currentNode.ID()); currentNode = _findNextNode(g) {
 		protocol := directProtocol
 		if currentNode.ID() != g.SourceNode {
 			protocol = unicastProtocol
@@ -116,7 +117,7 @@ func DoDiscovery(serial *SerialConnection) error {
 			}
 
 			log.Printf("Query of row %d rssi1 %d rssi2 %d", i+1, tableItem.Rssi1, tableItem.Rssi2)
-			g.ChangeEdgetWeight(currentNode.ID(), int64(tableItem.NodeId), _rssi2weight(tableItem.Rssi2), _rssi2weight(tableItem.Rssi1))
+			g.ChangeEdgeWeight(currentNode.ID(), int64(tableItem.NodeId), _rssi2weight(tableItem.Rssi2), _rssi2weight(tableItem.Rssi1))
 		}
 
 		logrus.Printf("Map of neighbors of node %06X is completed", currentNode.ID())
@@ -139,9 +140,9 @@ func DoDiscovery(serial *SerialConnection) error {
 		}
 
 		var i int = 0
-		logrus.Printf("|----|--------|----------|----------|-------|")
-		logrus.Printf("| N. | ID     | Prev.    | Curr.    | Delta |")
-		logrus.Printf("|----|--------|--------.-|----------|-------|")
+		logrus.Printf("|----|--------|-----------|-----------|-------|")
+		logrus.Printf("| N. | ID     | Prev.     | Curr.     | Delta |")
+		logrus.Printf("|----|--------|-----------|-----------|-------|")
 		for id, w := range newWeights {
 			i += 1
 			w1 := oldWeights[id]
@@ -149,7 +150,7 @@ func DoDiscovery(serial *SerialConnection) error {
 			post := fmt.Sprintf("%1.2f,%1.2f", w.To, w.From)
 			logrus.Printf("| %02X | %06X | %s | %s | _____ |", i, id, pre, post)
 		}
-		logrus.Printf("|----|--------|----------|----------|-------|")
+		logrus.Printf("|----|--------|-----------|-----------|-------|")
 	}
 
 	return nil

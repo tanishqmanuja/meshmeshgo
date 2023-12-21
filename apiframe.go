@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/go-restruct/restruct"
+	"github.com/sirupsen/logrus"
 )
 
 type MeshNodeId uint32
@@ -92,6 +93,8 @@ type UnicastRequest struct {
 	Target  MeshNodeId `struct:"uint32"`
 	Payload []byte     `struct:"[]byte"`
 }
+
+const connectedUnicastReply uint8 = 115
 
 const multipathRequest uint8 = 118
 
@@ -218,16 +221,36 @@ type ApiFrame struct {
 	escaped bool
 }
 
-func (frame *ApiFrame) AwaitedReply() uint8 {
+func (frame *ApiFrame) awaitedReplyBytes(index uint16) (uint8, uint8) {
+	var wantType uint8 = frame.data[index]&0xFE + 1
+	var wantSubtype uint8 = 0
+
+	if wantSubtype == discoveryApiReply {
+		wantSubtype = frame.data[index+1]&0xFE + 1
+	}
+
+	return wantType, wantSubtype
+}
+
+func (frame *ApiFrame) AwaitedReply() (uint8, uint8) {
 	if len(frame.data) == 0 {
-		return 0
+		return 0, 0
 	} else {
-		return (frame.data[0] & 0xFE) + 1
+		if frame.data[0] == connectedUnicastRequest {
+			if len(frame.data) < 7 {
+				return 0, 0
+			} else {
+				return frame.awaitedReplyBytes(6)
+			}
+		} else {
+			return frame.awaitedReplyBytes(0)
+		}
 	}
 }
 
-func (frame *ApiFrame) AssertType(wantedType uint8) bool {
-	if len(frame.data) == 0 || frame.data[0] != wantedType {
+func (frame *ApiFrame) AssertType(wantedType uint8, wantedSubtype uint8) bool {
+	if len(frame.data) == 0 || frame.data[0] != wantedType && (wantedSubtype > 0 && (len(frame.data) < 2 || frame.data[1] != wantedSubtype)) {
+		logrus.WithFields(logrus.Fields{"Want": wantedType, "Got": frame.data[0]}).Error("AssertType failed")
 		return false
 	} else {
 		return true

@@ -13,20 +13,22 @@ import (
 )
 
 type SerialSession struct {
-	Request   *ApiFrame
-	Reply     *ApiFrame
-	WaitReply uint8
-	Wait      sync.WaitGroup
-	SentTime  time.Time
+	Request    *ApiFrame
+	Reply      *ApiFrame
+	WaitReply1 uint8
+	WaitReply2 uint8
+	Wait       sync.WaitGroup
+	SentTime   time.Time
 }
 
 func NewSimpleSerialSession(request *ApiFrame) *SerialSession {
-	s := SerialSession{Request: request, WaitReply: 0}
+	s := SerialSession{Request: request}
 	return &s
 }
 
 func NewSerialSession(request *ApiFrame) *SerialSession {
-	s := SerialSession{Request: request, WaitReply: request.AwaitedReply()}
+	w1, w2 := request.AwaitedReply()
+	s := SerialSession{Request: request, WaitReply1: w1, WaitReply2: w2}
 	s.SentTime = time.Now()
 	return &s
 }
@@ -94,13 +96,13 @@ func (serialConn *SerialConnection) ReadFrame(buffer []byte, position int) {
 	} else {
 		// Handle session pacekts next
 		if serialConn.session != nil {
-			if serialConn.session.WaitReply > 0 {
-				if frame.AssertType(serialConn.session.WaitReply) {
+			if serialConn.session.WaitReply1 > 0 {
+				if frame.AssertType(serialConn.session.WaitReply1, serialConn.session.WaitReply2) {
 					serialConn.session.Reply = frame
 					serialConn.session.Wait.Done()
 					serialConn.session = nil
 				} else {
-					logrus.WithField("Type", serialConn.session.WaitReply).Error("Serial reply assertion failed")
+					logrus.WithFields(logrus.Fields{"Type": serialConn.session.WaitReply1, "Subtype": serialConn.session.WaitReply2}).Error("Serial reply assertion failed")
 				}
 			}
 		} else {
@@ -113,7 +115,7 @@ func (conn *SerialConnection) checkSessionTimeout() {
 	if conn.session != nil {
 		if time.Since(conn.session.SentTime).Milliseconds() > 500 {
 			conn.session.Reply = nil
-			if conn.session.WaitReply > 0 {
+			if conn.session.WaitReply1 > 0 {
 				conn.session.Wait.Done()
 			}
 			conn.session = nil
@@ -215,7 +217,7 @@ func (serialConn *SerialConnection) Write() {
 							break
 						}
 
-						if session.WaitReply > 0 {
+						if session.WaitReply1 > 0 {
 							// If we need a reply mark we as busy
 							serialConn.session = session
 						} else {
