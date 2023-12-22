@@ -15,6 +15,7 @@ import (
 
 type XmlGraphml struct {
 	XMLName xml.Name   `xml:"graphml"`
+	Xmlns   string     `xml:"xmlns"`
 	Keys    []XmlKey   `xml:"key"`
 	Graphs  []XmlGraph `xml:"graph"`
 }
@@ -137,7 +138,56 @@ func (g *GraphPath) readGraphXml() {
 
 			}
 		}
+
 	}
 
 	log.WithFields(logrus.Fields{"nodes": g.Graph.Nodes().Len(), "edges": g.Graph.Edges().Len()}).Info("Readed graphml from file")
+}
+
+func (g *GraphPath) writeGraphXml(filename string) error {
+	var graphml XmlGraphml = XmlGraphml{Xmlns: "http://graphml.graphdrawing.org/xmlns"}
+	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d6", For: "edge", AttrName: "weight2", AttrType: "double"})
+	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d5", For: "edge", AttrName: "weight", AttrType: "double"})
+	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d4", For: "node", AttrName: "firmware", AttrType: "string"})
+	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d3", For: "node", AttrName: "buggy", AttrType: "bool"})
+	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d2", For: "node", AttrName: "discover", AttrType: "bool"})
+	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d1", For: "node", AttrName: "inuse", AttrType: "bool"})
+	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d0", For: "node", AttrName: "tag", AttrType: "string"})
+
+	graphml.Graphs = append(graphml.Graphs, XmlGraph{})
+
+	var xmlgraph *XmlGraph = &graphml.Graphs[0]
+
+	nodes := g.Graph.Nodes()
+	for nodes.Next() {
+		node := nodes.Node()
+		xmlgraph.Nodes = append(xmlgraph.Nodes, XmlNode{Id: fmt.Sprintf("0x%06X", int(node.ID()))})
+	}
+
+	edges := g.Graph.WeightedEdges()
+	for edges.Next() {
+		edge := edges.WeightedEdge()
+		xmlgraph.Edges = append(xmlgraph.Edges, XmlEdge{
+			Source: fmt.Sprintf("0x%06X", int(edge.From().ID())),
+			Target: fmt.Sprintf("0x%06X", int(edge.To().ID())),
+			Data: []XmlData{
+				{Key: "d5", Text: fmt.Sprintf("%1.2f", edge.Weight())},
+			},
+		})
+
+	}
+
+	data, err := xml.MarshalIndent(graphml, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	xmlFile, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+
+	defer xmlFile.Close()
+	xmlFile.Write(data)
+	return nil
 }

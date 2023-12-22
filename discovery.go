@@ -153,5 +153,6 @@ func DoDiscovery(serial *SerialConnection) error {
 		logrus.Printf("|----|--------|-----------|-----------|-------|")
 	}
 
+	g.writeGraphXml("discovery.graphml")
 	return nil
 }
