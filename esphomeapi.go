@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// var devices []string = []string{"0.244.38.24", "0.149.58.251", "0.116.78.13", "0.112.83.1"}
 var allClients map[*ApiConnection]int
 var _allStats *EspApiStats
 var _serial *SerialConnection
@@ -27,6 +28,7 @@ const (
 type ApiConnection struct {
 	inState         int
 	inAwaitSize     int
+	tmpBuffer       *bytes.Buffer
 	inBuffer        *bytes.Buffer
 	socketOpen      bool
 	socket          net.Conn
@@ -35,7 +37,9 @@ type ApiConnection struct {
 	reqAddress      string
 	reqPort         int
 	stats           *EspApiConnectionStats
+	debugThisNode   bool
 	timeout         time.Time
+	portDirect      bool
 }
 
 func (client *ApiConnection) forward(lastbyte byte) {
@@ -76,13 +80,7 @@ func (client *ApiConnection) startHandshake() error {
 		addr := strings.TrimSpace(fields[1])
 		port, err = strconv.Atoi(strings.TrimSpace(fields[2]))
 		if err == nil {
-			client.reqAddress = addr
-			client.reqPort = port
-			err = client.connpath.OpenConnectionAsync(addr, uint16(port))
-			if err == nil {
-				_addr, _ := ParseAddress(addr)
-				client.stats = _allStats.StartConnection(_addr)
-			}
+			err = client.startHandshake2(addr, port)
 		}
 	} else {
 		err = errors.New("wrong hadshake header")
@@ -96,6 +94,21 @@ func (client *ApiConnection) startHandshake() error {
 	return err
 }
 
+func (client *ApiConnection) startHandshake2(addr string, port int) error {
+	client.reqAddress = addr
+	client.reqPort = port
+	err := client.connpath.OpenConnectionAsync(addr, uint16(port))
+	if err == nil {
+		_addr, _ := ParseAddress(addr)
+		client.stats = _allStats.StartConnection(_addr)
+		if _addr == MeshNodeId(debugNodeId) {
+			client.debugThisNode = true
+			log.WithFields(logrus.Fields{"id": fmt.Sprintf("%02X", _addr)}).Info("startHandshake and debug for node")
+		}
+	}
+	return err
+}
+
 func (client *ApiConnection) finishHandshake(result bool) {
 	log.WithField("res", result).Debug("finishHandshake")
 	if !result {
@@ -105,18 +118,33 @@ func (client *ApiConnection) finishHandshake(result bool) {
 	} else {
 		log.WithFields(logrus.Fields{"addr": client.reqAddress, "port": client.reqPort, "handle": client.connpath.handle}).
 			Info("ApiConnection.handshake OpenConnection succesfull")
-		client.socket.Write([]byte{'!', '!', 'O', 'K', '!'})
+		if !client.portDirect {
+			client.socket.Write([]byte{'!', '!', 'O', 'K', '!'})
+		} else {
+			client.flushBuffer()
+		}
 		client.stats.GotHandle(client.connpath.handle)
+	}
+}
+
+func (client *ApiConnection) flushBuffer() {
+	if client.tmpBuffer.Len() > 0 {
+		_b := client.tmpBuffer.Bytes()
+		for i := 0; i < len(_b); i++ {
+			client.forward(_b[i])
+		}
 	}
 }
 
 func (client *ApiConnection) Close() {
 	client.socketOpen = false
 	client.socket.Close()
-	log.Debug("Waiting for read go-routine to terminate...")
+	ForceDebug(client.debugThisNode, "Waiting for read go-routine to terminate...")
 	client.socketWaitGroup.Wait()
-	log.WithFields(logrus.Fields{"handle": client.connpath.handle, "size": len(allClients) - 1}).
-		Debug("Closed EspHomeApi connection")
+	ForceDebugEntry(log.WithFields(
+		logrus.Fields{"handle": client.connpath.handle, "size": len(allClients) - 1}),
+		client.debugThisNode,
+		"Closed EspHomeApi connection")
 	delete(allClients, client)
 }
 
@@ -125,7 +153,7 @@ func (client *ApiConnection) CheckTimeout() {
 		if !client.socketOpen {
 			break
 		}
-		if client.connpath.connState == connPathConnectionStateInit {
+		if client.connpath.connState == connPathConnectionStateInit || client.connpath.connState == connPathConnectionStateHandshakeStarted {
 			if time.Since(client.timeout).Milliseconds() > 3000 {
 				log.Error("Closing connection beacuse timeout in connPathConnectionStateInit")
 				client.Close()
@@ -154,6 +182,9 @@ func (client *ApiConnection) Read() {
 						break
 					}
 				}
+			} else if client.connpath.connState == connPathConnectionStateHandshakeStarted {
+				// FIXME check for if buffer grown outside limits
+				client.tmpBuffer.WriteByte(buffer[0])
 			} else if client.connpath.connState == connPathConnectionStateActive {
 				// FIXME handle error
 				client.forward(buffer[0])
@@ -192,13 +223,15 @@ func (client *ApiConnection) ForwardData(data []byte) error {
 	return nil
 }
 
-func NewApiConnection(connection net.Conn, serial *SerialConnection, graph *GraphPath) *ApiConnection {
+func NewApiConnection(connection net.Conn, serial *SerialConnection, graph *GraphPath, portDirect bool) *ApiConnection {
 	client := &ApiConnection{
 		connpath:   NewConnPathConnection(serial, graph),
 		socketOpen: true,
 		socket:     connection,
+		tmpBuffer:  bytes.NewBuffer([]byte{}),
 		inBuffer:   bytes.NewBuffer([]byte{}),
 		timeout:    time.Now(),
+		portDirect: portDirect,
 	}
 
 	client.socketWaitGroup.Add(1)
@@ -254,10 +287,10 @@ func PrintStats() {
 	}
 }
 
-func ListenToApiConnetions(serial *SerialConnection, graph *GraphPath) {
+func ListenToApiConnetions(serial *SerialConnection, graph *GraphPath, port int) {
 	serial.ConnPathFn = HandleConnectedPathReply
 	allClients = make(map[*ApiConnection]int)
-	l, err := net.Listen("tcp4", ":6053")
+	l, err := net.Listen("tcp4", fmt.Sprintf(":%d", port))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -275,8 +308,37 @@ func ListenToApiConnetions(serial *SerialConnection, graph *GraphPath) {
 			continue
 		}
 
-		client := NewApiConnection(c, serial, graph)
+		client := NewApiConnection(c, serial, graph, false)
 		allClients[client] = 1
 		log.WithField("active", len(allClients)).Info("EspHome connection added")
+	}
+}
+
+func ListenToDirectApiConnetions(serial *SerialConnection, graph *GraphPath, port int, addr string) {
+	serial.ConnPathFn = HandleConnectedPathReply
+	allClients = make(map[*ApiConnection]int)
+	l, err := net.Listen("tcp4", fmt.Sprintf(":%d", port))
+	log.WithFields(logrus.Fields{"port": port, "addr": addr}).Debug("Start listening on port for direct node connection")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer l.Close()
+
+	_serial = serial
+	_allStats = NewEspApiStats()
+	SendClearConnections(serial)
+
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		log.WithFields(logrus.Fields{"active": len(allClients), "port": port}).Debug("EspHome connection accepted")
+		client := NewApiConnection(c, serial, graph, true)
+		allClients[client] = 1
+		client.startHandshake2(addr, 6053)
 	}
 }

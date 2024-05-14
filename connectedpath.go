@@ -26,7 +26,7 @@ const (
 )
 
 type ConnPathConnection struct {
-	//address   MeshNodeId
+	address   MeshNodeId
 	connState uint8
 	serial    *SerialConnection
 	handle    uint16
@@ -113,6 +113,7 @@ func (client *ConnPathConnection) OpenConnectionAsync(textaddr string, port uint
 		return err
 	}
 
+	client.address = addr
 	log.WithFields(logrus.Fields{"addr": FmtNodeId(MeshNodeId(addr)), "port": port, "handle": client.handle}).
 		Debug("ConnPathConnection.OpenConnectionAsync")
 

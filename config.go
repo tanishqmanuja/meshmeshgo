@@ -15,6 +15,7 @@ type Config struct {
 	FirmwarePath       string
 	TargetNode         int
 	Discovery          bool
+	DebugNodeAddr      string
 }
 
 func NewConfig() (*Config, error) {
@@ -22,7 +23,7 @@ func NewConfig() (*Config, error) {
 	config := Config{WantHelp: true, VerboseLevel: 0}
 
 	app := &cli.App{
-		Name:  "meshmeshho",
+		Name:  "meshmeshgo",
 		Usage: "meshmesh hub written in go!",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
@@ -58,6 +59,12 @@ func NewConfig() (*Config, error) {
 				Usage:       "Execute a round of discovey on the network",
 				Aliases:     []string{"d"},
 				Destination: &config.Discovery,
+			},
+			&cli.StringFlag{
+				Name:        "node_to_debug",
+				Aliases:     []string{"dbg"},
+				Usage:       "Debug a single node connection",
+				Destination: &config.DebugNodeAddr,
 			},
 		},
 		Action: func(cCtx *cli.Context) error {

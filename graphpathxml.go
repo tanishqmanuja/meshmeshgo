@@ -84,36 +84,83 @@ func boolAttribteOfNode(data []XmlData, key string) (bool, error) {
 	return ret, err
 }
 
+func intAttribteOfNode(data []XmlData, key string) (int64, error) {
+	ret, err := strconv.ParseInt(attribteOfNode(data, key), 0, 32)
+	return ret, err
+}
+
 func (g *GraphPath) readGraphXml() {
 	xmlFile, err := os.Open("meshmesh.graphml")
 	if err != nil {
-		fmt.Println("ReadGraphXml", err)
+		log.Error("Error opening graph file")
 	}
 
 	defer xmlFile.Close()
 	byteValue, _ := io.ReadAll(xmlFile)
 	var xmlgraphml XmlGraphml
 	xml.Unmarshal(byteValue, &xmlgraphml)
-	inusekey := keyForAttribute(xmlgraphml.Keys, "inuse")
-	if inusekey == "" {
-		log.Error("Missing inuse field in graph")
+	inUseKey := keyForAttribute(xmlgraphml.Keys, "inuse")
+	if inUseKey == "" {
+		log.Error("Missing inuse field definition in graph")
 		return
 	}
+	isDirectKey := keyForAttribute(xmlgraphml.Keys, "direct")
+	if isDirectKey == "" {
+		log.Error("Missing direct field definition in graph")
+		return
+	}
+	tagKey := keyForAttribute(xmlgraphml.Keys, "tag")
+	if tagKey == "" {
+		log.Error("Missing tag field definition in graph")
+		return
+	}
+
+	weightKey := keyForAttribute(xmlgraphml.Keys, "weight")
+	if weightKey == "" {
+		log.Error("Missing weight field definition in graph")
+		return
+	}
+
+	weight2Key := keyForAttribute(xmlgraphml.Keys, "weight2")
+	if weight2Key == "" {
+		log.Error("Missing weight2 field definition in graph")
+		return
+	}
+
 	for i, graph := range xmlgraphml.Graphs {
 		if i == 0 {
 			g.Graph = simple.NewWeightedDirectedGraph(0, math.Inf(1))
 			for _, node := range graph.Nodes {
 				node_id, err := parseNodeId(node.Id)
 				if err != nil {
-					log.Println("ReadGraphXml", err)
+					log.WithError(err).Error("Error parsing node ID")
 					continue
 				}
-				inUse, err := boolAttribteOfNode(node.Data, inusekey)
+
+				tag := attribteOfNode(node.Data, tagKey)
+
+				inUse, err := boolAttribteOfNode(node.Data, inUseKey)
 				if err != nil {
 					log.WithField("node", node.Id).Error("Mssing inuse field in node")
 				}
+
+				directPort, err := intAttribteOfNode(node.Data, isDirectKey)
+				if err != nil {
+					directPort = -1
+					isDirectEnabled, err := boolAttribteOfNode(node.Data, isDirectKey)
+					if err != nil {
+						log.WithField("node", node.Id).Warning("Is direct is implicit assumed false")
+					} else {
+						if isDirectEnabled {
+							directPort = 0
+						}
+					}
+				}
+
 				g.AddNode(node_id)
 				g.SetNodeIsInUse(node_id, inUse)
+				g.SetNodeDirectPort(node_id, int16(directPort))
+				g.SetNodeTag(node_id, tag)
 			}
 
 			for _, edge := range graph.Edges {
@@ -148,6 +195,7 @@ func (g *GraphPath) writeGraphXml(filename string) error {
 	var graphml XmlGraphml = XmlGraphml{Xmlns: "http://graphml.graphdrawing.org/xmlns"}
 	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d6", For: "edge", AttrName: "weight2", AttrType: "double"})
 	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d5", For: "edge", AttrName: "weight", AttrType: "double"})
+	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d5", For: "node", AttrName: "direct", AttrType: "int"})
 	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d4", For: "node", AttrName: "firmware", AttrType: "string"})
 	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d3", For: "node", AttrName: "buggy", AttrType: "bool"})
 	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d2", For: "node", AttrName: "discover", AttrType: "bool"})
@@ -157,19 +205,27 @@ func (g *GraphPath) writeGraphXml(filename string) error {
 	graphml.Graphs = append(graphml.Graphs, XmlGraph{})
 
 	var xmlgraph *XmlGraph = &graphml.Graphs[0]
+	xmlgraph.EdgeDefault = "undirected"
 
 	nodes := g.Graph.Nodes()
 	for nodes.Next() {
 		node := nodes.Node()
-		xmlgraph.Nodes = append(xmlgraph.Nodes, XmlNode{Id: fmt.Sprintf("0x%06X", int(node.ID()))})
+
+		_node := XmlNode{Id: FmtNodeId(MeshNodeId(node.ID())), Data: []XmlData{
+			{Key: "d0", Text: g.NodeTag(node.ID())},
+			{Key: "d1", Text: fmt.Sprintf("%v", g.NodeIsInUse(node.ID()))},
+			{Key: "d2", Text: fmt.Sprintf("%v", g.NodeIsDiscovered(node.ID()))},
+			{Key: "d5", Text: fmt.Sprintf("%d", g.NodeDirectPort(node.ID()))},
+		}}
+		xmlgraph.Nodes = append(xmlgraph.Nodes, _node)
 	}
 
 	edges := g.Graph.WeightedEdges()
 	for edges.Next() {
 		edge := edges.WeightedEdge()
 		xmlgraph.Edges = append(xmlgraph.Edges, XmlEdge{
-			Source: fmt.Sprintf("0x%06X", int(edge.From().ID())),
-			Target: fmt.Sprintf("0x%06X", int(edge.To().ID())),
+			Source: FmtNodeId(MeshNodeId(edge.From().ID())),
+			Target: FmtNodeId(MeshNodeId(edge.To().ID())),
 			Data: []XmlData{
 				{Key: "d5", Text: fmt.Sprintf("%1.2f", edge.Weight())},
 			},

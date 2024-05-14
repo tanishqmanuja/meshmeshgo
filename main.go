@@ -1,11 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/sirupsen/logrus"
 )
+
+var debugNodeId int = 0
 
 var log = &logrus.Logger{
 	Out:       os.Stderr,
@@ -40,6 +43,12 @@ func main() {
 		log.Fatal("Serial port error: ", err)
 	}
 
+	_debugNodeId, err := parseNodeId(config.DebugNodeAddr)
+	if err == nil {
+		debugNodeId = int(_debugNodeId)
+		log.WithFields(logrus.Fields{"id": debugNodeId}).Info("Enabling debug of node")
+	}
+
 	graph, err := NewGraphPathFromFile("meshmesh.graphml", int64(serialPort.LocalNode))
 	if err != nil {
 		log.Fatal("GraphPath error: ", err)
@@ -68,7 +77,56 @@ func main() {
 		os.Exit(0)
 	}
 
-	go ListenToApiConnetions(serialPort, graph)
+	if !graph.NodeExists(graph.SourceNode) {
+		log.WithField("node", graph.SourceNode).Fatal("Local node does not exists in grpah")
+	}
+
+	go ListenToApiConnetions(serialPort, graph, 6053)
+
+	fmt.Println("Coordinator node is " + FmtNodeId(MeshNodeId(graph.SourceNode)))
+
+	fmt.Println("|----------|----------------|--------------------|------|--------------------------------------------------|------|")
+	fmt.Println("| Node Id  | Node Address   | Node Tag           | Port | Path                                             | Wei. |")
+	fmt.Println("|----------|----------------|--------------------|------|--------------------------------------------------|------|")
+
+	changed := false
+	lastPort := int16(6054)
+	directs := graph.GetAllDirectId()
+	for _, d := range directs {
+		nid := MeshNodeId(d)
+		port := graph.NodeDirectPort(d)
+		if port == 0 {
+			port = lastPort
+			lastPort += 1
+			graph.SetNodeDirectPort(d, port)
+			changed = true
+		} else if port > 0 {
+			if port > lastPort {
+				lastPort = port + 1
+			}
+		}
+
+		var _path string
+		path, weight, err := graph.GetPath(d)
+		if err == nil {
+			for _, p := range path {
+				if len(_path) > 0 {
+					_path += " > "
+				}
+				_path += FmtNodeId(MeshNodeId(p))
+			}
+		}
+
+		fmt.Printf("| %s | %14s | %-18s | %4d | %-48s | %3.2f |\n", FmtNodeId(nid), FmtNodeIdHass(nid), graph.NodeTag(d), port, _path, weight)
+		go ListenToDirectApiConnetions(serialPort, graph, int(port), FmtNodeIdHass(nid))
+	}
+
+	fmt.Println("|----------|----------------|--------------------|------|--------------------------------------------------|------|")
+	fmt.Println("")
+
+	if changed {
+		graph.writeGraphXml("meshmesh.graphml")
+	}
 
 	var lastStatsTime time.Time
 	for {

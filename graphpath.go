@@ -20,6 +20,12 @@ type GraphPathConnection struct {
 type MeshNodeAttrs struct {
 	isInUse      bool
 	isDiscovered bool
+	directPort   int16
+	tag          string
+}
+
+type MeshEdgeAttrs struct {
+	wieght float32
 }
 
 type MeshNode struct {
@@ -29,6 +35,7 @@ type MeshNode struct {
 type GraphPath struct {
 	SourceNode int64
 	attrs      map[int64]MeshNodeAttrs
+	edgeAttrs  map[int64]MeshEdgeAttrs
 	Graph      *simple.WeightedDirectedGraph
 }
 
@@ -55,7 +62,7 @@ func (g *GraphPath) GetPath(to int64) ([]int64, float64, error) {
 		return nil, 0, fmt.Errorf("no path found between 0x%06X and 0x%06X", g.SourceNode, to)
 	}
 	log.WithFields(logrus.Fields{"length": len(allBetween[0]), "weight": weight}).
-		Info(fmt.Sprintf("Get path from 0x%06X to 0x%06X", g.SourceNode, to))
+		Debug(fmt.Sprintf("Get path from 0x%06X to 0x%06X", g.SourceNode, to))
 
 	nodes := allBetween[0]
 	path := make([]int64, len(nodes))
@@ -64,6 +71,14 @@ func (g *GraphPath) GetPath(to int64) ([]int64, float64, error) {
 	}
 
 	return path, 0, nil
+}
+
+func (g *GraphPath) NodeExists(id int64) bool {
+	if _, ok := g.attrs[id]; ok {
+		return true
+	} else {
+		return false
+	}
 }
 
 func (g *GraphPath) NodeIsInUse(id int64) bool {
@@ -94,6 +109,63 @@ func (g *GraphPath) SetNodeIsDiscovered(id int64, isDiscovered bool) {
 		entry.isDiscovered = isDiscovered
 		g.attrs[id] = entry
 	}
+}
+
+func (g *GraphPath) NodeDirectPort(id int64) int16 {
+	var port int16
+	if entry, ok := g.attrs[id]; ok {
+		port = entry.directPort
+	}
+	return port
+}
+
+func (g *GraphPath) SetNodeDirectPort(id int64, port int16) {
+	if entry, ok := g.attrs[id]; ok {
+		entry.directPort = port
+		g.attrs[id] = entry
+	}
+}
+
+func (g *GraphPath) NodeTag(id int64) string {
+	var tag string
+	if entry, ok := g.attrs[id]; ok {
+		tag = entry.tag
+	}
+	return tag
+}
+
+func (g *GraphPath) SetNodeTag(id int64, tag string) {
+	if entry, ok := g.attrs[id]; ok {
+		entry.tag = tag
+		g.attrs[id] = entry
+	}
+}
+
+func (g *GraphPath) EdgeWeight(from int64, to int64) float32 {
+	var weight float32
+	id := from + (to << 24)
+	if entry, ok := g.edgeAttrs[id]; ok {
+		weight = entry.wieght
+	}
+	return weight
+}
+
+func (g *GraphPath) SetEdgeWeight(from int64, to int64, weight float32) {
+	id := from + (to << 24)
+	if entry, ok := g.edgeAttrs[id]; ok {
+		entry.wieght = weight
+		g.edgeAttrs[id] = entry
+	}
+}
+
+func (g *GraphPath) GetAllDirectId() []int64 {
+	var res []int64
+	for id, a := range g.attrs {
+		if a.directPort >= 0 {
+			res = append(res, id)
+		}
+	}
+	return res
 }
 
 func (g *GraphPath) AddNode(id int64) error {
@@ -141,14 +213,14 @@ func (g *GraphPath) ChangeEdgeWeight(fromId int64, toId int64, weightFrom float6
 }
 
 func NewGraphPath(sourcenode int64) (*GraphPath, error) {
-	graph := GraphPath{SourceNode: sourcenode, attrs: make(map[int64]MeshNodeAttrs)}
+	graph := GraphPath{SourceNode: sourcenode, attrs: make(map[int64]MeshNodeAttrs), edgeAttrs: make(map[int64]MeshEdgeAttrs)}
 	graph.Graph = simple.NewWeightedDirectedGraph(0, math.Inf(1))
 	graph.AddNode(sourcenode)
 	return &graph, nil
 }
 
 func NewGraphPathFromFile(filename string, sourcenode int64) (*GraphPath, error) {
-	graph := GraphPath{SourceNode: sourcenode, attrs: make(map[int64]MeshNodeAttrs)}
+	graph := GraphPath{SourceNode: sourcenode, attrs: make(map[int64]MeshNodeAttrs), edgeAttrs: make(map[int64]MeshEdgeAttrs)}
 	graph.readGraphXml()
 	return &graph, nil
 }
