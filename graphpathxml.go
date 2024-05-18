@@ -84,10 +84,10 @@ func boolAttribteOfNode(data []XmlData, key string) (bool, error) {
 	return ret, err
 }
 
-func intAttribteOfNode(data []XmlData, key string) (int64, error) {
+/*func intAttribteOfNode(data []XmlData, key string) (int64, error) {
 	ret, err := strconv.ParseInt(attribteOfNode(data, key), 0, 32)
 	return ret, err
-}
+}*/
 
 func (g *GraphPath) readGraphXml() {
 	xmlFile, err := os.Open("meshmesh.graphml")
@@ -104,23 +104,16 @@ func (g *GraphPath) readGraphXml() {
 		log.Error("Missing inuse field definition in graph")
 		return
 	}
-	isDirectKey := keyForAttribute(xmlgraphml.Keys, "direct")
-	if isDirectKey == "" {
-		log.Error("Missing direct field definition in graph")
-		return
-	}
 	tagKey := keyForAttribute(xmlgraphml.Keys, "tag")
 	if tagKey == "" {
 		log.Error("Missing tag field definition in graph")
 		return
 	}
-
 	weightKey := keyForAttribute(xmlgraphml.Keys, "weight")
 	if weightKey == "" {
 		log.Error("Missing weight field definition in graph")
 		return
 	}
-
 	weight2Key := keyForAttribute(xmlgraphml.Keys, "weight2")
 	if weight2Key == "" {
 		log.Error("Missing weight2 field definition in graph")
@@ -144,22 +137,8 @@ func (g *GraphPath) readGraphXml() {
 					log.WithField("node", node.Id).Error("Mssing inuse field in node")
 				}
 
-				directPort, err := intAttribteOfNode(node.Data, isDirectKey)
-				if err != nil {
-					directPort = -1
-					isDirectEnabled, err := boolAttribteOfNode(node.Data, isDirectKey)
-					if err != nil {
-						log.WithField("node", node.Id).Warning("Is direct is implicit assumed false")
-					} else {
-						if isDirectEnabled {
-							directPort = 0
-						}
-					}
-				}
-
 				g.AddNode(node_id)
 				g.SetNodeIsInUse(node_id, inUse)
-				g.SetNodeDirectPort(node_id, int16(directPort))
 				g.SetNodeTag(node_id, tag)
 			}
 
@@ -195,7 +174,6 @@ func (g *GraphPath) writeGraphXml(filename string) error {
 	var graphml XmlGraphml = XmlGraphml{Xmlns: "http://graphml.graphdrawing.org/xmlns"}
 	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d6", For: "edge", AttrName: "weight2", AttrType: "double"})
 	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d5", For: "edge", AttrName: "weight", AttrType: "double"})
-	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d5", For: "node", AttrName: "direct", AttrType: "int"})
 	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d4", For: "node", AttrName: "firmware", AttrType: "string"})
 	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d3", For: "node", AttrName: "buggy", AttrType: "bool"})
 	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d2", For: "node", AttrName: "discover", AttrType: "bool"})
@@ -215,7 +193,6 @@ func (g *GraphPath) writeGraphXml(filename string) error {
 			{Key: "d0", Text: g.NodeTag(node.ID())},
 			{Key: "d1", Text: fmt.Sprintf("%v", g.NodeIsInUse(node.ID()))},
 			{Key: "d2", Text: fmt.Sprintf("%v", g.NodeIsDiscovered(node.ID()))},
-			{Key: "d5", Text: fmt.Sprintf("%d", g.NodeDirectPort(node.ID()))},
 		}}
 		xmlgraph.Nodes = append(xmlgraph.Nodes, _node)
 	}

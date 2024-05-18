@@ -20,7 +20,6 @@ type GraphPathConnection struct {
 type MeshNodeAttrs struct {
 	isInUse      bool
 	isDiscovered bool
-	directPort   int16
 	tag          string
 }
 
@@ -111,21 +110,6 @@ func (g *GraphPath) SetNodeIsDiscovered(id int64, isDiscovered bool) {
 	}
 }
 
-func (g *GraphPath) NodeDirectPort(id int64) int16 {
-	var port int16
-	if entry, ok := g.attrs[id]; ok {
-		port = entry.directPort
-	}
-	return port
-}
-
-func (g *GraphPath) SetNodeDirectPort(id int64, port int16) {
-	if entry, ok := g.attrs[id]; ok {
-		entry.directPort = port
-		g.attrs[id] = entry
-	}
-}
-
 func (g *GraphPath) NodeTag(id int64) string {
 	var tag string
 	if entry, ok := g.attrs[id]; ok {
@@ -158,10 +142,10 @@ func (g *GraphPath) SetEdgeWeight(from int64, to int64, weight float32) {
 	}
 }
 
-func (g *GraphPath) GetAllDirectId() []int64 {
+func (g *GraphPath) GetAllInUse() []int64 {
 	var res []int64
 	for id, a := range g.attrs {
-		if a.directPort >= 0 {
+		if a.isInUse {
 			res = append(res, id)
 		}
 	}

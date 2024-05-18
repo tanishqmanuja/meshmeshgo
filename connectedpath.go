@@ -43,7 +43,8 @@ func ParseAddress(address string) (MeshNodeId, error) {
 	var err error
 	addr := make([]byte, 4)
 	for i, field := range fields {
-		data, err := strconv.Atoi(field)
+		var data int
+		data, err = strconv.Atoi(field)
 		if err != nil {
 			break
 		}
@@ -107,12 +108,16 @@ func SendClearConnections(serial *SerialConnection) error {
 	return err
 }
 
-func (client *ConnPathConnection) OpenConnectionAsync(textaddr string, port uint16) error {
+func (client *ConnPathConnection) OpenConnectionAsync2(textaddr string, port uint16) error {
 	addr, err := ParseAddress(textaddr)
 	if err != nil {
 		return err
 	}
 
+	return client.OpenConnectionAsync(addr, port)
+}
+
+func (client *ConnPathConnection) OpenConnectionAsync(addr MeshNodeId, port uint16) error {
 	client.address = addr
 	log.WithFields(logrus.Fields{"addr": FmtNodeId(MeshNodeId(addr)), "port": port, "handle": client.handle}).
 		Debug("ConnPathConnection.OpenConnectionAsync")

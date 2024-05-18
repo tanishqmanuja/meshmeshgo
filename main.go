@@ -81,30 +81,15 @@ func main() {
 		log.WithField("node", graph.SourceNode).Fatal("Local node does not exists in grpah")
 	}
 
-	go ListenToApiConnetions(serialPort, graph, 6053)
-
 	fmt.Println("Coordinator node is " + FmtNodeId(MeshNodeId(graph.SourceNode)))
 
 	fmt.Println("|----------|----------------|--------------------|------|--------------------------------------------------|------|")
 	fmt.Println("| Node Id  | Node Address   | Node Tag           | Port | Path                                             | Wei. |")
 	fmt.Println("|----------|----------------|--------------------|------|--------------------------------------------------|------|")
 
-	changed := false
-	lastPort := int16(6054)
-	directs := graph.GetAllDirectId()
-	for _, d := range directs {
+	inuse := graph.GetAllInUse()
+	for _, d := range inuse {
 		nid := MeshNodeId(d)
-		port := graph.NodeDirectPort(d)
-		if port == 0 {
-			port = lastPort
-			lastPort += 1
-			graph.SetNodeDirectPort(d, port)
-			changed = true
-		} else if port > 0 {
-			if port > lastPort {
-				lastPort = port + 1
-			}
-		}
 
 		var _path string
 		path, weight, err := graph.GetPath(d)
@@ -117,16 +102,12 @@ func main() {
 			}
 		}
 
-		fmt.Printf("| %s | %14s | %-18s | %4d | %-48s | %3.2f |\n", FmtNodeId(nid), FmtNodeIdHass(nid), graph.NodeTag(d), port, _path, weight)
-		go ListenToDirectApiConnetions(serialPort, graph, int(port), FmtNodeIdHass(nid))
+		fmt.Printf("| %s | %14s | %-18s | %4d | %-48s | %3.2f |\n", FmtNodeId(nid), FmtNodeIdHass(nid), graph.NodeTag(d), 6053, _path, weight)
+		go ListenToApiConnetions(serialPort, graph, FmtNodeIdHass(nid), 6053, nid)
 	}
 
 	fmt.Println("|----------|----------------|--------------------|------|--------------------------------------------------|------|")
 	fmt.Println("")
-
-	if changed {
-		graph.writeGraphXml("meshmesh.graphml")
-	}
 
 	var lastStatsTime time.Time
 	for {
