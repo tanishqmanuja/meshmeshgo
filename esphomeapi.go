@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -66,39 +64,7 @@ func (client *ApiConnection) forward(lastbyte byte) {
 	}
 }
 
-func (client *ApiConnection) startHandshake() error {
-	var err error
-
-	line := strings.TrimSpace(client.inBuffer.String())
-	client.inBuffer.Reset()
-
-	log.WithFields(logrus.Fields{"line": line}).Debug("startHandshake: Requested handshake from HA")
-	fields := strings.Split(strings.TrimSpace(line), "|")
-
-	if len(fields) == 3 {
-		var port int
-		addr := strings.TrimSpace(fields[1])
-		port, err = strconv.Atoi(strings.TrimSpace(fields[2]))
-		if err == nil {
-			var _addr int64
-			_addr, err = parseNodeId(addr)
-			if err == nil {
-				err = client.startHandshake2(MeshNodeId(_addr), port)
-			}
-		}
-	} else {
-		err = errors.New("wrong hadshake header")
-	}
-
-	if err != nil {
-		log.WithFields(logrus.Fields{"handle": client.connpath.handle, "err": err}).Error("startHandshake open connection error")
-		client.finishHandshake(false)
-	}
-
-	return err
-}
-
-func (client *ApiConnection) startHandshake2(addr MeshNodeId, port int) error {
+func (client *ApiConnection) startHandshake(addr MeshNodeId, port int) error {
 	client.reqAddress = addr
 	client.reqPort = port
 	err := client.connpath.OpenConnectionAsync(addr, uint16(port))
@@ -171,16 +137,7 @@ func (client *ApiConnection) Read() {
 		_, err = client.socket.Read(buffer)
 
 		if err == nil {
-			// FIXME check for if buffer grown outside limits
-			if client.connpath.connState == connPathConnectionStateInit {
-				client.inBuffer.WriteByte(buffer[0])
-				if buffer[0] == '\n' {
-					err = client.startHandshake()
-					if err != nil {
-						break
-					}
-				}
-			} else if client.connpath.connState == connPathConnectionStateHandshakeStarted {
+			if client.connpath.connState == connPathConnectionStateHandshakeStarted {
 				// FIXME check for if buffer grown outside limits
 				client.tmpBuffer.WriteByte(buffer[0])
 			} else if client.connpath.connState == connPathConnectionStateActive {
@@ -191,13 +148,9 @@ func (client *ApiConnection) Read() {
 					Error("Readed data while in wrong connection state")
 			}
 		} else {
+			log.WithFields(logrus.Fields{"handle": client.connpath.handle, "err": err}).Warn("ApiConnection.Read exit with error")
 			break
 		}
-	}
-
-	if err != nil {
-		log.WithFields(logrus.Fields{"handle": client.connpath.handle, "err": err}).
-			Warn("ApiConnection.Read exit with error")
 	}
 
 	client.socketWaitGroup.Done()
@@ -309,6 +262,6 @@ func ListenToApiConnetions(serial *SerialConnection, graph *GraphPath, host stri
 		log.WithFields(logrus.Fields{"active": len(allClients), "port": port}).Debug("EspHome connection accepted")
 		client := NewApiConnection(c, serial, graph)
 		allClients[client] = 1
-		client.startHandshake2(addr, 6053)
+		client.startHandshake(addr, 6053)
 	}
 }

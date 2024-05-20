@@ -167,6 +167,7 @@ func (client *ConnPathConnection) handleIncomingOpenConnAck(v *ConnectedPathApiR
 }
 
 func (client *ConnPathConnection) handleIncomingOpenConnNack(v *ConnectedPathApiReply) {
+	log.WithFields(logrus.Fields{"handle": v.Handle}).Error("nack during opening connection")
 	client.connState = connPathConnectionStateInvalid
 }
 
