@@ -1,4 +1,4 @@
-package main
+package meshmesh
 
 import (
 	"errors"
@@ -6,9 +6,11 @@ import (
 	"math"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
+
+	gra "leguru.net/m/v2/graph"
 )
 
 type _weightsStats struct {
@@ -42,15 +44,15 @@ func _mapOfNeighbors(g *simple.WeightedDirectedGraph, n graph.Node, w map[int64]
 	return nil
 }
 
-func _findNextNode(g *GraphPath) MeshNode {
+func _findNextNode(g *gra.GraphPath) gra.MeshNode {
 	nodes := g.Graph.Nodes()
-	var found_node MeshNode
+	var found_node gra.MeshNode
 	var found_weight float64 = 1e9
 	for nodes.Next() {
 		_node := nodes.Node()
-		node := _node.(MeshNode)
+		node := _node.(gra.MeshNode)
 		if g.NodeIsInUse(node.ID()) && !g.NodeIsDiscovered(node.ID()) {
-			path, weight, err := g.GetPath(node.id)
+			path, weight, err := g.GetPath(node.ID())
 			if weight < found_weight {
 				found_weight = weight
 				found_node = node
@@ -69,7 +71,7 @@ func DoDiscovery(serial *SerialConnection) error {
 	var oldWeights map[int64]_weightsStats = make(map[int64]_weightsStats)
 	var newWeights map[int64]_weightsStats = make(map[int64]_weightsStats)
 
-	g, err := NewGraphPath(int64(serial.LocalNode))
+	g, err := gra.NewGraphPath(int64(serial.LocalNode))
 	if err != nil {
 		return err
 	}
@@ -78,10 +80,10 @@ func DoDiscovery(serial *SerialConnection) error {
 	for ; g.NodeIsDiscovered(currentNode.ID()); currentNode = _findNextNode(g) {
 		protocol := directProtocol
 		if currentNode.ID() != g.SourceNode {
-			protocol = unicastProtocol
+			protocol = UnicastProtocol
 		}
 
-		logrus.Printf("Start dicover of node %06X", currentNode.ID())
+		log.Printf("Start dicover of node %06X", currentNode.ID())
 		_mapOfNeighbors(g.Graph, currentNode, oldWeights)
 
 		_, err = serial.SendReceiveApiProt(DiscResetTableApiRequest{}, protocol, MeshNodeId(currentNode.ID()))
@@ -120,7 +122,7 @@ func DoDiscovery(serial *SerialConnection) error {
 			g.ChangeEdgeWeight(currentNode.ID(), int64(tableItem.NodeId), _rssi2weight(tableItem.Rssi2), _rssi2weight(tableItem.Rssi1))
 		}
 
-		logrus.Printf("Map of neighbors of node %06X is completed", currentNode.ID())
+		log.Printf("Map of neighbors of node %06X is completed", currentNode.ID())
 		_mapOfNeighbors(g.Graph, currentNode, newWeights)
 
 		for id := range newWeights {
@@ -140,19 +142,19 @@ func DoDiscovery(serial *SerialConnection) error {
 		}
 
 		var i int = 0
-		logrus.Printf("|----|--------|-----------|-----------|-------|")
-		logrus.Printf("| N. | ID     | Prev.     | Curr.     | Delta |")
-		logrus.Printf("|----|--------|-----------|-----------|-------|")
+		log.Printf("|----|--------|-----------|-----------|-------|")
+		log.Printf("| N. | ID     | Prev.     | Curr.     | Delta |")
+		log.Printf("|----|--------|-----------|-----------|-------|")
 		for id, w := range newWeights {
 			i += 1
 			w1 := oldWeights[id]
 			pre := fmt.Sprintf("%1.2f,%1.2f", w1.To, w1.From)
 			post := fmt.Sprintf("%1.2f,%1.2f", w.To, w.From)
-			logrus.Printf("| %02X | %06X | %s | %s | _____ |", i, id, pre, post)
+			log.Printf("| %02X | %06X | %s | %s | _____ |", i, id, pre, post)
 		}
-		logrus.Printf("|----|--------|-----------|-----------|-------|")
+		log.Printf("|----|--------|-----------|-----------|-------|")
 	}
 
-	g.writeGraphXml("discovery.graphml")
+	g.WriteGraphXml("discovery.graphml")
 	return nil
 }

@@ -1,4 +1,4 @@
-package main
+package graph
 
 import (
 	"fmt"
@@ -60,7 +60,7 @@ func (g *GraphPath) GetPath(to int64) ([]int64, float64, error) {
 	if len(allBetween) == 0 {
 		return nil, 0, fmt.Errorf("no path found between 0x%06X and 0x%06X", g.SourceNode, to)
 	}
-	log.WithFields(logrus.Fields{"length": len(allBetween[0]), "weight": weight}).
+	logrus.WithFields(logrus.Fields{"length": len(allBetween[0]), "weight": weight}).
 		Debug(fmt.Sprintf("Get path from 0x%06X to 0x%06X", g.SourceNode, to))
 
 	nodes := allBetween[0]

@@ -1,8 +1,10 @@
-package main
+package meshmesh
 
 import (
 	"fmt"
 	"time"
+
+	"leguru.net/m/v2/utils"
 )
 
 type EspApiStats struct {
@@ -76,7 +78,7 @@ func (as *EspApiStats) PrintStats() {
 	var num = 0
 	for id, s := range as.Connections {
 		num += 1
-		fmt.Printf("| %02d | %s | %s | %04d | %s | %s\n", num, s.IsActiveAsText(), FmtNodeId(id), s.lastHandle,
+		fmt.Printf("| %02d | %s | %s | %04d | %s | %s\n", num, s.IsActiveAsText(), utils.FmtNodeId(uint32(id)), s.lastHandle,
 			s.LastConnectionDuration().Round(time.Second), s.TimeSinceLastConnection().Round(time.Second))
 	}
 

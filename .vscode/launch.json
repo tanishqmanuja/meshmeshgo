@@ -12,7 +12,7 @@
             "program": ".",
             //"args": ["--port", "/dev/ttyUSB0", "-t", "0x1C8768", "-v", "-v"]
             //"args": ["--port", "/dev/ttyUSB0", "-d", "-v", "-v"]
-            "args": ["--port", "/dev/ttyUSB0", "-v"]
+            "args": ["--port", "/dev/ttyUSB0", "-v", "-v", "-v", "-v"]
             //"args": ["--port", "/dev/ttyUSB0", "-t", "0x1C8768", "-fw", "/home/stefano/Sviluppo/Stefano/Meshmesh/esphome_configs/.esphome/build/localmesh/.pioenvs/localmesh/firmware.bin", "-v", "-v", "-v"]
         }
     ]

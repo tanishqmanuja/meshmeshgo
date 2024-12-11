@@ -6,6 +6,10 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	gra "leguru.net/m/v2/graph"
+	"leguru.net/m/v2/meshmesh"
+	"leguru.net/m/v2/tui"
+	"leguru.net/m/v2/utils"
 )
 
 var debugNodeId int = 0
@@ -38,18 +42,18 @@ func main() {
 	log.WithFields(logrus.Fields{"portName": config.SerialPortName, "baudRate": config.SerialPortBaudRate}).
 		Debug("Opening serial port")
 
-	serialPort, err := NewSerial(config.SerialPortName, config.SerialPortBaudRate, false)
+	serialPort, err := meshmesh.NewSerial(config.SerialPortName, config.SerialPortBaudRate, false)
 	if err != nil {
 		log.Fatal("Serial port error: ", err)
 	}
 
-	_debugNodeId, err := parseNodeId(config.DebugNodeAddr)
+	_debugNodeId, err := gra.ParseNodeIdForGrpah(config.DebugNodeAddr)
 	if err == nil {
 		debugNodeId = int(_debugNodeId)
 		log.WithFields(logrus.Fields{"id": debugNodeId}).Info("Enabling debug of node")
 	}
 
-	graph, err := NewGraphPathFromFile("meshmesh.graphml", int64(serialPort.LocalNode))
+	graph, err := gra.NewGraphPathFromFile("meshmesh.graphml", int64(serialPort.LocalNode))
 	if err != nil {
 		log.Fatal("GraphPath error: ", err)
 	}
@@ -60,7 +64,7 @@ func main() {
 			os.Exit(-1)
 		}
 
-		err = UploadFirmware(MeshNodeId(config.TargetNode), config.FirmwarePath, serialPort)
+		err = meshmesh.UploadFirmware(meshmesh.MeshNodeId(config.TargetNode), config.FirmwarePath, serialPort)
 		if err != nil {
 			log.WithField("err", err).Error("Upload firmware failed")
 			os.Exit(-1)
@@ -68,7 +72,7 @@ func main() {
 
 		os.Exit(0)
 	} else if config.Discovery {
-		err = DoDiscovery(serialPort)
+		err = meshmesh.DoDiscovery(serialPort)
 		if err != nil {
 			log.WithField("err", err).Error("Error during discovery")
 			os.Exit(-1)
@@ -81,7 +85,7 @@ func main() {
 		log.WithField("node", graph.SourceNode).Fatal("Local node does not exists in grpah")
 	}
 
-	fmt.Println("Coordinator node is " + FmtNodeId(MeshNodeId(graph.SourceNode)))
+	fmt.Println("Coordinator node is " + utils.FmtNodeId(uint32(graph.SourceNode)))
 
 	fmt.Println("|----------|----------------|--------------------|------|--------------------------------------------------|------|")
 	fmt.Println("| Node Id  | Node Address   | Node Tag           | Port | Path                                             | Wei. |")
@@ -89,7 +93,7 @@ func main() {
 
 	inuse := graph.GetAllInUse()
 	for _, d := range inuse {
-		nid := MeshNodeId(d)
+		nid := uint32(d)
 
 		var _path string
 		path, weight, err := graph.GetPath(d)
@@ -98,26 +102,27 @@ func main() {
 				if len(_path) > 0 {
 					_path += " > "
 				}
-				_path += FmtNodeId(MeshNodeId(p))
+				_path += utils.FmtNodeId(uint32(p))
 			}
 		}
 
-		fmt.Printf("| %s | %14s | %-18s | %4d | %-48s | %3.2f |\n", FmtNodeId(nid), FmtNodeIdHass(nid), graph.NodeTag(d), 6053, _path, weight)
-		go ListenToApiConnetions(serialPort, graph, FmtNodeIdHass(nid), 6053, nid)
+		fmt.Printf("| %s | %15s | %-18s | %4d | %-48s | %3.2f |\n", utils.FmtNodeId(nid), utils.FmtNodeIdHass(nid), graph.NodeTag(d), 6053, _path, weight)
+		go meshmesh.ListenToApiConnetions(serialPort, graph, utils.FmtNodeIdHass(nid), 6053, meshmesh.MeshNodeId(nid))
 	}
 
 	fmt.Println("|----------|----------------|--------------------|------|--------------------------------------------------|------|")
 	fmt.Println("")
 
+	go tui.TuiStart("0.0.0.0", "2024", graph, serialPort)
 	var lastStatsTime time.Time
 	for {
 		time.Sleep(1 * time.Second)
-		if !serialPort.connected {
+		if !serialPort.IsConnected() {
 			break
 		}
 		if time.Since(lastStatsTime) > 1*time.Minute {
 			lastStatsTime = time.Now()
-			PrintStats()
+			meshmesh.PrintStats()
 		}
 	}
 }

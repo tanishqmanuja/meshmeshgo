@@ -1,4 +1,4 @@
-package main
+package graph
 
 import (
 	"encoding/xml"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gonum.org/v1/gonum/graph/simple"
+	"leguru.net/m/v2/utils"
 )
 
 type XmlGraphml struct {
@@ -54,6 +55,11 @@ type XmlData struct {
 	Key     string   `xml:"key,attr"`
 }
 
+func ParseNodeIdForGrpah(id string) (int64, error) {
+	return parseNodeId(id)
+
+}
+
 func parseNodeId(id string) (int64, error) {
 	if len(id) < 3 {
 		return 0, errors.New("invalid id string")
@@ -92,7 +98,7 @@ func boolAttribteOfNode(data []XmlData, key string) (bool, error) {
 func (g *GraphPath) readGraphXml() {
 	xmlFile, err := os.Open("meshmesh.graphml")
 	if err != nil {
-		log.Error("Error opening graph file")
+		logrus.Error("Error opening graph file")
 	}
 
 	defer xmlFile.Close()
@@ -101,22 +107,22 @@ func (g *GraphPath) readGraphXml() {
 	xml.Unmarshal(byteValue, &xmlgraphml)
 	inUseKey := keyForAttribute(xmlgraphml.Keys, "inuse")
 	if inUseKey == "" {
-		log.Error("Missing inuse field definition in graph")
+		logrus.Error("Missing inuse field definition in graph")
 		return
 	}
 	tagKey := keyForAttribute(xmlgraphml.Keys, "tag")
 	if tagKey == "" {
-		log.Error("Missing tag field definition in graph")
+		logrus.Error("Missing tag field definition in graph")
 		return
 	}
 	weightKey := keyForAttribute(xmlgraphml.Keys, "weight")
 	if weightKey == "" {
-		log.Error("Missing weight field definition in graph")
+		logrus.Error("Missing weight field definition in graph")
 		return
 	}
 	weight2Key := keyForAttribute(xmlgraphml.Keys, "weight2")
 	if weight2Key == "" {
-		log.Error("Missing weight2 field definition in graph")
+		logrus.Error("Missing weight2 field definition in graph")
 		return
 	}
 
@@ -126,7 +132,7 @@ func (g *GraphPath) readGraphXml() {
 			for _, node := range graph.Nodes {
 				node_id, err := parseNodeId(node.Id)
 				if err != nil {
-					log.WithError(err).Error("Error parsing node ID")
+					logrus.WithError(err).Error("Error parsing node ID")
 					continue
 				}
 
@@ -134,7 +140,7 @@ func (g *GraphPath) readGraphXml() {
 
 				inUse, err := boolAttribteOfNode(node.Data, inUseKey)
 				if err != nil {
-					log.WithField("node", node.Id).Error("Mssing inuse field in node")
+					logrus.WithField("node", node.Id).Error("Mssing inuse field in node")
 				}
 
 				g.AddNode(node_id)
@@ -145,17 +151,17 @@ func (g *GraphPath) readGraphXml() {
 			for _, edge := range graph.Edges {
 				src_id, err := parseNodeId(edge.Source)
 				if err != nil {
-					log.Println("ReadGraphXml", err)
+					logrus.Println("ReadGraphXml", err)
 					continue
 				}
 				dst_id, err := parseNodeId(edge.Target)
 				if err != nil {
-					log.Println("ReadGraphXml", err)
+					logrus.Println("ReadGraphXml", err)
 					continue
 				}
 				weight, err := strconv.ParseFloat(edge.Data[0].Text, 32)
 				if err != nil {
-					log.Println("ReadGraphXml", err)
+					logrus.Println("ReadGraphXml", err)
 					continue
 				}
 
@@ -167,10 +173,10 @@ func (g *GraphPath) readGraphXml() {
 
 	}
 
-	log.WithFields(logrus.Fields{"nodes": g.Graph.Nodes().Len(), "edges": g.Graph.Edges().Len()}).Info("Readed graphml from file")
+	logrus.WithFields(logrus.Fields{"nodes": g.Graph.Nodes().Len(), "edges": g.Graph.Edges().Len()}).Info("Readed graphml from file")
 }
 
-func (g *GraphPath) writeGraphXml(filename string) error {
+func (g *GraphPath) WriteGraphXml(filename string) error {
 	var graphml XmlGraphml = XmlGraphml{Xmlns: "http://graphml.graphdrawing.org/xmlns"}
 	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d6", For: "edge", AttrName: "weight2", AttrType: "double"})
 	graphml.Keys = append(graphml.Keys, XmlKey{Id: "d5", For: "edge", AttrName: "weight", AttrType: "double"})
@@ -189,7 +195,7 @@ func (g *GraphPath) writeGraphXml(filename string) error {
 	for nodes.Next() {
 		node := nodes.Node()
 
-		_node := XmlNode{Id: FmtNodeId(MeshNodeId(node.ID())), Data: []XmlData{
+		_node := XmlNode{Id: utils.FmtNodeId(uint32(node.ID())), Data: []XmlData{
 			{Key: "d0", Text: g.NodeTag(node.ID())},
 			{Key: "d1", Text: fmt.Sprintf("%v", g.NodeIsInUse(node.ID()))},
 			{Key: "d2", Text: fmt.Sprintf("%v", g.NodeIsDiscovered(node.ID()))},
@@ -201,8 +207,8 @@ func (g *GraphPath) writeGraphXml(filename string) error {
 	for edges.Next() {
 		edge := edges.WeightedEdge()
 		xmlgraph.Edges = append(xmlgraph.Edges, XmlEdge{
-			Source: FmtNodeId(MeshNodeId(edge.From().ID())),
-			Target: FmtNodeId(MeshNodeId(edge.To().ID())),
+			Source: utils.FmtNodeId(uint32(edge.From().ID())),
+			Target: utils.FmtNodeId(uint32(edge.To().ID())),
 			Data: []XmlData{
 				{Key: "d5", Text: fmt.Sprintf("%1.2f", edge.Weight())},
 			},

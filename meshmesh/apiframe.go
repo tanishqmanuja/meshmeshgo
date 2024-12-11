@@ -1,11 +1,11 @@
-package main
+package meshmesh
 
 import (
 	"encoding/binary"
 	"errors"
 
 	"github.com/go-restruct/restruct"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 type MeshNodeId uint32
@@ -15,7 +15,7 @@ type MeshProtocol byte
 const (
 	directProtocol MeshProtocol = iota
 	bradcastProtocol
-	unicastProtocol
+	UnicastProtocol
 	multipathProtocol
 )
 
@@ -61,6 +61,18 @@ const nodeIdApiReply uint8 = 5
 type NodeIdApiReply struct {
 	Id     uint8      `struct:"uint8"`
 	Serial MeshNodeId `struct:"uint32"`
+}
+
+const nodeConfigApiRequest uint8 = 14
+
+type NodeConfigApiRequest struct {
+	Id uint8 `struct:"uint8"`
+}
+
+const nodeConfigApiReply uint8 = 15
+
+type NodeConfigApiReply struct {
+	Id uint8 `struct:"uint8"`
 }
 
 const discoveryApiRequest uint8 = 26
@@ -221,7 +233,7 @@ type ApiFrame struct {
 	escaped bool
 }
 
-func (frame *ApiFrame) awaitedReplyBytes(index uint16) (uint8, uint8) {
+func (frame *ApiFrame) awaitedReplyBytes(index uint16) (uint8, uint8, error) {
 	var wantType uint8 = frame.data[index]&0xFE + 1
 	var wantSubtype uint8 = 0
 
@@ -229,18 +241,18 @@ func (frame *ApiFrame) awaitedReplyBytes(index uint16) (uint8, uint8) {
 		wantSubtype = frame.data[index+1]&0xFE + 1
 	}
 
-	return wantType, wantSubtype
+	return wantType, wantSubtype, nil
 }
 
-func (frame *ApiFrame) AwaitedReply() (uint8, uint8) {
+func (frame *ApiFrame) AwaitedReply() (uint8, uint8, error) {
 	if len(frame.data) == 0 {
-		return 0, 0
+		return 0, 0, errors.New("can't send an empty frame")
 	} else {
 		if frame.data[0] == connectedUnicastRequest {
-			if len(frame.data) < 7 {
-				return 0, 0
+			if len(frame.data) < 6 {
+				return 0, 0, errors.New("invalid unicast frame")
 			} else {
-				return frame.awaitedReplyBytes(6)
+				return frame.awaitedReplyBytes(5)
 			}
 		} else {
 			return frame.awaitedReplyBytes(0)
@@ -250,7 +262,7 @@ func (frame *ApiFrame) AwaitedReply() (uint8, uint8) {
 
 func (frame *ApiFrame) AssertType(wantedType uint8, wantedSubtype uint8) bool {
 	if len(frame.data) == 0 || frame.data[0] != wantedType && (wantedSubtype > 0 && (len(frame.data) < 2 || frame.data[1] != wantedSubtype)) {
-		logrus.WithFields(logrus.Fields{"Want": wantedType, "Got": frame.data[0]}).Error("AssertType failed")
+		log.WithFields(log.Fields{"Want": wantedType, "Got": frame.data[0]}).Error("AssertType failed")
 		return false
 	} else {
 		return true
@@ -301,6 +313,9 @@ func (frame *ApiFrame) Decode() (interface{}, error) {
 		v := NodeIdApiReply{}
 		restruct.Unpack(frame.data, binary.LittleEndian, &v)
 		return v, nil
+	case nodeConfigApiReply:
+		v := NodeConfigApiReply{}
+		restruct.Unpack(frame.data, binary.LittleEndian, &v)
 	case logEventApiReply:
 		v := LogEventApiReply{}
 		restruct.Unpack(frame.data, binary.LittleEndian, &v)
@@ -354,6 +369,9 @@ func EncodeBuffer(cmd interface{}) ([]byte, error) {
 		b, err = restruct.Pack(binary.LittleEndian, &v)
 	case NodeIdApiRequest:
 		v.Id = nodeIdApiRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case NodeConfigApiRequest:
+		v.Id = nodeConfigApiRequest
 		b, err = restruct.Pack(binary.LittleEndian, &v)
 	case ConnectedPathApiRequest:
 		v.Id = connectedPathApiRequest
@@ -419,7 +437,7 @@ func NewApiFrameFromStruct(v interface{}, protocol MeshProtocol, target MeshNode
 	f := &ApiFrame{}
 	if protocol == directProtocol {
 		err = f.EncodeFrame(v)
-	} else if protocol == unicastProtocol {
+	} else if protocol == UnicastProtocol {
 		p := UnicastRequest{Id: connectedUnicastRequest, Target: target}
 		p.Payload, err = EncodeBuffer(v)
 		if err == nil {

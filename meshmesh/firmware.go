@@ -1,9 +1,9 @@
-package main
+package meshmesh
 
 import "errors"
 
 func UploadFirmware(target MeshNodeId, firmware string, serial *SerialConnection) error {
-	reply1, err := serial.SendReceiveApiProt(EchoApiRequest{Echo: "CIAO"}, unicastProtocol, target)
+	reply1, err := serial.SendReceiveApiProt(EchoApiRequest{Echo: "CIAO"}, UnicastProtocol, target)
 	if err != nil {
 		return err
 	}
