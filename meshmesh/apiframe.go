@@ -63,6 +63,19 @@ type NodeIdApiReply struct {
 	Serial MeshNodeId `struct:"uint32"`
 }
 
+const nodeSetTagApiRequest = 8
+
+type NodeSetTagApiRequest struct {
+	Id  uint8  `struct:"uint8"`
+	Tag string `struct:"[31]byte"`
+}
+
+const nodeSetTagApiReply = 9
+
+type NodeSetTagApiReply struct {
+	Id uint8 `struct:"uint8"`
+}
+
 const nodeConfigApiRequest uint8 = 14
 
 type NodeConfigApiRequest struct {
@@ -72,6 +85,24 @@ type NodeConfigApiRequest struct {
 const nodeConfigApiReply uint8 = 15
 
 type NodeConfigApiReply struct {
+	Id           uint8  `struct:"uint8"`
+	Tag          []byte `struct:"[32]byte"`
+	LogDest      uint32 `struct:"uint32"`
+	Channel      uint8  `struct:"uint8"`
+	TxPower      uint8  `struct:"uint8"`
+	Groups       uint32 `struct:"uint32"`
+	BindedServer uint32 `struct:"uint32"`
+}
+
+const nodeRebootApiRequest uint8 = 24
+
+type NodeRebootApiRequest struct {
+	Id uint8 `struct:"uint8"`
+}
+
+const nodeRebootApiReply uint8 = 25
+
+type NodeRebootApiReply struct {
 	Id uint8 `struct:"uint8"`
 }
 
@@ -313,9 +344,18 @@ func (frame *ApiFrame) Decode() (interface{}, error) {
 		v := NodeIdApiReply{}
 		restruct.Unpack(frame.data, binary.LittleEndian, &v)
 		return v, nil
+	case nodeSetTagApiReply:
+		v := NodeSetTagApiReply{}
+		restruct.Unpack(frame.data, binary.LittleEndian, &v)
+		return v, nil
 	case nodeConfigApiReply:
 		v := NodeConfigApiReply{}
 		restruct.Unpack(frame.data, binary.LittleEndian, &v)
+		return v, nil
+	case nodeRebootApiReply:
+		v := NodeRebootApiReply{}
+		restruct.Unpack(frame.data, binary.LittleEndian, &v)
+		return v, nil
 	case logEventApiReply:
 		v := LogEventApiReply{}
 		restruct.Unpack(frame.data, binary.LittleEndian, &v)
@@ -370,8 +410,14 @@ func EncodeBuffer(cmd interface{}) ([]byte, error) {
 	case NodeIdApiRequest:
 		v.Id = nodeIdApiRequest
 		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case NodeSetTagApiRequest:
+		v.Id = nodeSetTagApiRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
 	case NodeConfigApiRequest:
 		v.Id = nodeConfigApiRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case NodeRebootApiRequest:
+		v.Id = nodeRebootApiRequest
 		b, err = restruct.Pack(binary.LittleEndian, &v)
 	case ConnectedPathApiRequest:
 		v.Id = connectedPathApiRequest

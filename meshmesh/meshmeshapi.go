@@ -185,8 +185,6 @@ func (serialConn *SerialConnection) Read() {
 }
 
 func (serialConn *SerialConnection) Write() {
-	log.SetLevel(log.TraceLevel)
-
 	for {
 		// If we are idle
 		if serialConn.session == nil {
@@ -276,6 +274,9 @@ func (serialConn *SerialConnection) SendApi(cmd interface{}) error {
 }
 
 func (serialConn *SerialConnection) SendReceiveApiProt(cmd interface{}, protocol MeshProtocol, target MeshNodeId) (interface{}, error) {
+	if target == 0 {
+		protocol = directProtocol
+	}
 	frame, err := NewApiFrameFromStruct(cmd, protocol, target)
 	if err != nil {
 		return nil, err

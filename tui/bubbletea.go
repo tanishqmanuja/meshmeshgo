@@ -28,59 +28,53 @@ import (
 var sconn *meshmesh.SerialConnection
 var gpath *graph.GraphPath = nil
 
-type termInfo struct {
-	term    string
-	profile string
-	width   int
-	height  int
-	bg      string
+type Model interface {
+	Init() tea.Cmd
+	Update(tea.Msg) (Model, tea.Cmd)
+	View() string
+	Focused() bool
 }
 
 func teaHandler(s ssh.Session) (tea.Model, []tea.ProgramOption) {
 	pty, _, _ := s.Pty()
-	renderer := bubbletea.MakeRenderer(s)
-	txtStyle := renderer.NewStyle().Foreground(lipgloss.Color("10"))
-	quitStyle := renderer.NewStyle().Foreground(lipgloss.Color("8"))
-
-	bg := "light"
-	if renderer.HasDarkBackground() {
-		bg = "dark"
-	}
 
 	m := model{
-		termInfo: termInfo{
-			term:    pty.Term,
-			profile: renderer.ColorProfile().Name(),
-			width:   pty.Window.Width,
-			height:  pty.Window.Height,
-			bg:      bg,
+		ti: termInfo{
+			term:     pty.Term,
+			width:    pty.Window.Width,
+			height:   pty.Window.Height,
+			renderer: bubbletea.MakeRenderer(s),
 		},
-		txtStyle:    txtStyle,
-		quitStyle:   quitStyle,
 		textInput:   textinput.New(),
 		headerTable: table.New(),
 		submodel:    nil,
 	}
 
-	m.textInput.Placeholder = "Command"
+	log.Printf("Terminal %s Color profile %s", pty.Term, m.ti.renderer.ColorProfile().Name())
+
+	m.textInput.Prompt = "Command> "
+	m.textInput.Placeholder = "<write command here>"
 	m.textInput.Focus()
 	m.textInput.CharLimit = 128
 	m.textInput.Width = 64
-	m.textInput.TextStyle = txtStyle
 	m.textInput.SetSuggestions(get_suggestions(""))
-	m.textInput.ShowSuggestions = true
+	//m.textInput.ShowSuggestions = true
+
+	m.textInput.PromptStyle = m.ti.renderer.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(32))
+	m.textInput.PlaceholderStyle = m.ti.renderer.NewStyle().Foreground(lipgloss.ANSIColor(8))
+	m.textInput.TextStyle = m.ti.renderer.NewStyle()
+	m.textInput.Cursor.TextStyle = m.ti.renderer.NewStyle()
+	m.textInput.Cursor.Style = m.ti.renderer.NewStyle()
 
 	return m, []tea.ProgramOption{tea.WithAltScreen()}
 }
 
 // Just a generic tea.Model to demo terminal information of ssh.
 type model struct {
-	termInfo    termInfo
-	txtStyle    lipgloss.Style
-	quitStyle   lipgloss.Style
+	ti          termInfo
 	textInput   textinput.Model
 	headerTable table.Model
-	submodel    tea.Model
+	submodel    Model
 	err         error
 }
 
@@ -93,18 +87,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.termInfo.height = msg.Height
-		m.termInfo.width = msg.Width
+		m.ti.height = msg.Height
+		m.ti.width = msg.Width
 	case tea.KeyMsg:
 		switch msg.Type {
-		case tea.KeyCtrlC, tea.KeyEsc:
+		case tea.KeyCtrlC:
 			return m, tea.Quit
+		case tea.KeyEsc:
+			if m.submodel != nil && m.submodel.Focused() {
+				m.submodel = nil
+			} else {
+				return m, tea.Quit
+			}
 		case tea.KeySpace:
-			m.textInput.SetSuggestions(get_suggestions(m.textInput.Value()))
+			if m.submodel == nil || !m.submodel.Focused() {
+				m.textInput.SetSuggestions(get_suggestions(m.textInput.Value()))
+			}
 		case tea.KeyEnter:
-			m.submodel = execute_command(m.textInput.Value())
-			m.textInput.SetValue("")
-			m.textInput.SetSuggestions(get_suggestions(""))
+			if m.submodel == nil || !m.submodel.Focused() {
+				m.submodel = m.execute_command(m.textInput.Value())
+				if m.submodel != nil {
+					m.submodel.Init()
+				}
+				m.textInput.SetValue("")
+				m.textInput.SetSuggestions(get_suggestions(""))
+			}
 		}
 	case error:
 		m.err = msg
@@ -113,17 +120,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds tea.BatchMsg
 	m.textInput, cmd = m.textInput.Update(msg)
 	cmds = append(cmds, cmd)
+
 	if m.submodel != nil {
 		m.submodel, cmd = m.submodel.Update(msg)
 	}
+
+	if m.submodel != nil {
+		// Add or remove focus to command line
+		if m.submodel.Focused() && m.textInput.Focused() {
+			m.textInput.Blur()
+		}
+		if !m.submodel.Focused() && !m.textInput.Focused() {
+			m.textInput.Focus()
+		}
+	} else {
+		if !m.textInput.Focused() {
+			m.textInput.Focus()
+		}
+	}
 	cmds = append(cmds, cmd)
+
 	return m, tea.Batch(cmds...)
 }
 
 func (m model) View() string {
 	var buffer bytes.Buffer
-	buffer.WriteString("Command prompt: ")
-	buffer.WriteString(m.textInput.Value())
+	buffer.WriteString(m.textInput.View())
 	buffer.WriteString("\n\n")
 	if m.submodel != nil {
 		buffer.WriteString(m.submodel.View())
