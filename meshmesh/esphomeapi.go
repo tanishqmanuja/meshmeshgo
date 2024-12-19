@@ -11,6 +11,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"leguru.net/m/v2/graph"
+	l "leguru.net/m/v2/logger"
 	"leguru.net/m/v2/utils"
 )
 
@@ -55,11 +56,11 @@ func (client *ApiConnection) forward(lastbyte byte) {
 	} else {
 		if client.inBuffer.Len() == client.inAwaitSize {
 			client.inState = esphomeapiWaitPacketHead
-			logrus.WithField("handle", client.connpath.handle).
+			l.Log().WithField("handle", client.connpath.handle).
 				Trace(fmt.Sprintf("HA-->SE: %s", hex.EncodeToString(client.inBuffer.Bytes())))
 			err := client.connpath.SendData(client.inBuffer.Bytes())
 			if err != nil {
-				logrus.Error(fmt.Sprintf("Error writng on socket: %s", err.Error()))
+				l.Log().Error(fmt.Sprintf("Error writng on socket: %s", err.Error()))
 			}
 			client.inBuffer.Reset()
 		}
@@ -74,19 +75,19 @@ func (client *ApiConnection) startHandshake(addr MeshNodeId, port int) error {
 		client.stats = _allStats.StartConnection(addr)
 		if addr == MeshNodeId(0) {
 			client.debugThisNode = true
-			logrus.WithFields(logrus.Fields{"id": fmt.Sprintf("%02X", addr)}).Info("startHandshake and debug for node")
+			l.Log().WithFields(logrus.Fields{"id": fmt.Sprintf("%02X", addr)}).Info("startHandshake and debug for node")
 		}
 	}
 	return err
 }
 
 func (client *ApiConnection) finishHandshake(result bool) {
-	logrus.WithField("res", result).Debug("finishHandshake")
+	l.Log().WithField("res", result).Debug("finishHandshake")
 	if !result {
-		logrus.WithFields(logrus.Fields{"addr": client.reqAddress, "port": client.reqPort, "err": nil}).
+		l.Log().WithFields(logrus.Fields{"addr": client.reqAddress, "port": client.reqPort, "err": nil}).
 			Warning("ApiConnection.finishHandshake failed")
 	} else {
-		logrus.WithFields(logrus.Fields{"addr": client.reqAddress, "port": client.reqPort, "handle": client.connpath.handle}).
+		l.Log().WithFields(logrus.Fields{"addr": client.reqAddress, "port": client.reqPort, "handle": client.connpath.handle}).
 			Info("ApiConnection.handshake OpenConnection succesfull")
 		client.flushBuffer()
 		client.stats.GotHandle(client.connpath.handle)
@@ -107,7 +108,7 @@ func (client *ApiConnection) Close() {
 	client.socket.Close()
 	utils.ForceDebug(client.debugThisNode, "Waiting for read go-routine to terminate...")
 	client.socketWaitGroup.Wait()
-	utils.ForceDebugEntry(logrus.WithFields(
+	utils.ForceDebugEntry(l.Log().WithFields(
 		logrus.Fields{"handle": client.connpath.handle, "size": len(allClients) - 1}),
 		client.debugThisNode,
 		"Closed EspHomeApi connection")
@@ -121,14 +122,14 @@ func (client *ApiConnection) CheckTimeout() {
 		}
 		if client.connpath.connState == connPathConnectionStateInit || client.connpath.connState == connPathConnectionStateHandshakeStarted {
 			if time.Since(client.timeout).Milliseconds() > 3000 {
-				logrus.Error("Closing connection beacuse timeout in connPathConnectionStateInit")
+				l.Log().Error("Closing connection beacuse timeout in connPathConnectionStateInit")
 				client.Close()
 			}
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	logrus.Debug("ApiConnection.CheckTimeout exited")
+	l.Log().Debug("ApiConnection.CheckTimeout exited")
 }
 
 func (client *ApiConnection) Read() {
@@ -146,11 +147,11 @@ func (client *ApiConnection) Read() {
 				// FIXME handle error
 				client.forward(buffer[0])
 			} else {
-				logrus.WithField("state", client.connpath.connState).
+				l.Log().WithField("state", client.connpath.connState).
 					Error(fmt.Errorf("readed data while in wrong connection state %d", client.connpath.connState))
 			}
 		} else {
-			logrus.WithFields(logrus.Fields{"handle": client.connpath.handle, "err": err}).Warn("ApiConnection.Read exit with error")
+			l.Log().WithFields(logrus.Fields{"handle": client.connpath.handle, "err": err}).Warn("ApiConnection.Read exit with error")
 			break
 		}
 	}
@@ -162,7 +163,7 @@ func (client *ApiConnection) Read() {
 }
 
 func (client *ApiConnection) ForwardData(data []byte) error {
-	logrus.WithField("handle", client.connpath.handle).
+	l.Log().WithField("handle", client.connpath.handle).
 		Trace(fmt.Sprintf("SE-->HA: %s", hex.EncodeToString(data)))
 	n, err := client.socket.Write(data)
 	if err != nil {
@@ -208,7 +209,7 @@ func HandleConnectedPathReply(v *ConnectedPathApiReply) {
 				if len(v.Data) > 0 {
 					err := client.ForwardData(v.Data)
 					if err != nil {
-						logrus.Printf("HandleConnectedPathReply: ForwardData error on handle %d.", v.Handle)
+						l.Log().Printf("HandleConnectedPathReply: ForwardData error on handle %d.", v.Handle)
 						client.Close()
 					}
 				}
@@ -227,7 +228,7 @@ func HandleConnectedPathReply(v *ConnectedPathApiReply) {
 		}
 	}
 	if !handled {
-		logrus.WithFields(logrus.Fields{"cmd": v.Command, "handle": v.Handle}).
+		l.Log().WithFields(logrus.Fields{"cmd": v.Command, "handle": v.Handle}).
 			Error("HandleConnectedPathReply: Connection not found for this handle")
 		SendInvalidHandle(_serial, v.Handle)
 	}
@@ -242,26 +243,26 @@ func PrintStats() {
 func ListenToApiConnetions(serial *SerialConnection, graph *graph.GraphPath, host string, port int, addr MeshNodeId) {
 	serial.ConnPathFn = HandleConnectedPathReply
 	allClients = make(map[*ApiConnection]int)
-	l, err := net.Listen("tcp4", fmt.Sprintf("%s:%d", host, port))
-	logrus.WithFields(logrus.Fields{"port": port, "addr": addr}).Debug("Start listening on port for direct node connection")
+	li, err := net.Listen("tcp4", fmt.Sprintf("%s:%d", host, port))
+	l.Log().WithFields(logrus.Fields{"port": port, "addr": addr}).Debug("Start listening on port for direct node connection")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	defer l.Close()
+	defer li.Close()
 
 	_serial = serial
 	_allStats = NewEspApiStats()
 	SendClearConnections(serial)
 
 	for {
-		c, err := l.Accept()
+		c, err := li.Accept()
 		if err != nil {
-			logrus.Println(err)
+			l.Log().Println(err)
 			continue
 		}
 
-		logrus.WithFields(logrus.Fields{"active": len(allClients), "port": port}).Debug("EspHome connection accepted")
+		l.Log().WithFields(logrus.Fields{"active": len(allClients), "port": port}).Debug("EspHome connection accepted")
 		client := NewApiConnection(c, serial, graph)
 		allClients[client] = 1
 		client.startHandshake(addr, 6053)

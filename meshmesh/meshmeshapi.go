@@ -8,8 +8,9 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"go.bug.st/serial"
+	l "leguru.net/m/v2/logger"
 )
 
 type SerialSession struct {
@@ -75,30 +76,30 @@ func (serialConn *SerialConnection) GetNextHandle() uint16 {
 
 func (serialConn *SerialConnection) ReadFrame(buffer []byte, position int) {
 	frame := NewApiFrame(buffer[0:position], true)
-	if log.GetLevel() >= log.TraceLevel && buffer[0] != 0x39 {
-		log.WithFields(log.Fields{"data": hex.EncodeToString(frame.data)}).Trace("From serial")
+	if l.Log().GetLevel() >= logrus.TraceLevel && buffer[0] != 0x39 {
+		l.Log().WithFields(logrus.Fields{"data": hex.EncodeToString(frame.data)}).Trace("From serial")
 	}
 	// Handle LOG packets first
 	if buffer[0] == logEventApiReply {
 		v, err := frame.Decode()
 		if err != nil {
-			log.Error("Can't decode incoming log packet 1/2")
+			l.Log().Error("Can't decode incoming log packet 1/2")
 		} else {
-			l, ok := v.(LogEventApiReply)
+			lo, ok := v.(LogEventApiReply)
 			if !ok {
-				log.Error("Can't decode incoming log packet 2/2")
+				l.Log().Error("Can't decode incoming log packet 2/2")
 			}
-			log.WithFields(log.Fields{"from": l.From}).Debug(l.Line)
+			l.Log().WithFields(logrus.Fields{"from": lo.From}).Debug(lo.Line)
 		}
 		// Handle ConnectedPath packets next
 	} else if buffer[0] == connectedPathApiReply {
 		v, err := frame.Decode()
 		if err != nil {
-			log.Error("Can't decode incoming connectedpath packet 1/2")
+			l.Log().Error("Can't decode incoming connectedpath packet 1/2")
 		} else {
 			c, ok := v.(ConnectedPathApiReply)
 			if !ok {
-				log.Error("Can't decode incoming connectedpath packet 2/2")
+				l.Log().Error("Can't decode incoming connectedpath packet 2/2")
 			}
 			if serialConn.ConnPathFn != nil {
 				serialConn.ConnPathFn(&c)
@@ -113,11 +114,11 @@ func (serialConn *SerialConnection) ReadFrame(buffer []byte, position int) {
 					serialConn.session.Wait.Done()
 					serialConn.session = nil
 				} else {
-					log.WithFields(log.Fields{"Type": serialConn.session.WaitReply1, "Subtype": serialConn.session.WaitReply2}).Error("Serial reply assertion failed")
+					l.Log().WithFields(logrus.Fields{"Type": serialConn.session.WaitReply1, "Subtype": serialConn.session.WaitReply2}).Error("Serial reply assertion failed")
 				}
 			}
 		} else {
-			log.WithField("type", fmt.Sprintf("%02X", buffer[0])).Error("Unused packet received")
+			l.Log().WithField("type", fmt.Sprintf("%02X", buffer[0])).Error("Unused packet received")
 		}
 	}
 }
@@ -202,7 +203,7 @@ func (serialConn *SerialConnection) Write() {
 
 				if element == nil {
 					// Ok we don't really need this
-					log.WithFields(log.Fields{"queue": serialConn.Sessions.Len()}).Error("got sessionwith nil value")
+					l.Log().WithFields(logrus.Fields{"queue": serialConn.Sessions.Len()}).Error("got sessionwith nil value")
 					// Sleep a time slot
 					time.Sleep(50 * time.Millisecond)
 				} else {
@@ -211,21 +212,21 @@ func (serialConn *SerialConnection) Write() {
 
 					if ok {
 						b := session.Request.Output()
-						l := log.GetLevel()
-						if l >= log.TraceLevel {
-							log.WithFields(log.Fields{"data": hex.EncodeToString(b)}).Trace("To serial")
+						level := l.Log().GetLevel()
+						if level >= logrus.TraceLevel {
+							l.Log().WithFields(logrus.Fields{"data": hex.EncodeToString(b)}).Trace("To serial")
 						}
 
 						// Write session on serial port
 						n, err := serialConn.port.Write(b)
 
 						if err != nil {
-							log.WithField("err", err).Error("Write to serial port error")
+							l.Log().WithField("err", err).Error("Write to serial port error")
 							break
 						}
 
 						if n < len(b) {
-							log.WithFields(log.Fields{"sent": n, "want": len(b)}).Error("Write to serial port incomplete")
+							l.Log().WithFields(logrus.Fields{"sent": n, "want": len(b)}).Error("Write to serial port incomplete")
 							break
 						}
 
@@ -239,7 +240,7 @@ func (serialConn *SerialConnection) Write() {
 						}
 					} else {
 						// Ok we don't really need this
-						log.WithFields(log.Fields{"queue": serialConn.Sessions.Len(), "val": element}).Error("interface conversion invalid")
+						l.Log().WithFields(logrus.Fields{"queue": serialConn.Sessions.Len(), "val": element}).Error("interface conversion invalid")
 						// Sleep a time slot
 						time.Sleep(50 * time.Millisecond)
 					}
@@ -362,7 +363,7 @@ func NewSerial(portName string, baudRate int, debug bool) (*SerialConnection, er
 	}
 
 	serial.LocalNode = uint32(nodeid.Serial)
-	log.WithFields(log.Fields{"nodeId": fmt.Sprintf("0x%06X", serial.LocalNode), "firmware": firmrev.Revision}).
+	l.Log().WithFields(logrus.Fields{"nodeId": fmt.Sprintf("0x%06X", serial.LocalNode), "firmware": firmrev.Revision}).
 		Info("Valid local node found")
 	return serial, nil
 }

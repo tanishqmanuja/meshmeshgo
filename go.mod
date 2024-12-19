@@ -12,7 +12,6 @@ require (
 	github.com/erikgeiser/promptkit v0.9.0
 	github.com/evertras/bubble-table v0.17.1
 	github.com/go-restruct/restruct v1.2.0-alpha
-	github.com/mritd/bubbles v0.0.0-20210825105013-cb7a572fb831
 	github.com/sirupsen/logrus v1.9.0
 	github.com/urfave/cli/v2 v2.25.1
 	go.bug.st/serial v1.5.0

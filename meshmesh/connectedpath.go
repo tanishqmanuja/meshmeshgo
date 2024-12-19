@@ -5,8 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"leguru.net/m/v2/graph"
+	l "leguru.net/m/v2/logger"
 	"leguru.net/m/v2/utils"
 )
 
@@ -121,7 +122,7 @@ func (client *ConnPathConnection) OpenConnectionAsync2(textaddr string, port uin
 
 func (client *ConnPathConnection) OpenConnectionAsync(addr MeshNodeId, port uint16) error {
 	client.address = addr
-	log.WithFields(log.Fields{"addr": utils.FmtNodeId(int64(addr)), "port": port, "handle": client.handle}).
+	l.Log().WithFields(logrus.Fields{"addr": utils.FmtNodeId(int64(addr)), "port": port, "handle": client.handle}).
 		Debug("ConnPathConnection.OpenConnectionAsync")
 
 	_path, _, err := client.graph.GetPath(int64(addr))
@@ -160,38 +161,39 @@ func (client *ConnPathConnection) OpenConnectionAsync(addr MeshNodeId, port uint
 func (client *ConnPathConnection) handleIncomingOpenConnAck(v *ConnectedPathApiReply) {
 	if client.connState != connPathConnectionStateHandshakeStarted {
 		client.connState = connPathConnectionStateInvalid
-		log.Error("handleIncomingOpenConnAck received while not in handshake state")
+		l.Log().Error("handleIncomingOpenConnAck received while not in handshake state")
 	} else {
-		log.WithField("handle", client.handle).Debug("Accpeted connection")
+		l.Log().WithField("handle", client.handle).Debug("Accpeted connection")
 		client.connState = connPathConnectionStateActive
 
 	}
 }
 
 func (client *ConnPathConnection) handleIncomingOpenConnNack(v *ConnectedPathApiReply) {
-	log.WithFields(log.Fields{"handle": v.Handle}).Error("nack during opening connection")
+	l.Log().WithFields(logrus.Fields{"handle": v.Handle}).Error("nack during opening connection")
 	client.connState = connPathConnectionStateInvalid
 }
 
 func (client *ConnPathConnection) HandleIncomingReply(v *ConnectedPathApiReply) {
-	log.WithFields(log.Fields{"handle": v.Handle, "reply": v.Command}).Debug("HandleIncomingReply")
+	l.Log().WithFields(logrus.Fields{"handle": v.Handle, "reply": v.Command}).Debug("HandleIncomingReply")
 	if v.Command == connectedPathOpenConnectionAck {
 		client.handleIncomingOpenConnAck(v)
 	} else if v.Command == connectedPathOpenConnectionNack {
 		client.handleIncomingOpenConnNack(v)
 	} else if v.Command == connectedPathSendDataError {
-		log.WithField("handle", v.Handle).Error("HandleIncomingReply: SendDataError")
+		l.Log().WithField("handle", v.Handle).Error("HandleIncomingReply: SendDataError")
 		client.connState = connPathConnectionStateInvalid
 	} else if v.Command == connectedPathInvalidHandleReply {
-		log.WithField("handle", v.Handle).Error("HandleIncomingReply: InvalidHandleReply")
+		l.Log().WithField("handle", v.Handle).Error("HandleIncomingReply: InvalidHandleReply")
 		client.connState = connPathConnectionStateInvalid
 	} else {
-		log.WithFields(log.Fields{"handle": v.Handle, "reply": v.Command}).
+		l.Log().WithFields(logrus.Fields{"handle": v.Handle, "reply": v.Command}).
 			Error("HandleIncomingReply: unknow command reply received", v.Command, v.Handle)
 	}
 }
 
 func NewConnPathConnection(serial *SerialConnection, graph *graph.GraphPath) *ConnPathConnection {
+
 	conn := &ConnPathConnection{
 		serial:    serial,
 		handle:    serial.GetNextHandle(),

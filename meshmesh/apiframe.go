@@ -5,7 +5,8 @@ import (
 	"errors"
 
 	"github.com/go-restruct/restruct"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
+	l "leguru.net/m/v2/logger"
 )
 
 type MeshNodeId uint32
@@ -306,7 +307,7 @@ func (frame *ApiFrame) AwaitedReply() (uint8, uint8, error) {
 
 func (frame *ApiFrame) AssertType(wantedType uint8, wantedSubtype uint8) bool {
 	if len(frame.data) == 0 || frame.data[0] != wantedType && (wantedSubtype > 0 && (len(frame.data) < 2 || frame.data[1] != wantedSubtype)) {
-		log.WithFields(log.Fields{"Want": wantedType, "Got": frame.data[0]}).Error("AssertType failed")
+		l.Log().WithFields(logrus.Fields{"Want": wantedType, "Got": frame.data[0]}).Error("AssertType failed")
 		return false
 	} else {
 		return true
@@ -510,7 +511,7 @@ func NewApiFrameFromStruct(v interface{}, protocol MeshProtocol, target MeshNode
 			err = f.EncodeFrame(p)
 		}
 	} else {
-		log.Error("Unknow protocol requested")
+		l.Log().Error("Unknow protocol requested")
 	}
 	return f, err
 }

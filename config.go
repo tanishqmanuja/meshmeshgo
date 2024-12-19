@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/urfave/cli/v2"
+	l "leguru.net/m/v2/logger"
 )
 
 type Config struct {
@@ -77,7 +78,7 @@ func NewConfig() (*Config, error) {
 	}
 
 	if err = app.Run(os.Args); err != nil {
-		log.Fatal(err)
+		l.Log().Fatal(err)
 	}
 
 	return &config, err

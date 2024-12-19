@@ -6,9 +6,9 @@ import (
 	"math"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
+	l "leguru.net/m/v2/logger"
 
 	gra "leguru.net/m/v2/graph"
 	"leguru.net/m/v2/utils"
@@ -110,7 +110,7 @@ func _findNextNode(g *gra.GraphPath) gra.MeshNode {
 				found_weight = weight
 				found_node = node
 			}
-			log.Println("path", path, weight, err)
+			l.Log().Println("path", path, weight, err)
 			g.SetNodeIsDiscovered(node.ID(), true)
 		}
 	}
@@ -136,7 +136,7 @@ func DoDiscovery(serial *SerialConnection) error {
 			protocol = UnicastProtocol
 		}
 
-		log.Printf("Start dicover of node %06X", currentNode.ID())
+		l.Log().Printf("Start dicover of node %06X", currentNode.ID())
 		_mapOfNeighbors(g.Graph, currentNode, oldWeights)
 
 		_, err = serial.SendReceiveApiProt(DiscResetTableApiRequest{}, protocol, MeshNodeId(currentNode.ID()))
@@ -159,7 +159,7 @@ func DoDiscovery(serial *SerialConnection) error {
 		if !ok {
 			return errors.New("comunication error")
 		}
-		log.Printf("Table size is %d", tableSize.Size)
+		l.Log().Printf("Table size is %d", tableSize.Size)
 		for i := uint8(0); i < tableSize.Size; i++ {
 
 			reply1, err = serial.SendReceiveApiProt(DiscTableItemGetApiRequest{}, protocol, MeshNodeId(currentNode.ID()))
@@ -171,11 +171,11 @@ func DoDiscovery(serial *SerialConnection) error {
 				return errors.New("comunication error")
 			}
 
-			log.Printf("Query of row %d rssi1 %d rssi2 %d", i+1, tableItem.Rssi1, tableItem.Rssi2)
+			l.Log().Printf("Query of row %d rssi1 %d rssi2 %d", i+1, tableItem.Rssi1, tableItem.Rssi2)
 			g.ChangeEdgeWeight(currentNode.ID(), int64(tableItem.NodeId), _rssi2weight(tableItem.Rssi2), _rssi2weight(tableItem.Rssi1))
 		}
 
-		log.Printf("Map of neighbors of node %06X is completed", currentNode.ID())
+		l.Log().Printf("Map of neighbors of node %06X is completed", currentNode.ID())
 		_mapOfNeighbors(g.Graph, currentNode, newWeights)
 
 		for id := range newWeights {
@@ -195,17 +195,17 @@ func DoDiscovery(serial *SerialConnection) error {
 		}
 
 		var i int = 0
-		log.Printf("|----|--------|-----------|-----------|-------|")
-		log.Printf("| N. | ID     | Prev.     | Curr.     | Delta |")
-		log.Printf("|----|--------|-----------|-----------|-------|")
+		l.Log().Printf("|----|--------|-----------|-----------|-------|")
+		l.Log().Printf("| N. | ID     | Prev.     | Curr.     | Delta |")
+		l.Log().Printf("|----|--------|-----------|-----------|-------|")
 		for id, w := range newWeights {
 			i += 1
 			w1 := oldWeights[id]
 			pre := fmt.Sprintf("%1.2f,%1.2f", w1.To, w1.From)
 			post := fmt.Sprintf("%1.2f,%1.2f", w.To, w.From)
-			log.Printf("| %02X | %06X | %s | %s | _____ |", i, id, pre, post)
+			l.Log().Printf("| %02X | %06X | %s | %s | _____ |", i, id, pre, post)
 		}
-		log.Printf("|----|--------|-----------|-----------|-------|")
+		l.Log().Printf("|----|--------|-----------|-----------|-------|")
 	}
 
 	g.WriteGraphXml("discovery.graphml")
@@ -232,7 +232,7 @@ func (d *DiscoveryProcedure) Step() error {
 		protocol = UnicastProtocol
 	}
 
-	log.Printf("Start dicover of node %06X", d.currentNode.ID())
+	l.Log().Printf("Start dicover of node %06X", d.currentNode.ID())
 
 	_, err := d.serial.SendReceiveApiProt(DiscResetTableApiRequest{}, protocol, MeshNodeId(d.currentNode.ID()))
 	if err != nil {
@@ -267,7 +267,7 @@ func (d *DiscoveryProcedure) Step() error {
 			return errors.New("comunication error")
 		}
 
-		log.Printf("Query of row %d node %s rssi1 %d rssi2 %d", i, utils.FmtNodeId(int64(tableItem.NodeId)), tableItem.Rssi1, tableItem.Rssi2)
+		l.Log().Printf("Query of row %d node %s rssi1 %d rssi2 %d", i, utils.FmtNodeId(int64(tableItem.NodeId)), tableItem.Rssi1, tableItem.Rssi2)
 		_updateNeighbor(d.Neighbors, int64(tableItem.NodeId), _rssi2weight(tableItem.Rssi1), _rssi2weight(tableItem.Rssi2))
 		//d.graph.ChangeEdgeWeight(d.currentNode.ID(), int64(tableItem.NodeId), _rssi2weight(tableItem.Rssi2), _rssi2weight(tableItem.Rssi1))
 	}
