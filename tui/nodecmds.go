@@ -15,6 +15,7 @@ import (
 
 const (
 	focusNodeTag = iota
+	focusNodeChannel
 	focusSelection
 	maxFocusItems
 )
@@ -22,7 +23,28 @@ const (
 const (
 	commandReboot = iota
 	commandSetTag
+	commandSetChannel
 )
+
+func createTextInput(ti termInfo, placeholder string, value string, chars int, focus bool) textinput.Model {
+	txt := textinput.New()
+	txt.Placeholder = placeholder
+	txt.CharLimit = chars
+	txt.Width = chars + 2
+	txt.Prompt = ""
+	if focus {
+		txt.Focus()
+	}
+	txt.SetValue(value)
+
+	txt.PromptStyle = ti.renderer.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(32))
+	txt.PlaceholderStyle = ti.renderer.NewStyle().Foreground(lipgloss.ANSIColor(8))
+	txt.TextStyle = ti.renderer.NewStyle()
+	txt.Cursor.TextStyle = ti.renderer.NewStyle()
+	txt.Cursor.Style = ti.renderer.NewStyle()
+
+	return txt
+}
 
 type NodeInfoModel struct {
 	ti      termInfo
@@ -39,6 +61,8 @@ func (m *NodeInfoModel) blur(i int) {
 	switch i {
 	case focusNodeTag:
 		m.txt[focusNodeTag].Blur()
+	case focusNodeChannel:
+		m.txt[focusNodeChannel].Blur()
 	}
 
 }
@@ -47,6 +71,8 @@ func (m *NodeInfoModel) focus(i int) {
 	switch i {
 	case focusNodeTag:
 		m.txt[focusNodeTag].Focus()
+	case focusNodeChannel:
+		m.txt[focusNodeChannel].Focus()
 	}
 
 }
@@ -67,12 +93,26 @@ func (m *NodeInfoModel) sendSetTag(tag string) error {
 	return nil
 }
 
+func (m *NodeInfoModel) sendSetChannel(Channel uint8) error {
+	_, err := sconn.SendReceiveApiProt(meshmesh.NodeSetChannelApiRequest{Channel: Channel}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(m.id))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (m *NodeInfoModel) nodeCommand(choice int) error {
 	switch choice {
 	case commandReboot:
 		return m.sendReboot()
 	case commandSetTag:
 		return m.sendSetTag(m.txt[focusNodeTag].Value())
+	case commandSetChannel:
+		channel, err := strconv.ParseInt(m.txt[focusNodeChannel].Value(), 10, 8)
+		if err != nil {
+			return err
+		}
+		return m.sendSetChannel(uint8(channel))
 	}
 	return fmt.Errorf("choice %d not found", choice)
 }
@@ -129,9 +169,10 @@ func (m *NodeInfoModel) View() string {
 	buffer.WriteString("\nFirmware rev   : ")
 	buffer.WriteString(m.rev)
 	buffer.WriteString("\nNode TAG       : ")
-	buffer.WriteString(m.txt[0].View())
+	buffer.WriteString(m.txt[focusNodeTag].View())
 	buffer.WriteString(fmt.Sprintf("\nNode Log dest. : %d", m.cfg.LogDest))
-	buffer.WriteString(fmt.Sprintf("\nNode Channel   : %d", m.cfg.Channel))
+	buffer.WriteString("\nNode Channel   : ")
+	buffer.WriteString(m.txt[focusNodeChannel].View())
 	buffer.WriteString(fmt.Sprintf("\nNode TxPower   : %d", m.cfg.TxPower))
 	buffer.WriteString(fmt.Sprintf("\nNode Groups    : %d", m.cfg.Groups))
 	buffer.WriteString(fmt.Sprintf("\nNode Binded    : 0x%06X", m.cfg.BindedServer))
@@ -159,24 +200,11 @@ func NewNodeInfoModel(ti termInfo, id int64) Model {
 		return &ErrorReplyModel{err: err}
 	}
 	cfg := rep.(meshmesh.NodeConfigApiReply)
+	txt1 := createTextInput(ti, "<node tag>", string(cfg.Tag), 31, true)
+	txt2 := createTextInput(ti, "<node channel>", fmt.Sprintf("%d", cfg.Channel), 6, false)
+	txt := []textinput.Model{txt1, txt2}
 
-	txt1 := textinput.New()
-	txt1.Placeholder = "<node tag>"
-	txt1.CharLimit = 31
-	txt1.Width = 35
-	txt1.Prompt = ""
-	txt1.Focus()
-	txt1.SetValue(string(cfg.Tag))
-
-	txt1.PromptStyle = ti.renderer.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(32))
-	txt1.PlaceholderStyle = ti.renderer.NewStyle().Foreground(lipgloss.ANSIColor(8))
-	txt1.TextStyle = ti.renderer.NewStyle()
-	txt1.Cursor.TextStyle = ti.renderer.NewStyle()
-	txt1.Cursor.Style = ti.renderer.NewStyle()
-
-	txt := []textinput.Model{txt1}
-
-	_sel := selection.New[string]("node action:", []string{"Node Reboot", "Node Set Tag"})
+	_sel := selection.New[string]("node action:", []string{"Node Reboot", "Save Tag", "Save Channel"})
 	_sel.Filter = nil
 	_sel.Template = selection.DefaultTemplate
 	sel := selection.NewModel(_sel)

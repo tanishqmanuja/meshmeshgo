@@ -147,7 +147,7 @@ func (client *ApiConnection) Read() {
 				client.forward(buffer[0])
 			} else {
 				logrus.WithField("state", client.connpath.connState).
-					Error("Readed data while in wrong connection state")
+					Error(fmt.Errorf("readed data while in wrong connection state %d", client.connpath.connState))
 			}
 		} else {
 			logrus.WithFields(logrus.Fields{"handle": client.connpath.handle, "err": err}).Warn("ApiConnection.Read exit with error")

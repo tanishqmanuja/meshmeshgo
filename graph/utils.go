@@ -10,7 +10,7 @@ func FmtNodePath(gpath *GraphPath, nodeid int64) string {
 			if len(_path) > 0 {
 				_path += " > "
 			}
-			_path += utils.FmtNodeId(uint32(p))
+			_path += utils.FmtNodeId(p)
 		}
 	}
 	return _path

@@ -91,7 +91,7 @@ func (m *CoordinatorInfoModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m *CoordinatorInfoModel) View() string {
-	return fmt.Sprintf("Coordinator ID: %s\n", utils.FmtNodeId(uint32(gpath.SourceNode)))
+	return fmt.Sprintf("Coordinator ID: %s\n", utils.FmtNodeId(gpath.SourceNode))
 }
 
 func (m *CoordinatorInfoModel) Focused() bool {
@@ -167,6 +167,8 @@ func (m model) execute_command(cmd string) Model {
 			return NewGraphShowModel(m.ti)
 		} else if token == "node" {
 			return m.execute_node_command(tokens)
+		} else if token == "discovery" {
+			return NewDiscoveryModel(m.ti)
 		}
 	}
 	return nil

@@ -123,6 +123,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if m.submodel != nil {
 		m.submodel, cmd = m.submodel.Update(msg)
+		cmds = append(cmds, cmd)
 	}
 
 	if m.submodel != nil {
@@ -138,7 +139,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.textInput.Focus()
 		}
 	}
-	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
 }

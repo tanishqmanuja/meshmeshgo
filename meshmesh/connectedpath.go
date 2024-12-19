@@ -121,7 +121,7 @@ func (client *ConnPathConnection) OpenConnectionAsync2(textaddr string, port uin
 
 func (client *ConnPathConnection) OpenConnectionAsync(addr MeshNodeId, port uint16) error {
 	client.address = addr
-	log.WithFields(log.Fields{"addr": utils.FmtNodeId(uint32(addr)), "port": port, "handle": client.handle}).
+	log.WithFields(log.Fields{"addr": utils.FmtNodeId(int64(addr)), "port": port, "handle": client.handle}).
 		Debug("ConnPathConnection.OpenConnectionAsync")
 
 	_path, _, err := client.graph.GetPath(int64(addr))

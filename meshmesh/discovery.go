@@ -11,11 +11,28 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 
 	gra "leguru.net/m/v2/graph"
+	"leguru.net/m/v2/utils"
 )
+
+type DiscoveryProcedure struct {
+	serial      *SerialConnection
+	graph       *gra.GraphPath
+	currentNode gra.MeshNode
+	Neighbors   map[int64]discWeights
+}
+
+func (d *DiscoveryProcedure) CurrentNode() int64 {
+	return d.currentNode.ID()
+}
 
 type _weightsStats struct {
 	From float64
 	To   float64
+}
+
+type discWeights struct {
+	Current float64
+	Next    float64
 }
 
 func _rssi2weight(rssi int16) float64 {
@@ -40,6 +57,42 @@ func _mapOfNeighbors(g *simple.WeightedDirectedGraph, n graph.Node, w map[int64]
 			return errors.New("corrupted graph")
 		}
 		w[neighbor.ID()] = _weightsStats{To: weightTo, From: weightFrom}
+	}
+	return nil
+}
+
+func neighborsFromGraph(g *simple.WeightedDirectedGraph, n graph.Node, w map[int64]discWeights) error {
+	neighbors := g.From(n.ID())
+	for neighbors.Next() {
+		neighbor := neighbors.Node()
+		weightTo, ok := g.Weight(n.ID(), neighbor.ID())
+		if !ok {
+			return errors.New("corrupted graph")
+		}
+		weightFrom, ok := g.Weight(neighbor.ID(), n.ID())
+		if !ok {
+			return errors.New("corrupted graph")
+		}
+		w[neighbor.ID()] = discWeights{Current: 1.0, Next: math.Min(weightTo, weightFrom)}
+	}
+	return nil
+}
+
+func neighborsAdavance(w map[int64]discWeights) {
+	for i, d := range w {
+		w[i] = discWeights{Current: d.Next, Next: 1.0}
+	}
+}
+
+func neighborsToGraph(g *gra.GraphPath, w map[int64]discWeights) {
+
+}
+
+func _updateNeighbor(w map[int64]discWeights, id int64, rssi1, rssi2 float64) error {
+	if _, exists := w[id]; exists {
+		w[id] = discWeights{Current: w[id].Current, Next: math.Min(rssi1, rssi2)}
+	} else {
+		w[id] = discWeights{Current: 1.0, Next: math.Min(rssi1, rssi2)}
 	}
 	return nil
 }
@@ -157,4 +210,79 @@ func DoDiscovery(serial *SerialConnection) error {
 
 	g.WriteGraphXml("discovery.graphml")
 	return nil
+}
+
+func (d *DiscoveryProcedure) Init() error {
+	var err error
+
+	d.graph, err = gra.NewGraphPath(int64(d.serial.LocalNode))
+	if err != nil {
+		return err
+	}
+
+	d.currentNode = _findNextNode(d.graph)
+	d.Neighbors = make(map[int64]discWeights)
+	neighborsFromGraph(d.graph.Graph, d.currentNode, d.Neighbors)
+	return nil
+}
+
+func (d *DiscoveryProcedure) Step() error {
+	protocol := directProtocol
+	if d.currentNode.ID() != d.graph.SourceNode {
+		protocol = UnicastProtocol
+	}
+
+	log.Printf("Start dicover of node %06X", d.currentNode.ID())
+
+	_, err := d.serial.SendReceiveApiProt(DiscResetTableApiRequest{}, protocol, MeshNodeId(d.currentNode.ID()))
+	if err != nil {
+		return err
+	}
+
+	_, err = d.serial.SendReceiveApiProt(DiscStartDiscoverApiRequest{Mask: 0, Filter: 0, Slotnum: 100}, protocol, MeshNodeId(d.currentNode.ID()))
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(3 * time.Second)
+
+	reply1, err := d.serial.SendReceiveApiProt(DiscTableSizeApiRequest{}, protocol, MeshNodeId(d.currentNode.ID()))
+	if err != nil {
+		return err
+	}
+	tableSize, ok := reply1.(DiscTableSizeApiReply)
+	if !ok {
+		return errors.New("comunication error")
+	}
+
+	neighborsAdavance(d.Neighbors)
+	for i := uint8(0); i < tableSize.Size; i++ {
+
+		reply1, err = d.serial.SendReceiveApiProt(DiscTableItemGetApiRequest{Index: i}, protocol, MeshNodeId(d.currentNode.ID()))
+		if err != nil {
+			return err
+		}
+		tableItem, ok := reply1.(DiscTableItemGetApiReply)
+		if !ok {
+			return errors.New("comunication error")
+		}
+
+		log.Printf("Query of row %d node %s rssi1 %d rssi2 %d", i, utils.FmtNodeId(int64(tableItem.NodeId)), tableItem.Rssi1, tableItem.Rssi2)
+		_updateNeighbor(d.Neighbors, int64(tableItem.NodeId), _rssi2weight(tableItem.Rssi1), _rssi2weight(tableItem.Rssi2))
+		//d.graph.ChangeEdgeWeight(d.currentNode.ID(), int64(tableItem.NodeId), _rssi2weight(tableItem.Rssi2), _rssi2weight(tableItem.Rssi1))
+	}
+	return err
+}
+
+func (d *DiscoveryProcedure) Save() error {
+	if d.currentNode.ID() == -1 {
+		return errors.New("discovery is inactive")
+	}
+	neighborsToGraph(d.graph, d.Neighbors)
+	return nil
+
+}
+
+func NewDiscoveryProcedure(serial *SerialConnection) *DiscoveryProcedure {
+	return &DiscoveryProcedure{serial: serial, currentNode: gra.NewMeshNode(-1)}
 }

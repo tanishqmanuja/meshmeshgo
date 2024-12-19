@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/charmbracelet/log"
 	"github.com/sirupsen/logrus"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
@@ -205,6 +206,10 @@ func NewGraphPath(sourcenode int64) (*GraphPath, error) {
 
 func NewGraphPathFromFile(filename string, sourcenode int64) (*GraphPath, error) {
 	graph := GraphPath{SourceNode: sourcenode, attrs: make(map[int64]MeshNodeAttrs), edgeAttrs: make(map[int64]MeshEdgeAttrs)}
-	graph.readGraphXml()
+	//graph.readGraphXml()
+	err := graph.readGraph()
+	if err != nil {
+		log.Error(err)
+	}
 	return &graph, nil
 }

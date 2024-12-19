@@ -85,7 +85,7 @@ func main() {
 		log.WithField("node", graph.SourceNode).Fatal("Local node does not exists in grpah")
 	}
 
-	fmt.Println("Coordinator node is " + utils.FmtNodeId(uint32(graph.SourceNode)))
+	fmt.Println("Coordinator node is " + utils.FmtNodeId(graph.SourceNode))
 
 	fmt.Println("|----------|----------------|--------------------|------|--------------------------------------------------|------|")
 	fmt.Println("| Node Id  | Node Address   | Node Tag           | Port | Path                                             | Wei. |")
@@ -93,7 +93,7 @@ func main() {
 
 	inuse := graph.GetAllInUse()
 	for _, d := range inuse {
-		nid := uint32(d)
+		nid := d
 
 		var _path string
 		path, weight, err := graph.GetPath(d)
@@ -102,7 +102,7 @@ func main() {
 				if len(_path) > 0 {
 					_path += " > "
 				}
-				_path += utils.FmtNodeId(uint32(p))
+				_path += utils.FmtNodeId(p)
 			}
 		}
 
