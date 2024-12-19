@@ -5,9 +5,6 @@ import (
 	"context"
 	"errors"
 	"net"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -153,7 +150,16 @@ func (m model) View() string {
 	return buffer.String()
 }
 
-func TuiStart(host, port string, _gpath *graph.GraphPath, _sconn *meshmesh.SerialConnection) {
+func ShutdownSshServer(s *ssh.Server) {
+	log.Info("Stopping SSH server")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer func() { cancel() }()
+	if err := s.Shutdown(ctx); err != nil && !errors.Is(err, ssh.ErrServerClosed) {
+		log.Error("Could not stop server", "error", err)
+	}
+}
+
+func NewSshServer(host, port string, _gpath *graph.GraphPath, _sconn *meshmesh.SerialConnection) (*ssh.Server, error) {
 	gpath = _gpath
 	sconn = _sconn
 
@@ -171,21 +177,13 @@ func TuiStart(host, port string, _gpath *graph.GraphPath, _sconn *meshmesh.Seria
 		log.Error("Could not start server", "error", err)
 	}
 
-	done := make(chan os.Signal, 1)
-	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	log.Info("Starting SSH server", "host", host, "port", port)
+
 	go func() {
 		if err = s.ListenAndServe(); err != nil && !errors.Is(err, ssh.ErrServerClosed) {
 			log.Error("Could not start server", "error", err)
-			done <- nil
 		}
 	}()
 
-	<-done
-	log.Info("Stopping SSH server")
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer func() { cancel() }()
-	if err := s.Shutdown(ctx); err != nil && !errors.Is(err, ssh.ErrServerClosed) {
-		log.Error("Could not stop server", "error", err)
-	}
+	return s, err
 }

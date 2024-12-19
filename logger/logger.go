@@ -23,6 +23,18 @@ func Log() *logrus.Logger {
 	return log
 }
 
+func Error(args ...interface{}) {
+	logrus.Error(args...)
+}
+
+func Debug(args ...interface{}) {
+	logrus.Debug(args...)
+}
+
+func Printf(format string, args ...interface{}) {
+	logrus.Printf(format, args...)
+}
+
 func WithField(key string, value interface{}) *logrus.Entry {
 	return log.WithField(key, value)
 }
