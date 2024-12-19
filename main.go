@@ -1,12 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"leguru.net/m/v2/graph"
 	gra "leguru.net/m/v2/graph"
+	log "leguru.net/m/v2/logger"
 	"leguru.net/m/v2/meshmesh"
 	"leguru.net/m/v2/tui"
 	"leguru.net/m/v2/utils"
@@ -14,17 +15,10 @@ import (
 
 var debugNodeId int = 0
 
-var log = &logrus.Logger{
-	Out:       os.Stderr,
-	Formatter: &logrus.TextFormatter{DisableTimestamp: false, FullTimestamp: true, DisableColors: false},
-	Hooks:     make(logrus.LevelHooks),
-	Level:     logrus.WarnLevel,
-}
-
 func main() {
 	config, err := NewConfig()
 	if err != nil {
-		log.Fatal("Invalid config options: ", err)
+		log.Log().Fatal("Invalid config options: ", err)
 	}
 
 	if config.WantHelp {
@@ -39,34 +33,32 @@ func main() {
 		log.SetLevel(logrus.InfoLevel)
 	}
 
-	log.WithFields(logrus.Fields{"portName": config.SerialPortName, "baudRate": config.SerialPortBaudRate}).
-		Debug("Opening serial port")
-
+	log.WithFields(log.Fields{"portName": config.SerialPortName, "baudRate": config.SerialPortBaudRate}).Debug("Opening serial port")
 	serialPort, err := meshmesh.NewSerial(config.SerialPortName, config.SerialPortBaudRate, false)
 	if err != nil {
-		log.Fatal("Serial port error: ", err)
+		log.Log().Fatal("Serial port error: ", err)
 	}
 
 	_debugNodeId, err := gra.ParseNodeIdForGrpah(config.DebugNodeAddr)
 	if err == nil {
 		debugNodeId = int(_debugNodeId)
-		log.WithFields(logrus.Fields{"id": debugNodeId}).Info("Enabling debug of node")
+		log.Log().WithFields(logrus.Fields{"id": debugNodeId}).Info("Enabling debug of node")
 	}
 
-	graph, err := gra.NewGraphPathFromFile("meshmesh.graphml", int64(serialPort.LocalNode))
+	graphpath, err := gra.NewGraphPathFromFile("meshmesh.graphml", int64(serialPort.LocalNode))
 	if err != nil {
-		log.Fatal("GraphPath error: ", err)
+		log.Log().Fatal("GraphPath error: ", err)
 	}
 
 	if len(config.FirmwarePath) > 0 {
 		if _, err := os.Stat(config.FirmwarePath); err != nil {
-			log.WithField("err", err).Error("Check firmware file failed")
+			log.Log().WithField("err", err).Error("Check firmware file failed")
 			os.Exit(-1)
 		}
 
 		err = meshmesh.UploadFirmware(meshmesh.MeshNodeId(config.TargetNode), config.FirmwarePath, serialPort)
 		if err != nil {
-			log.WithField("err", err).Error("Upload firmware failed")
+			log.Log().WithField("err", err).Error("Upload firmware failed")
 			os.Exit(-1)
 		}
 
@@ -74,46 +66,26 @@ func main() {
 	} else if config.Discovery {
 		err = meshmesh.DoDiscovery(serialPort)
 		if err != nil {
-			log.WithField("err", err).Error("Error during discovery")
+			log.Log().WithField("err", err).Error("Error during discovery")
 			os.Exit(-1)
 		}
 
 		os.Exit(0)
 	}
 
-	if !graph.NodeExists(graph.SourceNode) {
-		log.WithField("node", graph.SourceNode).Fatal("Local node does not exists in grpah")
+	if !graphpath.NodeExists(graphpath.SourceNode) {
+		log.Log().WithField("node", graphpath.SourceNode).Fatal("Local node does not exists in grpah")
 	}
 
-	fmt.Println("Coordinator node is " + utils.FmtNodeId(graph.SourceNode))
+	log.Log().Info("Coordinator node is " + utils.FmtNodeId(graphpath.SourceNode))
+	graph.PrintTable(graphpath)
 
-	fmt.Println("|----------|----------------|--------------------|------|--------------------------------------------------|------|")
-	fmt.Println("| Node Id  | Node Address   | Node Tag           | Port | Path                                             | Wei. |")
-	fmt.Println("|----------|----------------|--------------------|------|--------------------------------------------------|------|")
-
-	inuse := graph.GetAllInUse()
-	for _, d := range inuse {
-		nid := d
-
-		var _path string
-		path, weight, err := graph.GetPath(d)
-		if err == nil {
-			for _, p := range path {
-				if len(_path) > 0 {
-					_path += " > "
-				}
-				_path += utils.FmtNodeId(p)
-			}
-		}
-
-		fmt.Printf("| %s | %15s | %-18s | %4d | %-48s | %3.2f |\n", utils.FmtNodeId(nid), utils.FmtNodeIdHass(nid), graph.NodeTag(d), 6053, _path, weight)
-		go meshmesh.ListenToApiConnetions(serialPort, graph, utils.FmtNodeIdHass(nid), 6053, meshmesh.MeshNodeId(nid))
+	inuse := graphpath.GetAllInUse()
+	for _, nid := range inuse {
+		go meshmesh.ListenToApiConnetions(serialPort, graphpath, utils.FmtNodeIdHass(nid), 6053, meshmesh.MeshNodeId(nid))
 	}
 
-	fmt.Println("|----------|----------------|--------------------|------|--------------------------------------------------|------|")
-	fmt.Println("")
-
-	go tui.TuiStart("0.0.0.0", "2024", graph, serialPort)
+	go tui.TuiStart("0.0.0.0", "2024", graphpath, serialPort)
 	var lastStatsTime time.Time
 	for {
 		time.Sleep(1 * time.Second)
