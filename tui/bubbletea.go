@@ -23,6 +23,7 @@ import (
 )
 
 var sconn *meshmesh.SerialConnection
+var esphome *meshmesh.MultiServerApi
 var gpath *graph.GraphPath = nil
 
 type Model interface {
@@ -81,6 +82,7 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+	var cmds tea.BatchMsg
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -104,7 +106,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.submodel == nil || !m.submodel.Focused() {
 				m.submodel = m.execute_command(m.textInput.Value())
 				if m.submodel != nil {
-					m.submodel.Init()
+					cmd = m.submodel.Init()
+					cmds = append(cmds, cmd)
 				}
 				m.textInput.SetValue("")
 				m.textInput.SetSuggestions(get_suggestions(""))
@@ -114,7 +117,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg
 	}
 
-	var cmds tea.BatchMsg
 	m.textInput, cmd = m.textInput.Update(msg)
 	cmds = append(cmds, cmd)
 
@@ -159,9 +161,10 @@ func ShutdownSshServer(s *ssh.Server) {
 	}
 }
 
-func NewSshServer(host, port string, _gpath *graph.GraphPath, _sconn *meshmesh.SerialConnection) (*ssh.Server, error) {
+func NewSshServer(host, port string, _gpath *graph.GraphPath, _sconn *meshmesh.SerialConnection, _esphome *meshmesh.MultiServerApi) (*ssh.Server, error) {
 	gpath = _gpath
 	sconn = _sconn
+	esphome = _esphome
 
 	s, err := wish.NewServer(
 		wish.WithAddress(net.JoinHostPort(host, port)),

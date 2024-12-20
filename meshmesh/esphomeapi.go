@@ -62,6 +62,7 @@ func (client *ApiConnection) forward(lastbyte byte) {
 			logger.WithField("handle", client.connpath.handle).
 				Trace(fmt.Sprintf("HA-->SE: %s", hex.EncodeToString(client.inBuffer.Bytes())))
 			err := client.connpath.SendData(client.inBuffer.Bytes())
+			client.stats.SentBytes(client.inBuffer.Len())
 			if err != nil {
 				logger.Log().Error(fmt.Sprintf("Error writng on socket: %s", err.Error()))
 			}
@@ -75,7 +76,7 @@ func (client *ApiConnection) startHandshake(addr MeshNodeId, port int) error {
 	client.reqPort = port
 	err := client.connpath.OpenConnectionAsync(addr, uint16(port))
 	if err == nil {
-		client.stats = _allStats.StartConnection(addr)
+		client.stats.Start()
 		if addr == MeshNodeId(0) {
 			client.debugThisNode = true
 			logger.WithFields(logger.Fields{"id": fmt.Sprintf("%02X", addr)}).Info("startHandshake and debug for node")
@@ -116,6 +117,7 @@ func (client *ApiConnection) Close() {
 	utils.ForceDebug(client.debugThisNode, "Waiting for read go-routine to terminate...")
 	client.socketWaitGroup.Wait()
 	client.clientClosed(client)
+	client.stats.Stop()
 }
 
 func (client *ApiConnection) CheckTimeout() {
@@ -141,6 +143,7 @@ func (client *ApiConnection) Read() {
 	for {
 		var buffer = make([]byte, 1)
 		_, err = client.socket.Read(buffer)
+		client.stats.ReceivedBytes(1)
 
 		if err == nil {
 			if client.connpath.connState == connPathConnectionStateHandshakeStarted {
@@ -189,6 +192,7 @@ func NewApiConnection(connection net.Conn, serial *SerialConnection, graph *grap
 		inBuffer:     bytes.NewBuffer([]byte{}),
 		timeout:      time.Now(),
 		clientClosed: closedCb,
+		stats:        _allStats.Stats(addr),
 	}
 
 	err := client.startHandshake(addr, 6053)
@@ -373,6 +377,10 @@ func (m *MultiServerApi) HandleConnectedPathReply(v *ConnectedPathApiReply) {
 			Error("HandleConnectedPathReply: Connection not found for this handle")
 		SendInvalidHandle(m.serial, v.Handle)
 	}
+}
+
+func (m *MultiServerApi) Stats() *EspApiStats {
+	return m.espApiStats
 }
 
 func (m *MultiServerApi) PrintStats() {

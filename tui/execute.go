@@ -169,6 +169,8 @@ func (m model) execute_command(cmd string) Model {
 			return m.execute_node_command(tokens)
 		} else if token == "discovery" {
 			return NewDiscoveryModel(m.ti)
+		} else if token == "esphome" {
+			return NewEspHomeModel(m.ti)
 		}
 	}
 	return nil

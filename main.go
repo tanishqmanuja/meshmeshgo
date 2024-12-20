@@ -93,9 +93,9 @@ func main() {
 	logger.Log().Info("Coordinator node is " + utils.FmtNodeId(graphpath.SourceNode))
 	graph.PrintTable(graphpath)
 
-	multiserverapi := meshmesh.NewMultiServerApi(serialPort, graphpath)
+	esphomeapi := meshmesh.NewMultiServerApi(serialPort, graphpath)
 
-	sshsrv, err := tui.NewSshServer("0.0.0.0", "2024", graphpath, serialPort)
+	sshsrv, err := tui.NewSshServer("0.0.0.0", "2024", graphpath, serialPort, esphomeapi)
 	if err != nil {
 		logger.Error(err)
 	}
@@ -111,7 +111,7 @@ func main() {
 		}
 		if time.Since(lastStatsTime) > 1*time.Minute {
 			lastStatsTime = time.Now()
-			multiserverapi.PrintStats()
+			esphomeapi.PrintStats()
 		}
 	}
 
