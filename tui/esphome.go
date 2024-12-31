@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"bytes"
 	"fmt"
 	"strconv"
 	"time"
@@ -9,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/evertras/bubble-table/table"
+	"leguru.net/m/v2/graph"
 	"leguru.net/m/v2/logger"
 	"leguru.net/m/v2/meshmesh"
 	"leguru.net/m/v2/utils"
@@ -17,7 +17,9 @@ import (
 const (
 	colConnKeyId       = "id"
 	colConnKeyActive   = "ison"
-	colConnKeyAddr     = "addr"
+	colConnKeyTag      = "tag"
+	colConnKeyHost     = "addr"
+	colConnKeyNodeId   = "node"
 	colConnKeyHandle   = "hndl"
 	colConnKeySent     = "sent"
 	colConnKeyReceived = "recv"
@@ -34,54 +36,48 @@ func tickCmd() tea.Cmd {
 }
 
 type EspHomeModel struct {
-	ti    termInfo
-	table table.Model
+	ti                     termInfo
+	table                  table.Model
+	lastTableSelectedEvent table.UserEventRowSelectToggled
 }
 
 func (m *EspHomeModel) makeColumns() []table.Column {
 	return []table.Column{
-		table.NewColumn(colConnKeyId, "Id", 2),
+		table.NewColumn(colConnKeyHost, "Host", 16),
+		table.NewColumn(colConnKeyNodeId, "NodeId", 8),
+		table.NewColumn(colConnKeyTag, "Tag", 24),
 		table.NewColumn(colConnKeyActive, "A", 1),
-		table.NewColumn(colConnKeyAddr, "Address", 8),
 		table.NewColumn(colConnKeyHandle, "Hndl", 4),
-		table.NewColumn(colConnKeySent, "Sent", 12),
-		table.NewColumn(colConnKeyReceived, "Recv", 12),
-		table.NewColumn(colConnKeyDuration, "Delta", 8),
-		table.NewColumn(colConnKeyStart, "Started", 12),
+		table.NewColumn(colConnKeySent, "Sent", 8),
+		table.NewColumn(colConnKeyReceived, "Recv", 8),
+		table.NewColumn(colConnKeyDuration, "Delta", 18),
+		table.NewColumn(colConnKeyStart, "Started", 18),
 	}
 }
 
-func (m *EspHomeModel) makeRow(index int, isactive string, addr meshmesh.MeshNodeId, handle uint16, sent int, recv int, duration time.Duration, start time.Duration) table.Row {
+func (m *EspHomeModel) makeRow(nodeid meshmesh.MeshNodeId, client *meshmesh.ApiConnection) table.Row {
+	device := gpath.Node(int64(nodeid)).(*graph.Device)
 	return table.NewRow(
 		table.RowData{
-			colConnKeyId:       strconv.Itoa(index),
-			colConnKeyActive:   isactive,
-			colConnKeyAddr:     utils.FmtNodeId(int64(addr)),
-			colConnKeyHandle:   strconv.Itoa(int(handle)),
-			colConnKeySent:     strconv.Itoa(int(sent)),
-			colConnKeyReceived: strconv.Itoa(int(recv)),
-			colConnKeyDuration: duration.String(),
-			colConnKeyStart:    start.String(),
+			colConnKeyHost:     utils.FmtNodeIdHass(int64(nodeid)),
+			colConnKeyNodeId:   utils.FmtNodeId(int64(nodeid)),
+			colConnKeyTag:      device.Tag(),
+			colConnKeyActive:   client.Stats.IsActiveAsText(),
+			colConnKeyHandle:   client.Stats.GetLastHandle(),
+			colConnKeySent:     client.Stats.BytesOut(),
+			colConnKeyReceived: client.Stats.BytesIn(),
+			colConnKeyDuration: client.Stats.TimeSinceLastConnection().String(),
+			colConnKeyStart:    client.Stats.LastConnectionDuration().String(),
 		},
 	)
 }
 
 func (m *EspHomeModel) tableRows() []table.Row {
-	num := 0
 	rows := []table.Row{}
-	stats := esphome.Stats()
-	for nodeid, conn := range stats.Connections {
-		num += 1
-		rows = append(rows, m.makeRow(
-			num,
-			conn.IsActiveAsText(),
-			nodeid,
-			conn.GetLastHandle(),
-			conn.BytesOut(),
-			conn.BytesIn(),
-			conn.LastConnectionDuration().Round(time.Second),
-			conn.TimeSinceLastConnection().Round(time.Second),
-		))
+	for _, server := range esphome.Servers {
+		for _, client := range server.Clients {
+			rows = append(rows, m.makeRow(server.Address, client))
+		}
 	}
 	return rows
 }
@@ -93,23 +89,52 @@ func (m *EspHomeModel) Init() tea.Cmd {
 
 func (m *EspHomeModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var (
-		cmd tea.Cmd
+		cmd  tea.Cmd
+		cmds []tea.Cmd
 	)
 
-	switch msg.(type) {
-	case tickMsg:
-		m.table = m.table.WithRows(m.tableRows())
-		return m, tea.Batch(tickCmd(), cmd)
+	m.table, cmd = m.table.Update(msg)
+	cmds = append(cmds, cmd)
+
+	for _, e := range m.table.GetLastUpdateUserEvents() {
+		switch e := e.(type) {
+		case table.UserEventRowSelectToggled:
+			m.lastTableSelectedEvent = e
+		}
 	}
 
-	return m, cmd
+	switch msg := msg.(type) {
+	case tickMsg:
+		m.table = m.table.WithRows(m.tableRows())
+		cmds = append(cmds, tickCmd())
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "c":
+			if m.table.HighlightedRow().Data[colConnKeyNodeId] != nil {
+				addr, err := strconv.ParseInt(m.table.HighlightedRow().Data[colConnKeyNodeId].(string), 0, 32)
+				if err == nil {
+					esphome.CloseConnection(meshmesh.MeshNodeId(addr))
+				}
+			}
+		}
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m *EspHomeModel) View() string {
-	var buffer bytes.Buffer
-	buffer.WriteString(fmt.Sprintf("Active connections: %d\n", esphome.Stats().CountCounnections()))
-	buffer.WriteString(m.table.View())
-	return buffer.String()
+	//var buffer bytes.Buffer
+	view := lipgloss.JoinVertical(
+		lipgloss.Left,
+		fmt.Sprintf("Last selected: %d", m.lastTableSelectedEvent.RowIndex),
+		fmt.Sprintf("Highlighted: %s", m.table.HighlightedRow().Data[colKeyAddr]),
+		fmt.Sprintf("Active connections: %d\n", esphome.Stats().CountCounnections()),
+		m.table.View(),
+	)
+	return m.ti.renderer.NewStyle().MarginLeft(1).Render(view)
+	//buffer.WriteString(fmt.Sprintf("Active connections: %d\n", esphome.Stats().CountCounnections()))
+	//buffer.WriteString(m.table.View())
+	//return buffer.String()
 }
 
 func (m *EspHomeModel) Focused() bool {

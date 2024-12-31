@@ -24,7 +24,7 @@ import (
 
 var sconn *meshmesh.SerialConnection
 var esphome *meshmesh.MultiServerApi
-var gpath *graph.GraphPath = nil
+var gpath *graph.Network = nil
 
 type Model interface {
 	Init() tea.Cmd
@@ -161,7 +161,7 @@ func ShutdownSshServer(s *ssh.Server) {
 	}
 }
 
-func NewSshServer(host, port string, _gpath *graph.GraphPath, _sconn *meshmesh.SerialConnection, _esphome *meshmesh.MultiServerApi) (*ssh.Server, error) {
+func NewSshServer(host, port string, _gpath *graph.Network, _sconn *meshmesh.SerialConnection, _esphome *meshmesh.MultiServerApi) (*ssh.Server, error) {
 	gpath = _gpath
 	sconn = _sconn
 	esphome = _esphome

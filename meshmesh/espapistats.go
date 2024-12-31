@@ -50,11 +50,13 @@ func (s *EspApiConnectionStats) BytesOut() int {
 }
 
 func (s *EspApiConnectionStats) Start() {
+	s.active = true
 	s.lastConnStart = time.Now()
 	s.lastConnStop = time.Now()
 }
 
 func (s *EspApiConnectionStats) Stop() {
+	s.active = false
 	s.lastConnStop = time.Now()
 }
 

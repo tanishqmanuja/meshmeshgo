@@ -2,11 +2,11 @@ package meshmesh
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 
 	"github.com/go-restruct/restruct"
-	"github.com/sirupsen/logrus"
-	l "leguru.net/m/v2/logger"
+	"leguru.net/m/v2/logger"
 )
 
 type MeshNodeId uint32
@@ -130,6 +130,15 @@ type DiscoveryApiRequest struct {
 const discoveryApiReply uint8 = 27
 
 type DiscoveryApiReply struct {
+	Id    uint8 `struct:"uint8"`
+	ApiId uint8 `struct:"uint8"`
+}
+
+const flashOperationApiRequest uint8 = 30
+
+const flashOperationApiReply uint8 = 31
+
+type FlashOperationApiReply struct {
 	Id    uint8 `struct:"uint8"`
 	ApiId uint8 `struct:"uint8"`
 }
@@ -270,6 +279,56 @@ type DiscStartDiscoverApiReply struct {
 }
 
 /* ----------------------------------------------------------------
+   Flash
+ ---------------------------------------------------------------- */
+
+const flashGetMd5Api uint8 = 1
+
+type FlashGetMd5ApiRequest struct {
+	Id      uint8  `struct:"uint8"`
+	ApiId   uint8  `struct:"uint8"`
+	Address uint32 `struct:"uint32"`
+	Length  uint32 `struct:"uint32"`
+}
+
+type FlashGetMd5ApiReply struct {
+	Id     uint8  `struct:"uint8"`
+	ApiId  uint8  `struct:"uint8"`
+	Erased bool   `struct:"bool"`
+	MD5    []byte `struct:"[16]byte"`
+}
+
+const flashEraseApi uint8 = 2
+
+type FlashEraseApiRequest struct {
+	Id      uint8  `struct:"uint8"`
+	ApiId   uint8  `struct:"uint8"`
+	Address uint32 `struct:"uint32"`
+	Length  uint32 `struct:"uint32"`
+}
+
+type FlashEraseApiReply struct {
+	Id     uint8 `struct:"uint8"`
+	ApiId  uint8 `struct:"uint8"`
+	Erased uint8 `struct:"uint8"`
+}
+
+const flashWriteApi uint8 = 3
+
+type FlashWriteApiRequest struct {
+	Id      uint8  `struct:"uint8"`
+	ApiId   uint8  `struct:"uint8"`
+	Address uint32 `struct:"uint32"`
+	Data    []byte `struct:"[]byte"`
+}
+
+type FlashWriteApiReply struct {
+	Id     uint8 `struct:"uint8"`
+	ApiId  uint8 `struct:"uint8"`
+	Result bool  `struct:"bool"`
+}
+
+/* ----------------------------------------------------------------
    ApiFrame
  ---------------------------------------------------------------- */
 
@@ -282,7 +341,9 @@ func (frame *ApiFrame) awaitedReplyBytes(index uint16) (uint8, uint8, error) {
 	var wantType uint8 = frame.data[index]&0xFE + 1
 	var wantSubtype uint8 = 0
 
-	if wantSubtype == discoveryApiReply {
+	if wantType == discoveryApiReply {
+		wantSubtype = frame.data[index+1]&0xFE + 1
+	} else if wantType == flashOperationApiReply {
 		wantSubtype = frame.data[index+1]&0xFE + 1
 	}
 
@@ -304,10 +365,9 @@ func (frame *ApiFrame) AwaitedReply() (uint8, uint8, error) {
 		}
 	}
 }
-
 func (frame *ApiFrame) AssertType(wantedType uint8, wantedSubtype uint8) bool {
 	if len(frame.data) == 0 || frame.data[0] != wantedType && (wantedSubtype > 0 && (len(frame.data) < 2 || frame.data[1] != wantedSubtype)) {
-		l.Log().WithFields(logrus.Fields{"Want": wantedType, "Got": frame.data[0]}).Error("AssertType failed")
+		logger.WithFields(logger.Fields{"Want": wantedType, "Got": frame.data[0]}).Error("AssertType failed")
 		return false
 	} else {
 		return true
@@ -319,15 +379,25 @@ func (frame *ApiFrame) Escape() {
 		return
 	}
 
-	var out []byte = []byte{}
+	var escapes = 0
 	for _, b := range frame.data {
 		if b == stopApiFrame || b == startApiFrame || b == escapeApiFrame {
-			out = append(out, escapeApiFrame)
+			escapes += 1
 		}
-		out = append(out, b)
 	}
 
-	frame.data = out
+	var j = 0
+	escaped := make([]byte, len(frame.data)+escapes)
+	for _, b := range frame.data {
+		if b == stopApiFrame || b == startApiFrame || b == escapeApiFrame {
+			escaped[j] = escapeApiFrame
+			j += 1
+		}
+		escaped[j] = b
+		j += 1
+	}
+
+	frame.data = escaped
 	frame.escaped = true
 }
 
@@ -376,6 +446,7 @@ func (frame *ApiFrame) Decode() (interface{}, error) {
 		return v, nil
 	case logEventApiReply:
 		v := LogEventApiReply{}
+		logger.WithFields(logger.Fields{"data": hex.EncodeToString(frame.data)}).Debug("LogEventApiReply")
 		restruct.Unpack(frame.data, binary.LittleEndian, &v)
 		if len(frame.data) > 7 {
 			v.Line = string(frame.data[7:])
@@ -406,6 +477,23 @@ func (frame *ApiFrame) Decode() (interface{}, error) {
 			return vv, nil
 		case discStartDiscoverApiReply:
 			vv := DiscStartDiscoverApiReply{}
+			restruct.Unpack(frame.data, binary.LittleEndian, &vv)
+			return vv, nil
+		}
+	case flashOperationApiReply:
+		v := FlashOperationApiReply{}
+		restruct.Unpack(frame.data, binary.LittleEndian, &v)
+		switch v.ApiId {
+		case flashGetMd5Api:
+			vv := FlashGetMd5ApiReply{}
+			restruct.Unpack(frame.data, binary.LittleEndian, &vv)
+			return vv, nil
+		case flashEraseApi:
+			vv := FlashEraseApiReply{}
+			restruct.Unpack(frame.data, binary.LittleEndian, &vv)
+			return vv, nil
+		case flashWriteApi:
+			vv := FlashWriteApiReply{}
 			restruct.Unpack(frame.data, binary.LittleEndian, &vv)
 			return vv, nil
 		}
@@ -468,6 +556,18 @@ func EncodeBuffer(cmd interface{}) ([]byte, error) {
 		v.Id = discoveryApiRequest
 		v.ApiId = discStartDiscoverApiRequest
 		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case FlashGetMd5ApiRequest:
+		v.Id = flashOperationApiRequest
+		v.ApiId = flashGetMd5Api
+		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case FlashEraseApiRequest:
+		v.Id = flashOperationApiRequest
+		v.ApiId = flashEraseApi
+		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case FlashWriteApiRequest:
+		v.Id = flashOperationApiRequest
+		v.ApiId = flashWriteApi
+		b, err = restruct.Pack(binary.LittleEndian, &v)
 	default:
 		err = errors.New("unknow type request")
 	}
@@ -483,7 +583,7 @@ func (frame *ApiFrame) EncodeFrame(cmd interface{}) error {
 			err = errors.New("can't encode requested stuct")
 		} else {
 			frame.data = b
-			frame.escaped = true
+			//frame.escaped = true
 		}
 	}
 
@@ -511,7 +611,7 @@ func NewApiFrameFromStruct(v interface{}, protocol MeshProtocol, target MeshNode
 			err = f.EncodeFrame(p)
 		}
 	} else {
-		l.Log().Error("Unknow protocol requested")
+		logger.Error("Unknow protocol requested")
 	}
 	return f, err
 }

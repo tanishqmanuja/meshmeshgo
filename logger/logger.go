@@ -24,15 +24,15 @@ func Log() *logrus.Logger {
 }
 
 func Error(args ...interface{}) {
-	logrus.Error(args...)
+	log.Error(args...)
 }
 
 func Debug(args ...interface{}) {
-	logrus.Debug(args...)
+	log.Debug(args...)
 }
 
 func Printf(format string, args ...interface{}) {
-	logrus.Printf(format, args...)
+	log.Printf(format, args...)
 }
 
 func WithField(key string, value interface{}) *logrus.Entry {

@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"leguru.net/m/v2/utils"
+	"leguru.net/m/v2/graph"
 )
 
 type termInfo struct {
@@ -91,7 +90,7 @@ func (m *CoordinatorInfoModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m *CoordinatorInfoModel) View() string {
-	return fmt.Sprintf("Coordinator ID: %s\n", utils.FmtNodeId(gpath.SourceNode))
+	return fmt.Sprintf("Coordinator ID: %s\n", graph.FmtDeviceId(gpath.LocalDevice()))
 }
 
 func (m *CoordinatorInfoModel) Focused() bool {
@@ -131,14 +130,24 @@ func get_suggestions(cmd string) []string {
 
 func (m model) execute_node_info_command(tokens []string) Model {
 	if len(tokens) == 1 {
-		id, err := strconv.ParseInt(tokens[0], 0, 32)
+		id, err := graph.ParseDeviceId(tokens[0])
 		if err != nil {
 			return NewErrorReplyModel(m.ti, err)
 		} else {
-			return NewNodeInfoModel(m.ti, id)
+			var dev *graph.Device
+			if id == 0 {
+				dev = graph.NewDevice(0, true, "local")
+			} else {
+				dev = gpath.GetDevice(id)
+			}
+			if dev == nil {
+				return NewErrorReplyModel(m.ti, errors.New("node info: device not found in graph"))
+			}
+			return NewNodeInfoModel(m.ti, dev)
 		}
+	} else {
+		return NewErrorReplyModel(m.ti, errors.New("node info: invalid node ID"))
 	}
-	return NewErrorReplyModel(m.ti, errors.New("node info: missing node ID"))
 }
 
 func (m model) execute_node_command(tokens []string) Model {
@@ -152,6 +161,30 @@ func (m model) execute_node_command(tokens []string) Model {
 		}
 	}
 	return NewErrorReplyModel(m.ti, errors.New("node: unknow command"))
+}
+
+func (m model) execute_discovery_command(tokens []string) Model {
+	var nodeid int64 = 0
+	if len(tokens) > 0 {
+		var err error
+		nodeid, err = graph.ParseDeviceId(tokens[0])
+		if err != nil {
+			return NewErrorReplyModel(m.ti, err)
+		}
+	}
+	return NewDiscoveryModel(m.ti, nodeid)
+}
+
+func (m model) execute_firmware_command(tokens []string) Model {
+	var nodeid int64 = 0
+	if len(tokens) > 0 {
+		var err error
+		nodeid, err = graph.ParseDeviceId(tokens[0])
+		if err != nil {
+			return NewErrorReplyModel(m.ti, err)
+		}
+	}
+	return NewFirmwareModel(m.ti, nodeid)
 }
 
 func (m model) execute_command(cmd string) Model {
@@ -168,9 +201,11 @@ func (m model) execute_command(cmd string) Model {
 		} else if token == "node" {
 			return m.execute_node_command(tokens)
 		} else if token == "discovery" {
-			return NewDiscoveryModel(m.ti)
+			return m.execute_discovery_command(tokens)
 		} else if token == "esphome" {
 			return NewEspHomeModel(m.ti)
+		} else if token == "firmware" {
+			return m.execute_firmware_command(tokens)
 		}
 	}
 	return nil

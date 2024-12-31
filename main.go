@@ -7,16 +7,14 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"leguru.net/m/v2/graph"
 	gra "leguru.net/m/v2/graph"
 	"leguru.net/m/v2/logger"
 	"leguru.net/m/v2/meshmesh"
 	"leguru.net/m/v2/tui"
-	"leguru.net/m/v2/utils"
 )
 
 var quitProgram bool = false
-var debugNodeId int = 0
+var debugNodeId *gra.Device
 
 func waitForTermination() {
 	terminationRequested := make(chan os.Signal, 1)
@@ -52,50 +50,29 @@ func main() {
 		logger.Log().Fatal("Serial port error: ", err)
 	}
 
-	_debugNodeId, err := gra.ParseNodeIdForGrpah(config.DebugNodeAddr)
-	if err == nil {
-		debugNodeId = int(_debugNodeId)
+	network, err := gra.NewNeworkFromFile("meshmesh.graphml", int64(serialPort.LocalNode))
+	if err != nil {
+		logger.Log().Fatal("Graph read error: ", err)
+	}
+
+	if len(config.DebugNodeAddr) > 0 {
+		_debugNodeId, err := gra.ParseDeviceId(config.DebugNodeAddr)
+		if err != nil {
+			logger.WithField("err", err).Fatal("Invalid debug node id")
+		}
+		debugNodeId = network.Node(_debugNodeId).(*gra.Device)
+		if debugNodeId == nil {
+			logger.WithField("id", _debugNodeId).Fatal("Debug node not found in graph")
+		}
 		logger.WithFields(logger.Fields{"id": debugNodeId}).Info("Enabling debug of node")
 	}
 
-	graphpath, err := gra.NewGraphPathFromFile("meshmesh.graphml", int64(serialPort.LocalNode))
-	if err != nil {
-		logger.Log().Fatal("GraphPath error: ", err)
-	}
+	logger.Log().Info("Coordinator node is " + gra.FmtDeviceId(network.LocalDevice()))
+	gra.PrintTable(network)
 
-	if len(config.FirmwarePath) > 0 {
-		if _, err := os.Stat(config.FirmwarePath); err != nil {
-			logger.Log().WithField("err", err).Error("Check firmware file failed")
-			os.Exit(-1)
-		}
+	esphomeapi := meshmesh.NewMultiServerApi(serialPort, network)
 
-		err = meshmesh.UploadFirmware(meshmesh.MeshNodeId(config.TargetNode), config.FirmwarePath, serialPort)
-		if err != nil {
-			logger.Log().WithField("err", err).Error("Upload firmware failed")
-			os.Exit(-1)
-		}
-
-		os.Exit(0)
-	} else if config.Discovery {
-		err = meshmesh.DoDiscovery(serialPort)
-		if err != nil {
-			logger.Log().WithField("err", err).Error("Error during discovery")
-			os.Exit(-1)
-		}
-
-		os.Exit(0)
-	}
-
-	if !graphpath.NodeExists(graphpath.SourceNode) {
-		logger.Log().WithField("node", graphpath.SourceNode).Fatal("Local node does not exists in grpah")
-	}
-
-	logger.Log().Info("Coordinator node is " + utils.FmtNodeId(graphpath.SourceNode))
-	graph.PrintTable(graphpath)
-
-	esphomeapi := meshmesh.NewMultiServerApi(serialPort, graphpath)
-
-	sshsrv, err := tui.NewSshServer("0.0.0.0", "2024", graphpath, serialPort, esphomeapi)
+	sshsrv, err := tui.NewSshServer("0.0.0.0", "2024", network, serialPort, esphomeapi)
 	if err != nil {
 		logger.Error(err)
 	}

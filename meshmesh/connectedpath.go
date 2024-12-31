@@ -2,6 +2,7 @@ package meshmesh
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -15,7 +16,7 @@ const connectedPathInvalidHandleReply uint8 = 4
 const connectedPathSendDataRequest uint8 = 5
 const connectedPathOpenConnectionAck uint8 = 6
 const connectedPathOpenConnectionNack uint8 = 7
-const CONNPATH_DISCONNECT_REQ uint8 = 8
+const connectedPathDisconnectRequest uint8 = 8
 const connectedPathSendDataError uint8 = 9
 const connectedPathClearConnections uint8 = 10
 
@@ -33,7 +34,7 @@ type ConnPathConnection struct {
 	serial    *SerialConnection
 	handle    uint16
 	sequence  uint16
-	graph     *graph.GraphPath
+	graph     *graph.Network
 }
 
 func ParseAddress(address string) (MeshNodeId, error) {
@@ -123,11 +124,14 @@ func (client *ConnPathConnection) OpenConnectionAsync(addr MeshNodeId, port uint
 	logger.WithFields(logger.Fields{"addr": utils.FmtNodeId(int64(addr)), "port": port, "handle": client.handle}).
 		Debug("ConnPathConnection.OpenConnectionAsync")
 
-	_path, _, err := client.graph.GetPath(int64(addr))
+	device := client.graph.Node(int64(addr)).(*graph.Device)
+	if device == nil {
+		return fmt.Errorf("device %s not found in graph", utils.FmtNodeId(int64(addr)))
+	}
+	_path, _, err := client.graph.GetPath(device)
 	if err != nil {
 		return err
 	}
-
 	if len(_path) == 1 {
 		return errors.New("speak with local node is not yet supported")
 	}
@@ -154,6 +158,20 @@ func (client *ConnPathConnection) OpenConnectionAsync(addr MeshNodeId, port uint
 	)
 
 	return err
+}
+
+func (client *ConnPathConnection) Disconnect() {
+	client.serial.SendApi(ConnectedPathApiRequest{
+		Protocol: meshmeshProtocolConnectedPath,
+		Command:  connectedPathDisconnectRequest,
+		Handle:   client.handle,
+		Dummy:    0,
+		Sequence: client.getNextSequence(),
+		DataSize: 0,
+		Data:     []byte{},
+	})
+	logger.WithField("handle", client.handle).Debug("Sent Disconnect request")
+	client.connState = connPathConnectionStateInvalid
 }
 
 func (client *ConnPathConnection) handleIncomingOpenConnAck(_ *ConnectedPathApiReply) {
@@ -184,13 +202,16 @@ func (client *ConnPathConnection) HandleIncomingReply(v *ConnectedPathApiReply) 
 	} else if v.Command == connectedPathInvalidHandleReply {
 		logger.WithField("handle", v.Handle).Error("HandleIncomingReply: InvalidHandleReply")
 		client.connState = connPathConnectionStateInvalid
+	} else if v.Command == connectedPathDisconnectRequest {
+		logger.WithField("handle", v.Handle).Debug("HandleIncomingReply: DisconnectRequest")
+		client.connState = connPathConnectionStateInvalid
 	} else {
 		logger.WithFields(logger.Fields{"handle": v.Handle, "reply": v.Command}).
 			Error("HandleIncomingReply: unknow command reply received", v.Command, v.Handle)
 	}
 }
 
-func NewConnPathConnection(serial *SerialConnection, graph *graph.GraphPath) *ConnPathConnection {
+func NewConnPathConnection(serial *SerialConnection, graph *graph.Network) *ConnPathConnection {
 
 	conn := &ConnPathConnection{
 		serial:    serial,

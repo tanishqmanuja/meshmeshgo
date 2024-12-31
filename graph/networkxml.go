@@ -1,0 +1,145 @@
+package graph
+
+import (
+	"fmt"
+	"math"
+	"os"
+	"reflect"
+	"strconv"
+
+	"github.com/sirupsen/logrus"
+	"leguru.net/m/v2/graphml"
+	"leguru.net/m/v2/logger"
+	"leguru.net/m/v2/utils"
+)
+
+func (g *Network) readGraph(filename string) error {
+	xmlFile, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+
+	gml := graphml.NewGraphML("meshmesh network")
+	err = gml.Decode(xmlFile)
+	if err != nil {
+		return err
+	}
+
+	for i, gr := range gml.Graphs {
+		if i == 0 {
+			logger.Log().WithFields(logrus.Fields{"description": gr.Description}).Info("found graph")
+			for _, n := range gr.Nodes {
+				attrs, err := n.GetAttributes()
+				if err != nil {
+					return err
+				}
+
+				id, err := strconv.ParseInt(n.ID, 0, 32)
+				if err != nil {
+					return err
+				}
+
+				inuse, ok := attrs["inuse"].(bool)
+				if !ok {
+					inuse, err = strconv.ParseBool(attrs["inuse"].(string))
+					if err != nil {
+						return err
+					}
+				}
+
+				tag := attrs["tag"].(string)
+
+				g.AddNode(NewDevice(id, inuse, tag))
+			}
+
+			for _, e := range gr.Edges {
+				attrs, err := e.GetAttributes()
+				if err != nil {
+					return err
+				}
+
+				src, err := strconv.ParseInt(e.Source, 0, 32)
+				if err != nil {
+					return err
+				}
+				dst, err := strconv.ParseInt(e.Target, 0, 32)
+				if err != nil {
+					return err
+				}
+
+				var weight float64
+				_weight32, ok := attrs["weight"].(float32)
+				if ok {
+					weight = float64(_weight32)
+				} else {
+					weight, ok = attrs["weight"].(float64)
+					if !ok {
+						weight, err = strconv.ParseFloat(attrs["weight"].(string), 32)
+						if err != nil {
+							return err
+						}
+					}
+				}
+
+				g.SetWeightedEdge(g.NewWeightedEdge(g.Node(src), g.Node(dst), weight))
+			}
+		}
+	}
+	return nil
+}
+
+func (g *Network) writeGraph(filename string) error {
+	gml := graphml.NewGraphML("meshmesh network")
+
+	gml.RegisterKey(graphml.KeyForNode, "tag", "tag of node", reflect.String, "")
+	gml.RegisterKey(graphml.KeyForNode, "inuse", "is node in use", reflect.Bool, true)
+	gml.RegisterKey(graphml.KeyForNode, "discover", "state variable for discovery", reflect.Bool, false)
+	gml.RegisterKey(graphml.KeyForNode, "buggy", "state variable fr functional status", reflect.Bool, false)
+	gml.RegisterKey(graphml.KeyForNode, "firmware", "the node firmware revision", reflect.String, "")
+	gml.RegisterKey(graphml.KeyForEdge, "weight", "the node firmware revision", reflect.Float32, 0.0)
+	gml.RegisterKey(graphml.KeyForEdge, "weight2", "the node firmware revision", reflect.Float32, 0.0)
+
+	gr, err := gml.AddGraph("the graph", graphml.EdgeDirectionDirected, map[string]interface{}{})
+	if err != nil {
+		return err
+	}
+
+	nodes := g.Nodes()
+	for nodes.Next() {
+		node := nodes.Node().(*Device)
+
+		attributes := map[string]interface{}{
+			"inuse":      node.InUse(),
+			"discovered": node.Discovered(),
+		}
+
+		description := fmt.Sprintf("node %s:[%s]", node.Tag(), utils.FmtNodeId(node.ID()))
+		gr.AddNode(attributes, utils.FmtNodeId(node.ID()), description)
+	}
+
+	edges := g.WeightedEdges()
+	for edges.Next() {
+		edge := edges.WeightedEdge()
+		from := edge.From().(*Device)
+		to := edge.To().(*Device)
+
+		n1 := gr.GetNode(utils.FmtNodeId(from.ID()))
+		n2 := gr.GetNode(utils.FmtNodeId(to.ID()))
+
+		attributes := map[string]interface{}{
+			"weight": math.Floor(edge.Weight()*100) / 100,
+		}
+
+		description := fmt.Sprintf("from %s:[%s] to %s:[%s]", from.Tag(), utils.FmtNodeId(from.ID()), to.Tag(), utils.FmtNodeId(to.ID()))
+		gr.AddEdge(n1, n2, attributes, graphml.EdgeDirectionDefault, description)
+	}
+
+	xmlFile, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+
+	defer xmlFile.Close()
+	err = gml.Encode(xmlFile, true)
+	return err
+}

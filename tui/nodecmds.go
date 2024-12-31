@@ -46,9 +46,16 @@ func createTextInput(ti termInfo, placeholder string, value string, chars int, f
 	return txt
 }
 
+func createSelection() *selection.Model[string] {
+	_sel := selection.New[string]("node action:", []string{"Node Reboot", "Save Tag", "Save Channel"})
+	_sel.Filter = nil
+	_sel.Template = selection.DefaultTemplate
+	return selection.NewModel(_sel)
+}
+
 type NodeInfoModel struct {
 	ti      termInfo
-	id      int64
+	dev     *graph.Device
 	rev     string
 	cfg     meshmesh.NodeConfigApiReply
 	focused int
@@ -73,12 +80,14 @@ func (m *NodeInfoModel) focus(i int) {
 		m.txt[focusNodeTag].Focus()
 	case focusNodeChannel:
 		m.txt[focusNodeChannel].Focus()
+	case focusSelection:
+		//m.sel = createSelection()
 	}
 
 }
 
 func (m *NodeInfoModel) sendReboot() error {
-	_, err := sconn.SendReceiveApiProt(meshmesh.FirmRevApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(m.id))
+	_, err := sconn.SendReceiveApiProt(meshmesh.FirmRevApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(m.dev.ID()))
 	if err != nil {
 		return err
 	}
@@ -86,7 +95,7 @@ func (m *NodeInfoModel) sendReboot() error {
 }
 
 func (m *NodeInfoModel) sendSetTag(tag string) error {
-	_, err := sconn.SendReceiveApiProt(meshmesh.NodeSetTagApiRequest{Tag: tag}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(m.id))
+	_, err := sconn.SendReceiveApiProt(meshmesh.NodeSetTagApiRequest{Tag: tag}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(m.dev.ID()))
 	if err != nil {
 		return err
 	}
@@ -94,7 +103,7 @@ func (m *NodeInfoModel) sendSetTag(tag string) error {
 }
 
 func (m *NodeInfoModel) sendSetChannel(Channel uint8) error {
-	_, err := sconn.SendReceiveApiProt(meshmesh.NodeSetChannelApiRequest{Channel: Channel}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(m.id))
+	_, err := sconn.SendReceiveApiProt(meshmesh.NodeSetChannelApiRequest{Channel: Channel}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(m.dev.ID()))
 	if err != nil {
 		return err
 	}
@@ -162,10 +171,10 @@ func (m *NodeInfoModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 func (m *NodeInfoModel) View() string {
 	var buffer bytes.Buffer
-	buffer.WriteString("Node ID        : 0x")
-	buffer.WriteString(strconv.FormatInt(m.id, 16))
+	buffer.WriteString("Node ID        : ")
+	buffer.WriteString(graph.FmtDeviceId(m.dev))
 	buffer.WriteString("\nPath to        : ")
-	buffer.WriteString(graph.FmtNodePath(gpath, m.id))
+	buffer.WriteString(graph.FmtNodePath(gpath, m.dev))
 	buffer.WriteString("\nFirmware rev   : ")
 	buffer.WriteString(m.rev)
 	buffer.WriteString("\nNode TAG       : ")
@@ -189,13 +198,13 @@ func (m *NodeInfoModel) Focused() bool {
 	return true
 }
 
-func NewNodeInfoModel(ti termInfo, id int64) Model {
-	rep, err := sconn.SendReceiveApiProt(meshmesh.FirmRevApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(id))
+func NewNodeInfoModel(ti termInfo, dev *graph.Device) Model {
+	rep, err := sconn.SendReceiveApiProt(meshmesh.FirmRevApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(dev.ID()))
 	if err != nil {
 		return &ErrorReplyModel{err: err}
 	}
 	rev := rep.(meshmesh.FirmRevApiReply)
-	rep, err = sconn.SendReceiveApiProt(meshmesh.NodeConfigApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(id))
+	rep, err = sconn.SendReceiveApiProt(meshmesh.NodeConfigApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(dev.ID()))
 	if err != nil {
 		return &ErrorReplyModel{err: err}
 	}
@@ -204,10 +213,5 @@ func NewNodeInfoModel(ti termInfo, id int64) Model {
 	txt2 := createTextInput(ti, "<node channel>", fmt.Sprintf("%d", cfg.Channel), 6, false)
 	txt := []textinput.Model{txt1, txt2}
 
-	_sel := selection.New[string]("node action:", []string{"Node Reboot", "Save Tag", "Save Channel"})
-	_sel.Filter = nil
-	_sel.Template = selection.DefaultTemplate
-	sel := selection.NewModel(_sel)
-
-	return &NodeInfoModel{ti: ti, id: id, rev: rev.Revision, cfg: cfg, txt: txt, sel: sel, focused: 0}
+	return &NodeInfoModel{ti: ti, dev: dev, rev: rev.Revision, cfg: cfg, txt: txt, sel: createSelection(), focused: 0}
 }

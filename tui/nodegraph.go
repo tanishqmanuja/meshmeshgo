@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/evertras/bubble-table/table"
+	"leguru.net/m/v2/graph"
 	"leguru.net/m/v2/utils"
 )
 
@@ -13,7 +14,6 @@ const (
 	colKeyId   = "id"
 	colKeyAddr = "addr"
 	colKeyTag  = "tag"
-	colKeyPort = "port"
 	colKeyPath = "path"
 	colKeyCost = "cost"
 )
@@ -23,19 +23,17 @@ func makeColumns() []table.Column {
 		table.NewColumn(colKeyId, "Id", 10),
 		table.NewColumn(colKeyAddr, "Node Address", 17),
 		table.NewColumn(colKeyTag, "Node Tag", 20),
-		table.NewColumn(colKeyPort, "Port", 6),
 		table.NewColumn(colKeyPath, "Path", 38),
 		table.NewColumn(colKeyCost, "Cost", 7),
 	}
 }
 
-func makeRow(nid int64, tag string, port uint64, path string, cost float64) table.Row {
+func makeRow(dev *graph.Device, path string, cost float64) table.Row {
 	return table.NewRow(
 		table.RowData{
-			colKeyId:   utils.FmtNodeId(nid),
-			colKeyAddr: utils.FmtNodeId(nid),
-			colKeyTag:  tag,
-			colKeyPort: strconv.FormatUint(port, 10),
+			colKeyId:   graph.FmtDeviceId(dev),
+			colKeyAddr: graph.FmtDeviceIdHass(dev),
+			colKeyTag:  dev.Tag(),
 			colKeyPath: path,
 			colKeyCost: strconv.FormatFloat(cost, 'f', 2, 32),
 		},
@@ -43,14 +41,13 @@ func makeRow(nid int64, tag string, port uint64, path string, cost float64) tabl
 }
 
 func graphTableRows() []table.Row {
-	inuse := gpath.GetAllInUse()
 	rows := []table.Row{}
 
-	for _, d := range inuse {
-		nid := d
-
+	devices := gpath.Nodes()
+	for devices.Next() {
+		dev := devices.Node().(*graph.Device)
 		var _path string
-		path, weight, err := gpath.GetPath(d)
+		path, weight, err := gpath.GetPath(dev)
 		if err == nil {
 			for _, p := range path {
 				if len(_path) > 0 {
@@ -60,7 +57,7 @@ func graphTableRows() []table.Row {
 			}
 		}
 
-		row := makeRow(nid, gpath.NodeTag(int64(nid)), 6053, _path, weight)
+		row := makeRow(dev, _path, weight)
 		rows = append(rows, row)
 	}
 
@@ -68,16 +65,16 @@ func graphTableRows() []table.Row {
 }
 
 type GraphShowModel struct {
-	ti      termInfo
-	table   table.Model
-	focused int
+	ti    termInfo
+	table table.Model
+	//focused int
 }
 
-func (m *GraphShowModel) blur(i int) {
+/*func (m *GraphShowModel) blur(i int) {
 }
 
 func (m *GraphShowModel) focus(i int) {
-}
+}*/
 
 func (m *GraphShowModel) changeFocus() {
 }

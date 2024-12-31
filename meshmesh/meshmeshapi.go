@@ -10,16 +10,19 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"go.bug.st/serial"
-	l "leguru.net/m/v2/logger"
+	"leguru.net/m/v2/logger"
 )
 
+const defaultSessionMaxTimeoutMs = 500
+
 type SerialSession struct {
-	Request    *ApiFrame
-	Reply      *ApiFrame
-	WaitReply1 uint8
-	WaitReply2 uint8
-	Wait       sync.WaitGroup
-	SentTime   time.Time
+	Request      *ApiFrame
+	Reply        *ApiFrame
+	WaitReply1   uint8
+	WaitReply2   uint8
+	Wait         sync.WaitGroup
+	SentTime     time.Time
+	MaxTimeoutMs int64
 }
 
 func (session *SerialSession) IsAwaitable() bool {
@@ -27,7 +30,7 @@ func (session *SerialSession) IsAwaitable() bool {
 }
 
 func NewSimpleSerialSession(request *ApiFrame) *SerialSession {
-	s := SerialSession{Request: request}
+	s := SerialSession{Request: request, MaxTimeoutMs: defaultSessionMaxTimeoutMs}
 	return &s
 }
 
@@ -37,6 +40,7 @@ func NewSerialSession(request *ApiFrame) (*SerialSession, error) {
 		return nil, err
 	}
 	s := SerialSession{Request: request, WaitReply1: w1, WaitReply2: w2}
+	s.MaxTimeoutMs = defaultSessionMaxTimeoutMs
 	s.SentTime = time.Now()
 	return &s, nil
 }
@@ -74,32 +78,32 @@ func (serialConn *SerialConnection) GetNextHandle() uint16 {
 	return nh
 }
 
-func (serialConn *SerialConnection) ReadFrame(buffer []byte, position int) {
-	frame := NewApiFrame(buffer[0:position], true)
-	if l.Log().GetLevel() >= logrus.TraceLevel && buffer[0] != 0x39 {
-		l.Log().WithFields(logrus.Fields{"data": hex.EncodeToString(frame.data)}).Trace("From serial")
+func (serialConn *SerialConnection) ReadFrame(buffer []byte) {
+	frame := NewApiFrame(buffer, true)
+	if buffer[0] != logEventApiReply {
+		logger.Log().WithFields(logrus.Fields{"data": hex.EncodeToString(frame.data)}).Trace("From serial")
 	}
-	// Handle LOG packets first
 	if buffer[0] == logEventApiReply {
+		// Handle LOG packets first
 		v, err := frame.Decode()
 		if err != nil {
-			l.Log().Error("Can't decode incoming log packet 1/2")
+			logger.Log().Error("Can't decode incoming log packet 1/2")
 		} else {
 			lo, ok := v.(LogEventApiReply)
 			if !ok {
-				l.Log().Error("Can't decode incoming log packet 2/2")
+				logger.Log().Error("Can't decode incoming log packet 2/2")
 			}
-			l.Log().WithFields(logrus.Fields{"from": lo.From}).Debug(lo.Line)
+			logger.Log().WithFields(logrus.Fields{"from": lo.From}).Debug(lo.Line)
 		}
-		// Handle ConnectedPath packets next
 	} else if buffer[0] == connectedPathApiReply {
+		// Handle ConnectedPath packets next
 		v, err := frame.Decode()
 		if err != nil {
-			l.Log().Error("Can't decode incoming connectedpath packet 1/2")
+			logger.Log().Error("Can't decode incoming connectedpath packet 1/2")
 		} else {
 			c, ok := v.(ConnectedPathApiReply)
 			if !ok {
-				l.Log().Error("Can't decode incoming connectedpath packet 2/2")
+				logger.Log().Error("Can't decode incoming connectedpath packet 2/2")
 			}
 			if serialConn.ConnPathFn != nil {
 				serialConn.ConnPathFn(&c)
@@ -114,18 +118,18 @@ func (serialConn *SerialConnection) ReadFrame(buffer []byte, position int) {
 					serialConn.session.Wait.Done()
 					serialConn.session = nil
 				} else {
-					l.Log().WithFields(logrus.Fields{"Type": serialConn.session.WaitReply1, "Subtype": serialConn.session.WaitReply2}).Error("Serial reply assertion failed")
+					logger.Log().WithFields(logrus.Fields{"Type": serialConn.session.WaitReply1, "Subtype": serialConn.session.WaitReply2}).Error("Serial reply assertion failed")
 				}
 			}
 		} else {
-			l.Log().WithField("type", fmt.Sprintf("%02X", buffer[0])).Error("Unused packet received")
+			logger.Log().WithField("type", fmt.Sprintf("%02X", buffer[0])).Error("Unused packet received")
 		}
 	}
 }
 
 func (conn *SerialConnection) checkSessionTimeout() {
 	if conn.session != nil {
-		if time.Since(conn.session.SentTime).Milliseconds() > 500 {
+		if time.Since(conn.session.SentTime).Milliseconds() > conn.session.MaxTimeoutMs {
 			conn.session.Reply = nil
 			if conn.session.WaitReply1 > 0 {
 				conn.session.Wait.Done()
@@ -169,7 +173,9 @@ func (serialConn *SerialConnection) Read() {
 			} else {
 				if b == stopApiFrame {
 					decodeState = waitStartByte
-					serialConn.ReadFrame(inputBuffer, inputBufferPos)
+					destination := make([]byte, inputBufferPos)
+					copy(destination, inputBuffer)
+					serialConn.ReadFrame(destination)
 					inputBufferPos = 0
 				} else if b == escapeApiFrame {
 					decodeState = escapeNextByte
@@ -177,6 +183,12 @@ func (serialConn *SerialConnection) Read() {
 					inputBuffer[inputBufferPos] = b
 					inputBufferPos += 1
 				}
+			}
+
+			if inputBufferPos >= 1500 {
+				logger.Log().WithFields(logrus.Fields{"buffer": hex.EncodeToString(inputBuffer)}).Error("Buffer overflow")
+				decodeState = waitStartByte
+				inputBufferPos = 0
 			}
 		}
 	}
@@ -203,7 +215,7 @@ func (serialConn *SerialConnection) Write() {
 
 				if element == nil {
 					// Ok we don't really need this
-					l.Log().WithFields(logrus.Fields{"queue": serialConn.Sessions.Len()}).Error("got sessionwith nil value")
+					logger.Log().WithFields(logrus.Fields{"queue": serialConn.Sessions.Len()}).Error("got session with nil value")
 					// Sleep a time slot
 					time.Sleep(50 * time.Millisecond)
 				} else {
@@ -212,21 +224,20 @@ func (serialConn *SerialConnection) Write() {
 
 					if ok {
 						b := session.Request.Output()
-						level := l.Log().GetLevel()
+						level := logger.Log().GetLevel()
 						if level >= logrus.TraceLevel {
-							l.Log().WithFields(logrus.Fields{"data": hex.EncodeToString(b)}).Trace("To serial")
+							logger.Log().WithFields(logrus.Fields{"len": len(b), "data": hex.EncodeToString(b[0:min(len(b), 10)])}).Trace("To serial")
 						}
 
-						// Write session on serial port
-						n, err := serialConn.port.Write(b)
+						writed, err := serialConn.port.Write(b)
 
 						if err != nil {
-							l.Log().WithField("err", err).Error("Write to serial port error")
+							logger.Log().WithField("err", err).Error("Write to serial port error")
 							break
 						}
 
-						if n < len(b) {
-							l.Log().WithFields(logrus.Fields{"sent": n, "want": len(b)}).Error("Write to serial port incomplete")
+						if writed < len(b) {
+							logger.Log().WithFields(logrus.Fields{"sent": writed, "want": len(b)}).Error("Write to serial port incomplete")
 							break
 						}
 
@@ -240,7 +251,7 @@ func (serialConn *SerialConnection) Write() {
 						}
 					} else {
 						// Ok we don't really need this
-						l.Log().WithFields(logrus.Fields{"queue": serialConn.Sessions.Len(), "val": element}).Error("interface conversion invalid")
+						logger.Log().WithFields(logrus.Fields{"queue": serialConn.Sessions.Len(), "val": element}).Error("interface conversion invalid")
 						// Sleep a time slot
 						time.Sleep(50 * time.Millisecond)
 					}
@@ -274,6 +285,22 @@ func (serialConn *SerialConnection) SendApi(cmd interface{}) error {
 	return nil
 }
 
+func (serialConn *SerialConnection) sendReceiveApiProt(session *SerialSession) (interface{}, error) {
+	if session.IsAwaitable() {
+		session.Wait.Add(1)
+	}
+	serialConn.QueueApiSession(session)
+	if session.IsAwaitable() {
+		session.Wait.Wait()
+	}
+
+	if session.Reply == nil {
+		return nil, errors.New("reply timeout")
+	} else {
+		return session.Reply.Decode()
+	}
+}
+
 func (serialConn *SerialConnection) SendReceiveApiProt(cmd interface{}, protocol MeshProtocol, target MeshNodeId) (interface{}, error) {
 	if target == 0 {
 		protocol = directProtocol
@@ -287,18 +314,26 @@ func (serialConn *SerialConnection) SendReceiveApiProt(cmd interface{}, protocol
 	if err != nil {
 		return nil, err
 	}
-	if session.IsAwaitable() {
-		session.Wait.Add(1)
+
+	return serialConn.sendReceiveApiProt(session)
+}
+
+func (serialConn *SerialConnection) SendReceiveApiProtTimeout(cmd interface{}, protocol MeshProtocol, target MeshNodeId, timeoutMs int64) (interface{}, error) {
+	if target == 0 {
+		protocol = directProtocol
 	}
-	serialConn.QueueApiSession(session)
-	if session.IsAwaitable() {
-		session.Wait.Wait()
+	frame, err := NewApiFrameFromStruct(cmd, protocol, target)
+	if err != nil {
+		return nil, err
 	}
-	if session.Reply == nil {
-		return nil, errors.New("reply timeout")
-	} else {
-		return session.Reply.Decode()
+
+	session, err := NewSerialSession(frame)
+	if err != nil {
+		return nil, err
 	}
+
+	session.MaxTimeoutMs = timeoutMs
+	return serialConn.sendReceiveApiProt(session)
 }
 
 func (serialConn *SerialConnection) SendReceiveApi(cmd interface{}) (interface{}, error) {
@@ -363,7 +398,7 @@ func NewSerial(portName string, baudRate int, debug bool) (*SerialConnection, er
 	}
 
 	serial.LocalNode = uint32(nodeid.Serial)
-	l.Log().WithFields(logrus.Fields{"nodeId": fmt.Sprintf("0x%06X", serial.LocalNode), "firmware": firmrev.Revision}).
+	logger.Log().WithFields(logrus.Fields{"nodeId": fmt.Sprintf("0x%06X", serial.LocalNode), "firmware": firmrev.Revision}).
 		Info("Valid local node found")
 	return serial, nil
 }

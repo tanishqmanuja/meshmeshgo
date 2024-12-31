@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"os"
 
 	"github.com/urfave/cli/v2"
@@ -13,7 +12,6 @@ type Config struct {
 	SerialPortName     string
 	SerialPortBaudRate int
 	VerboseLevel       int
-	FirmwarePath       string
 	TargetNode         int
 	Discovery          bool
 	DebugNodeAddr      string
@@ -43,11 +41,6 @@ func NewConfig() (*Config, error) {
 				Aliases: []string{"v"},
 				Count:   &config.VerboseLevel,
 			},
-			&cli.StringFlag{
-				Name:        "firmware",
-				Aliases:     []string{"fw"},
-				Destination: &config.FirmwarePath,
-			},
 			&cli.IntFlag{
 				Name:        "target",
 				Aliases:     []string{"t"},
@@ -70,9 +63,6 @@ func NewConfig() (*Config, error) {
 		},
 		Action: func(cCtx *cli.Context) error {
 			config.WantHelp = false
-			if len(config.FirmwarePath) > 0 && config.TargetNode == 0 {
-				return errors.New("target node is manadatory when using firmware flag")
-			}
 			return nil
 		},
 	}
