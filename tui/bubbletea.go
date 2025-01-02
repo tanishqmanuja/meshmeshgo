@@ -84,6 +84,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds tea.BatchMsg
 
+	m.textInput, cmd = m.textInput.Update(msg)
+	cmds = append(cmds, cmd)
+
+	if m.submodel != nil {
+		m.submodel, cmd = m.submodel.Update(msg)
+		cmds = append(cmds, cmd)
+	}
+
+	if m.submodel != nil {
+		// Add or remove focus to command line
+		if m.submodel.Focused() && m.textInput.Focused() {
+			m.textInput.Blur()
+		}
+		if !m.submodel.Focused() && !m.textInput.Focused() {
+			m.textInput.Focus()
+		}
+	} else {
+		if !m.textInput.Focused() {
+			m.textInput.Focus()
+		}
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.ti.height = msg.Height
@@ -115,28 +137,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case error:
 		m.err = msg
-	}
-
-	m.textInput, cmd = m.textInput.Update(msg)
-	cmds = append(cmds, cmd)
-
-	if m.submodel != nil {
-		m.submodel, cmd = m.submodel.Update(msg)
-		cmds = append(cmds, cmd)
-	}
-
-	if m.submodel != nil {
-		// Add or remove focus to command line
-		if m.submodel.Focused() && m.textInput.Focused() {
-			m.textInput.Blur()
-		}
-		if !m.submodel.Focused() && !m.textInput.Focused() {
-			m.textInput.Focus()
-		}
-	} else {
-		if !m.textInput.Focused() {
-			m.textInput.Focus()
-		}
 	}
 
 	return m, tea.Batch(cmds...)

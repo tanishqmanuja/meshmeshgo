@@ -4,14 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/charmbracelet/bubbles/filepicker"
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/erikgeiser/promptkit/confirmation"
+	"leguru.net/m/v2/graph"
 	"leguru.net/m/v2/meshmesh"
-	"leguru.net/m/v2/utils"
 )
 
 type firmwareErrorMsg error
@@ -19,9 +20,11 @@ type firmwareInitDoneMsg string
 type firmwareUploadProgressMsg float64
 type firmwareUploadDoneMsg bool
 type firmwareRebootDoneMsg bool
+type firmwareCheckRevAfterMsg string
 
 const (
-	firmwareCheckNode = iota
+	firmwareGetDevice = iota
+	firmwareCheckNode
 	firmwareStatePickFile
 	firmwareStateConfirmUpload
 	firmwareStateUploading
@@ -29,15 +32,18 @@ const (
 	firmwareStateUploadFailed
 	firmwareStateRebooting
 	firmwareStateRebootSuccess
+	firmwareCheckRevAfter
 )
 
 func initFirmwareCmd(m *FirmwareModel) tea.Cmd {
+	m.procedure = meshmesh.NewFirmwareUploadProcedure(sconn, gpath, meshmesh.MeshNodeId(m.device.ID()))
+
 	return func() tea.Msg {
-		rep, err := sconn.SendReceiveApiProt(meshmesh.FirmRevApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(m.nodeid))
+		rep, err := sconn.SendReceiveApiProt(meshmesh.FirmRevApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(m.device.ID()))
 		if err != nil {
 			return firmwareErrorMsg(errors.Join(
 				errors.New("firmware revision request failed"),
-				fmt.Errorf("node id: %s", utils.FmtNodeId(m.nodeid)),
+				fmt.Errorf("node id: %s", graph.FmtDeviceId(m.device)),
 				err))
 		}
 		rev := rep.(meshmesh.FirmRevApiReply)
@@ -63,40 +69,55 @@ func uploadStepFirmwareCmd(m *FirmwareModel) tea.Cmd {
 
 func rebootNodeCmd(m *FirmwareModel) tea.Cmd {
 	return func() tea.Msg {
-		_, err := sconn.SendReceiveApiProt(meshmesh.NodeRebootApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(m.nodeid))
+		_, err := sconn.SendReceiveApiProt(meshmesh.NodeRebootApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(m.device.ID()))
 		if err != nil {
 			return firmwareErrorMsg(errors.Join(errors.New("reboot request failed"), err))
 		}
+		time.Sleep(10 * time.Second)
 		return firmwareRebootDoneMsg(true)
 	}
 }
 
+func finalizeNodeCmd(m *FirmwareModel) tea.Cmd {
+	return func() tea.Msg {
+		rep, err := sconn.SendReceiveApiProt(meshmesh.FirmRevApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(m.device.ID()))
+		if err != nil {
+			return firmwareErrorMsg(errors.Join(
+				errors.New("firmware revision request failed"),
+				fmt.Errorf("node id: %s", graph.FmtDeviceId(m.device)),
+				err))
+		}
+		rev := rep.(meshmesh.FirmRevApiReply)
+		return firmwareCheckRevAfterMsg(rev.Revision)
+	}
+}
+
 type FirmwareModel struct {
-	ti           termInfo
-	fpick        filepicker.Model
-	confirm      *confirmation.Model
-	progress     progress.Model
-	confirm2     *confirmation.Model
-	focused      int
-	file         string
-	err          error
-	nodeid       int64
-	currentRev   string
-	successStyle lipgloss.Style
-	errorStyle   lipgloss.Style
-	procedure    *meshmesh.FirmwareUploadProcedure
-	state        int
+	BaseModel
+	fpick      filepicker.Model
+	confirm    *confirmation.Model
+	progress   progress.Model
+	confirm2   *confirmation.Model
+	focused    int
+	file       string
+	err        error
+	currentRev string
+	afterRev   string
+	procedure  *meshmesh.FirmwareUploadProcedure
+	state      int
 }
 
 func (m *FirmwareModel) Init() tea.Cmd {
-	m.procedure = meshmesh.NewFirmwareUploadProcedure(sconn, gpath, meshmesh.MeshNodeId(m.nodeid))
-	return tea.Batch([]tea.Cmd{m.fpick.Init(), m.confirm.Init(), m.confirm2.Init(), initFirmwareCmd(m)}...)
+	return tea.Batch([]tea.Cmd{m.initDeviceSelection(), m.fpick.Init(), m.confirm.Init(), m.confirm2.Init()}...)
 }
 
 func (m *FirmwareModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
+	case deviceItemSelectedMsg:
+		cmd := initFirmwareCmd(m)
+		cmds = append(cmds, cmd)
 	case firmwareInitDoneMsg:
 		m.currentRev = string(msg)
 		cmd = m.fpick.Init()
@@ -112,6 +133,11 @@ func (m *FirmwareModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 	case firmwareRebootDoneMsg:
 		m.state = firmwareStateRebootSuccess
+		cmd = finalizeNodeCmd(m)
+		cmds = append(cmds, cmd)
+	case firmwareCheckRevAfterMsg:
+		m.state = firmwareCheckRevAfter
+		m.afterRev = string(msg)
 	case firmwareErrorMsg:
 		m.err = msg
 	}
@@ -121,6 +147,9 @@ func (m *FirmwareModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 	}
 
 	switch m.state {
+	case firmwareGetDevice:
+		cmd = m.updateDeviceSelection(msg)
+		cmds = append(cmds, cmd)
 	case firmwareStatePickFile:
 		m.fpick, cmd = m.fpick.Update(msg)
 		cmds = append(cmds, cmd)
@@ -178,8 +207,13 @@ func (m *FirmwareModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 func (m *FirmwareModel) View() string {
 	views := []string{}
-	views = append(views, "Firmware upload to node "+utils.FmtNodeId(m.nodeid))
+
+	if m.state >= firmwareGetDevice {
+		views = append(views, m.viewDeviceSelection())
+	}
+
 	if m.state >= firmwareCheckNode {
+		views = append(views, "Firmware upload to node "+graph.FmtDeviceId(m.device))
 		views = append(views, "Current revision: "+m.currentRev)
 	}
 
@@ -192,7 +226,11 @@ func (m *FirmwareModel) View() string {
 	}
 
 	if m.state >= firmwareStateUploading {
-		views = append(views, fmt.Sprintf("Uploading firmware: %d/%d bytes", m.procedure.BytesSent(), m.procedure.BytesTotal()))
+		if m.state == firmwareStateUploading {
+			views = append(views, m.progressStyle.Render(fmt.Sprintf("Uploading firmware in progress: %d/%d bytes", m.procedure.BytesSent(), m.procedure.BytesTotal())))
+		} else {
+			views = append(views, m.successStyle.Render(fmt.Sprintf("Uploading firmware successful, sent %d bytes", m.procedure.BytesSent())))
+		}
 		views = append(views, m.progress.ViewAs(m.procedure.Percent()))
 	}
 
@@ -200,8 +238,16 @@ func (m *FirmwareModel) View() string {
 		views = append(views, m.confirm2.View())
 	}
 
+	if m.state == firmwareStateRebooting {
+		views = append(views, m.progressStyle.Render("Node rebooting in progress..."))
+	}
+
 	if m.state >= firmwareStateRebootSuccess {
 		views = append(views, m.successStyle.Render("Node reboot successful, procedure terminated."))
+	}
+
+	if m.state >= firmwareCheckRevAfter {
+		views = append(views, "After revision: "+m.afterRev)
 	}
 
 	if m.err != nil {
@@ -215,7 +261,7 @@ func (m *FirmwareModel) Focused() bool {
 	return true
 }
 
-func NewFirmwareModel(ti termInfo, nodeid int64) Model {
+func NewFirmwareModel(ti termInfo) Model {
 	var err error
 	fpick := filepicker.New()
 	fpick.AllowedTypes = []string{".bin"}
@@ -228,21 +274,20 @@ func NewFirmwareModel(ti termInfo, nodeid int64) Model {
 	}
 	fpick.Styles = filepicker.DefaultStylesWithRenderer(ti.renderer)
 
-	confirm := confirmation.New("Are you sure you want to upload firmware to node "+utils.FmtNodeId(nodeid)+"?", confirmation.Undecided)
+	confirm := confirmation.New("Are you sure you want to upload firmware to selected node ?", confirmation.Undecided)
 	progress := progress.New(progress.WithGradient("#FF0000", "#00FF00"))
 	confirm2 := confirmation.New("Upload firmware successful. Reboot node?", confirmation.Undecided)
 
-	return &FirmwareModel{
-		ti:           ti,
-		fpick:        fpick,
-		confirm:      confirmation.NewModel(confirm),
-		focused:      0,
-		nodeid:       nodeid,
-		errorStyle:   ti.renderer.NewStyle().Foreground(lipgloss.ANSIColor(9)),
-		successStyle: ti.renderer.NewStyle().Foreground(lipgloss.ANSIColor(10)),
-		procedure:    nil,
-		state:        firmwareCheckNode,
-		progress:     progress,
-		confirm2:     confirmation.NewModel(confirm2),
+	model := &FirmwareModel{
+		BaseModel: NewBaseModelExtended(ti, gpath),
+		fpick:     fpick,
+		confirm:   confirmation.NewModel(confirm),
+		focused:   0,
+		procedure: nil,
+		state:     firmwareGetDevice,
+		progress:  progress,
+		confirm2:  confirmation.NewModel(confirm2),
 	}
+
+	return model
 }

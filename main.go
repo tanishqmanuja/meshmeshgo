@@ -68,10 +68,11 @@ func main() {
 	}
 
 	logger.Log().Info("Coordinator node is " + gra.FmtDeviceId(network.LocalDevice()))
+	meshmesh.SetNetworkGraph(network)
 	gra.PrintTable(network)
-
+	// Initialize Esphome to HomeAssistant Server
 	esphomeapi := meshmesh.NewMultiServerApi(serialPort, network)
-
+	// Initialize SSH Server
 	sshsrv, err := tui.NewSshServer("0.0.0.0", "2024", network, serialPort, esphomeapi)
 	if err != nil {
 		logger.Error(err)

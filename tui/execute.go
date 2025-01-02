@@ -146,7 +146,8 @@ func (m model) execute_node_info_command(tokens []string) Model {
 			return NewNodeInfoModel(m.ti, dev)
 		}
 	} else {
-		return NewErrorReplyModel(m.ti, errors.New("node info: invalid node ID"))
+		//return NewErrorReplyModel(m.ti, errors.New("node info: invalid node ID"))
+		return NewNodeInfoModel(m.ti, nil)
 	}
 }
 
@@ -175,18 +176,6 @@ func (m model) execute_discovery_command(tokens []string) Model {
 	return NewDiscoveryModel(m.ti, nodeid)
 }
 
-func (m model) execute_firmware_command(tokens []string) Model {
-	var nodeid int64 = 0
-	if len(tokens) > 0 {
-		var err error
-		nodeid, err = graph.ParseDeviceId(tokens[0])
-		if err != nil {
-			return NewErrorReplyModel(m.ti, err)
-		}
-	}
-	return NewFirmwareModel(m.ti, nodeid)
-}
-
 func (m model) execute_command(cmd string) Model {
 	tokens := strings.Split(cmd, " ")
 	if len(tokens) > 0 {
@@ -205,7 +194,7 @@ func (m model) execute_command(cmd string) Model {
 		} else if token == "esphome" {
 			return NewEspHomeModel(m.ti)
 		} else if token == "firmware" {
-			return m.execute_firmware_command(tokens)
+			return NewFirmwareModel(m.ti)
 		}
 	}
 	return nil

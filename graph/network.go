@@ -100,15 +100,23 @@ func (g *Network) ChangeEdgeWeight(fromId int64, toId int64, weightFrom float64,
 		edgeTo.W = weightTo
 		g.SetWeightedEdge(edgeTo)
 	}
-
-	/*if !g.HasEdgeFromTo(toId, fromId) {
-		g.SetWeightedEdge(g.NewWeightedEdge(toNode, fromNode, weightFrom))
-	} else {
-		edgeFrom := g.WeightedEdge(toId, fromId).(simple.WeightedEdge)
-		edgeFrom.W = weightFrom
-		g.SetWeightedEdge(edgeFrom)
-	}*/
 }
+
+// GetPath returns the shortest path from the local device to the target device, along with the total path weight.
+//
+// Parameters:
+//   - to: The target Device to find a path to
+//
+// Returns:
+//   - []int64: Array of node IDs representing the path from local device to target
+//   - float64: Total weight/cost of the path
+//   - error: Error if no path exists or target device is not active
+//
+// The path returned will be the shortest path based on edge weights using Dijkstra's algorithm.
+// Returns an error if:
+// - The target device is not marked as in use/active
+// - No valid path exists between the local device and target
+// The weight returned is currently always 0 (not implemented).
 
 func (g *Network) GetPath(to *Device) ([]int64, float64, error) {
 	if !to.InUse() {

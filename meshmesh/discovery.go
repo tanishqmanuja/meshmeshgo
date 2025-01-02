@@ -126,7 +126,7 @@ func (d *DiscoveryProcedure) Init() error {
 }
 
 func (d *DiscoveryProcedure) Step() error {
-	protocol := directProtocol
+	protocol := DirectProtocol
 	if d.currentDevice.ID() != d.network.LocalDevice().ID() {
 		protocol = UnicastProtocol
 	}

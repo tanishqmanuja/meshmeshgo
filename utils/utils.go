@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -28,4 +29,12 @@ func ForceDebugEntry(entry *logrus.Entry, force bool, data interface{}) {
 		level = logrus.InfoLevel
 	}
 	entry.Log(level, data)
+}
+
+func EncodeToHexEllipsis(data []byte, maxlen int) string {
+	str := hex.EncodeToString(data[0:min(len(data), maxlen)])
+	if len(data) > maxlen {
+		str += "..."
+	}
+	return str
 }

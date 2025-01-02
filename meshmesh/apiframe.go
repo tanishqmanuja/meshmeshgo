@@ -2,10 +2,10 @@ package meshmesh
 
 import (
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 
 	"github.com/go-restruct/restruct"
+	"leguru.net/m/v2/graph"
 	"leguru.net/m/v2/logger"
 )
 
@@ -14,15 +14,17 @@ type MeshNodeId uint32
 type MeshProtocol byte
 
 const (
-	directProtocol MeshProtocol = iota
-	bradcastProtocol
+	DirectProtocol MeshProtocol = iota
+	BradcastProtocol
 	UnicastProtocol
-	multipathProtocol
+	MultipathProtocol
 )
 
 const startApiFrame byte = 0xFE
 const escapeApiFrame byte = 0xEA
 const stopApiFrame byte = 0xEF
+
+var networkGraph *graph.Network = nil
 
 const echoApiRequest uint8 = 0
 
@@ -168,7 +170,8 @@ type MultiPathRequest struct {
 	Id      uint8      `struct:"uint8"`
 	Target  MeshNodeId `struct:"uint32"`
 	PathLen uint8      `struct:"uint8"`
-	Path    []uint32   `struct:"[]uint32,sizefrom=[PathLen]"`
+	Path    []uint32   `struct:"[]uint32,sizefrom=PathLen"`
+	Payload []byte     `struct:"[]byte"`
 }
 
 const meshmeshProtocolConnectedPath uint8 = 7
@@ -328,6 +331,20 @@ type FlashWriteApiReply struct {
 	Result bool  `struct:"bool"`
 }
 
+const flashEBootApiRequest uint8 = 4
+
+type FlashEBootApiRequest struct {
+	Id      uint8  `struct:"uint8"`
+	ApiId   uint8  `struct:"uint8"`
+	Address uint32 `struct:"uint32"`
+	Length  uint32 `struct:"uint32"`
+}
+
+type FlashEBootApiReply struct {
+	Id    uint8 `struct:"uint8"`
+	ApiId uint8 `struct:"uint8"`
+}
+
 /* ----------------------------------------------------------------
    ApiFrame
  ---------------------------------------------------------------- */
@@ -446,7 +463,6 @@ func (frame *ApiFrame) Decode() (interface{}, error) {
 		return v, nil
 	case logEventApiReply:
 		v := LogEventApiReply{}
-		logger.WithFields(logger.Fields{"data": hex.EncodeToString(frame.data)}).Debug("LogEventApiReply")
 		restruct.Unpack(frame.data, binary.LittleEndian, &v)
 		if len(frame.data) > 7 {
 			v.Line = string(frame.data[7:])
@@ -494,6 +510,10 @@ func (frame *ApiFrame) Decode() (interface{}, error) {
 			return vv, nil
 		case flashWriteApi:
 			vv := FlashWriteApiReply{}
+			restruct.Unpack(frame.data, binary.LittleEndian, &vv)
+			return vv, nil
+		case flashEBootApiRequest:
+			vv := FlashEBootApiReply{}
 			restruct.Unpack(frame.data, binary.LittleEndian, &vv)
 			return vv, nil
 		}
@@ -568,6 +588,10 @@ func EncodeBuffer(cmd interface{}) ([]byte, error) {
 		v.Id = flashOperationApiRequest
 		v.ApiId = flashWriteApi
 		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case FlashEBootApiRequest:
+		v.Id = flashOperationApiRequest
+		v.ApiId = flashEBootApiRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
 	default:
 		err = errors.New("unknow type request")
 	}
@@ -590,6 +614,10 @@ func (frame *ApiFrame) EncodeFrame(cmd interface{}) error {
 	return err
 }
 
+func SetNetworkGraph(graph *graph.Network) {
+	networkGraph = graph
+}
+
 func NewApiFrame(buffer []byte, escaped bool) *ApiFrame {
 	f := &ApiFrame{
 		data:    buffer,
@@ -600,18 +628,63 @@ func NewApiFrame(buffer []byte, escaped bool) *ApiFrame {
 }
 
 func NewApiFrameFromStruct(v interface{}, protocol MeshProtocol, target MeshNodeId) (*ApiFrame, error) {
-	var err error
 	f := &ApiFrame{}
-	if protocol == directProtocol {
-		err = f.EncodeFrame(v)
+
+	if protocol == DirectProtocol {
+		// direct prtocol talk with the serial connected device
+		err := f.EncodeFrame(v)
+		if err != nil {
+			return nil, err
+		}
+
 	} else if protocol == UnicastProtocol {
+		// unicast protocol talk with the mesh network without hops
+		var err error
 		p := UnicastRequest{Id: connectedUnicastRequest, Target: target}
 		p.Payload, err = EncodeBuffer(v)
-		if err == nil {
-			err = f.EncodeFrame(p)
+		if err != nil {
+			return nil, err
+		}
+		err = f.EncodeFrame(p)
+		if err != nil {
+			return nil, err
+		}
+
+	} else if protocol == MultipathProtocol {
+		// multipath protocol talk with the mesh network with hops
+		if networkGraph == nil {
+			return nil, errors.New("multipathProtocol requested, but network graph not initialized")
+		}
+		device := networkGraph.GetDevice(int64(target))
+		if device == nil {
+			return nil, errors.New("device not found in network graph")
+		}
+		path, _, err := networkGraph.GetPath(device)
+		if err != nil {
+			return nil, err
+		}
+		if len(path) == 1 {
+			return nil, errors.New("requested target is the local node. Use directProtocol instead")
+		}
+		// Removed the local node and the target node from the path
+		_path := make([]uint32, len(path)-2)
+		for i, p := range path[1 : len(path)-1] {
+			_path[i] = uint32(p)
+		}
+		// Initialize the multipath request with the path and the target
+		p := MultiPathRequest{Id: multipathRequest, Target: target, PathLen: uint8(len(_path)), Path: _path}
+		p.Payload, err = EncodeBuffer(v)
+		if err != nil {
+			return nil, err
+		}
+		// Encode the multipath request
+		err = f.EncodeFrame(p)
+		if err != nil {
+			return nil, err
 		}
 	} else {
-		logger.Error("Unknow protocol requested")
+		return nil, errors.New("unknow protocol requested")
 	}
-	return f, err
+
+	return f, nil
 }

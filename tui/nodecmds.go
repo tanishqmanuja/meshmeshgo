@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -26,6 +27,52 @@ const (
 	commandSetChannel
 )
 
+const (
+	nodeInfoGetDeviceState = iota
+	nodeInfoGetProtocolState
+	nodeInfoReceivedState
+	nodeInfoErrorState
+)
+
+type nodeInfoReceivedMsg bool
+type nodeInfoErrorMsg error
+
+func getProtocolFromChoice(choice choiceItem) meshmesh.MeshProtocol {
+	switch choice.ID {
+	case 0:
+		return meshmesh.UnicastProtocol
+	case 1:
+		return meshmesh.MultipathProtocol
+	case 2:
+		return meshmesh.DirectProtocol
+	}
+	return meshmesh.UnicastProtocol
+}
+
+func nodeInfoGetCmd(m *NodeInfoModel) tea.Cmd {
+	return func() tea.Msg {
+		rep, err := sconn.SendReceiveApiProt(meshmesh.FirmRevApiRequest{}, m.protocol, meshmesh.MeshNodeId(m.device.ID()))
+		if err != nil {
+			m.err = err
+			m.state = nodeInfoErrorState
+			return nodeInfoErrorMsg(err)
+		}
+		rev := rep.(meshmesh.FirmRevApiReply)
+
+		rep, err = sconn.SendReceiveApiProt(meshmesh.NodeConfigApiRequest{}, m.protocol, meshmesh.MeshNodeId(m.device.ID()))
+		if err != nil {
+			m.err = err
+			m.state = nodeInfoErrorState
+			return nodeInfoErrorMsg(err)
+		}
+		cfg := rep.(meshmesh.NodeConfigApiReply)
+
+		m.rev = rev.Revision
+		m.cfg = cfg
+		return nodeInfoReceivedMsg(true)
+	}
+}
+
 func createTextInput(ti termInfo, placeholder string, value string, chars int, focus bool) textinput.Model {
 	txt := textinput.New()
 	txt.Placeholder = placeholder
@@ -46,22 +93,18 @@ func createTextInput(ti termInfo, placeholder string, value string, chars int, f
 	return txt
 }
 
-func createSelection() *selection.Model[string] {
-	_sel := selection.New[string]("node action:", []string{"Node Reboot", "Save Tag", "Save Channel"})
-	_sel.Filter = nil
-	_sel.Template = selection.DefaultTemplate
-	return selection.NewModel(_sel)
-}
-
 type NodeInfoModel struct {
-	ti      termInfo
-	dev     *graph.Device
-	rev     string
-	cfg     meshmesh.NodeConfigApiReply
-	focused int
-	txt     []textinput.Model
-	sel     *selection.Model[string]
-	res     string
+	BaseModel
+	rev      string
+	cfg      meshmesh.NodeConfigApiReply
+	focused  int
+	txt      []textinput.Model
+	sel0     *selection.Model[choiceItem]
+	sel1     *selection.Model[choiceItem]
+	res      string
+	state    int
+	protocol meshmesh.MeshProtocol
+	err      error
 }
 
 func (m *NodeInfoModel) blur(i int) {
@@ -87,7 +130,7 @@ func (m *NodeInfoModel) focus(i int) {
 }
 
 func (m *NodeInfoModel) sendReboot() error {
-	_, err := sconn.SendReceiveApiProt(meshmesh.FirmRevApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(m.dev.ID()))
+	_, err := sconn.SendReceiveApiProt(meshmesh.FirmRevApiRequest{}, m.protocol, meshmesh.MeshNodeId(m.device.ID()))
 	if err != nil {
 		return err
 	}
@@ -95,7 +138,7 @@ func (m *NodeInfoModel) sendReboot() error {
 }
 
 func (m *NodeInfoModel) sendSetTag(tag string) error {
-	_, err := sconn.SendReceiveApiProt(meshmesh.NodeSetTagApiRequest{Tag: tag}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(m.dev.ID()))
+	_, err := sconn.SendReceiveApiProt(meshmesh.NodeSetTagApiRequest{Tag: tag}, m.protocol, meshmesh.MeshNodeId(m.device.ID()))
 	if err != nil {
 		return err
 	}
@@ -103,7 +146,7 @@ func (m *NodeInfoModel) sendSetTag(tag string) error {
 }
 
 func (m *NodeInfoModel) sendSetChannel(Channel uint8) error {
-	_, err := sconn.SendReceiveApiProt(meshmesh.NodeSetChannelApiRequest{Channel: Channel}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(m.dev.ID()))
+	_, err := sconn.SendReceiveApiProt(meshmesh.NodeSetChannelApiRequest{Channel: Channel}, m.protocol, meshmesh.MeshNodeId(m.device.ID()))
 	if err != nil {
 		return err
 	}
@@ -127,13 +170,10 @@ func (m *NodeInfoModel) nodeCommand(choice int) error {
 }
 
 func (m *NodeInfoModel) Init() tea.Cmd {
-	var cmd = m.sel.Init()
-	return cmd
+	return tea.Batch(m.initDeviceSelection(), m.sel0.Init(), m.sel1.Init())
 }
 
-func (m *NodeInfoModel) Update(msg tea.Msg) (Model, tea.Cmd) {
-	var cmds []tea.Cmd = make([]tea.Cmd, len(m.txt))
-
+func (m *NodeInfoModel) updateNodeInfo(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.ti.height = msg.Height
@@ -147,7 +187,7 @@ func (m *NodeInfoModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.focus(m.focused)
 		case tea.KeyEnter:
 			if m.focused == focusSelection {
-				cho, err := m.sel.ValueAsChoice()
+				cho, err := m.sel1.ValueAsChoice()
 				if err == nil {
 					err = m.nodeCommand(cho.Index())
 					if err != nil {
@@ -160,38 +200,101 @@ func (m *NodeInfoModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 	}
 
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
 	for i := range m.txt {
-		m.txt[i], cmds[i] = m.txt[i].Update(msg)
+		m.txt[i], cmd = m.txt[i].Update(msg)
+		cmds = append(cmds, cmd)
 	}
 	if m.focused == focusSelection {
-		_, _ = m.sel.Update(msg)
+		_, _ = m.sel1.Update(msg)
 	}
+
+	return m, tea.Batch(cmds...)
+}
+
+func (m *NodeInfoModel) Update(msg tea.Msg) (Model, tea.Cmd) {
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
+
+	switch m.state {
+	case nodeInfoGetDeviceState:
+		cmd = m.updateDeviceSelection(msg)
+		cmds = append(cmds, cmd)
+	case nodeInfoGetProtocolState:
+		_, cmd = m.sel0.Update(msg)
+		if cmd != nil {
+			msg := cmd()
+			switch msg.(type) {
+			case tea.QuitMsg:
+				choice, err := m.sel0.Value()
+				if err != nil {
+					m.err = err
+				} else {
+					m.protocol = getProtocolFromChoice(choice)
+					cmd = nodeInfoGetCmd(m)
+					cmds = append(cmds, cmd)
+				}
+			}
+		}
+	case nodeInfoReceivedState:
+		_, cmd = m.updateNodeInfo(msg)
+		cmds = append(cmds, cmd)
+	}
+
+	switch msg.(type) {
+	case deviceItemSelectedMsg:
+		m.state = nodeInfoGetProtocolState
+	case nodeInfoReceivedMsg:
+		m.txt[focusNodeTag].SetValue(string(m.cfg.Tag))
+		m.txt[focusNodeChannel].SetValue(fmt.Sprintf("%d", m.cfg.Channel))
+		m.state = nodeInfoReceivedState
+	}
+
 	return m, tea.Batch(cmds...)
 }
 
 func (m *NodeInfoModel) View() string {
-	var buffer bytes.Buffer
-	buffer.WriteString("Node ID        : ")
-	buffer.WriteString(graph.FmtDeviceId(m.dev))
-	buffer.WriteString("\nPath to        : ")
-	buffer.WriteString(graph.FmtNodePath(gpath, m.dev))
-	buffer.WriteString("\nFirmware rev   : ")
-	buffer.WriteString(m.rev)
-	buffer.WriteString("\nNode TAG       : ")
-	buffer.WriteString(m.txt[focusNodeTag].View())
-	buffer.WriteString(fmt.Sprintf("\nNode Log dest. : %d", m.cfg.LogDest))
-	buffer.WriteString("\nNode Channel   : ")
-	buffer.WriteString(m.txt[focusNodeChannel].View())
-	buffer.WriteString(fmt.Sprintf("\nNode TxPower   : %d", m.cfg.TxPower))
-	buffer.WriteString(fmt.Sprintf("\nNode Groups    : %d", m.cfg.Groups))
-	buffer.WriteString(fmt.Sprintf("\nNode Binded    : 0x%06X", m.cfg.BindedServer))
-	buffer.WriteString("\n\n")
-	buffer.WriteString(m.sel.View())
-	if len(m.res) > 0 {
-		buffer.WriteString(m.res)
+	views := []string{}
+
+	if m.state >= nodeInfoGetDeviceState {
+		views = append(views, m.selDevice.View())
 	}
 
-	return buffer.String()
+	if m.state >= nodeInfoGetProtocolState {
+		views = append(views, m.sel0.View())
+	}
+
+	if m.state == nodeInfoReceivedState {
+		var buffer bytes.Buffer
+		buffer.WriteString("Node ID        : ")
+		buffer.WriteString(graph.FmtDeviceId(m.device))
+		buffer.WriteString("\nPath to        : ")
+		buffer.WriteString(graph.FmtNodePath(gpath, m.device))
+		buffer.WriteString("\nFirmware rev   : ")
+		buffer.WriteString(m.rev)
+		buffer.WriteString("\nNode TAG       : ")
+		buffer.WriteString(m.txt[focusNodeTag].View())
+		buffer.WriteString(fmt.Sprintf("\nNode Log dest. : %d", m.cfg.LogDest))
+		buffer.WriteString("\nNode Channel   : ")
+		buffer.WriteString(m.txt[focusNodeChannel].View())
+		buffer.WriteString(fmt.Sprintf("\nNode TxPower   : %d", m.cfg.TxPower))
+		buffer.WriteString(fmt.Sprintf("\nNode Groups    : %d", m.cfg.Groups))
+		buffer.WriteString(fmt.Sprintf("\nNode Binded    : 0x%06X", m.cfg.BindedServer))
+		buffer.WriteString("\n\n")
+		buffer.WriteString(m.sel1.View())
+		if len(m.res) > 0 {
+			buffer.WriteString(m.res)
+		}
+
+		views = append(views, buffer.String())
+	}
+
+	if m.err != nil {
+		views = append(views, m.errorStyle.Render(m.err.Error()))
+	}
+
+	return strings.Join(views, "\n")
 }
 
 func (m *NodeInfoModel) Focused() bool {
@@ -199,19 +302,29 @@ func (m *NodeInfoModel) Focused() bool {
 }
 
 func NewNodeInfoModel(ti termInfo, dev *graph.Device) Model {
-	rep, err := sconn.SendReceiveApiProt(meshmesh.FirmRevApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(dev.ID()))
-	if err != nil {
-		return &ErrorReplyModel{err: err}
-	}
-	rev := rep.(meshmesh.FirmRevApiReply)
-	rep, err = sconn.SendReceiveApiProt(meshmesh.NodeConfigApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(dev.ID()))
-	if err != nil {
-		return &ErrorReplyModel{err: err}
-	}
-	cfg := rep.(meshmesh.NodeConfigApiReply)
-	txt1 := createTextInput(ti, "<node tag>", string(cfg.Tag), 31, true)
-	txt2 := createTextInput(ti, "<node channel>", fmt.Sprintf("%d", cfg.Channel), 6, false)
+	txt1 := createTextInput(ti, "<node tag>", "", 31, true)
+	txt2 := createTextInput(ti, "<node channel>", "", 6, false)
 	txt := []textinput.Model{txt1, txt2}
 
-	return &NodeInfoModel{ti: ti, dev: dev, rev: rev.Revision, cfg: cfg, txt: txt, sel: createSelection(), focused: 0}
+	model := &NodeInfoModel{
+		BaseModel: NewBaseModelExtended(ti, gpath),
+		txt:       txt,
+		sel0: createSelectionModel("Select protocol:", []choiceItem{
+			{ID: 0, Name: "Unicast protocol"},
+			{ID: 1, Name: "Multipath protocol"},
+			{ID: 2, Name: "Direct protocol"}}),
+		sel1: createSelectionModel("node action:", []choiceItem{
+			{ID: 0, Name: "Node Reboot"},
+			{ID: 1, Name: "Save Tag"},
+			{ID: 2, Name: "Save Channel"}}),
+		focused: 0,
+		state:   nodeInfoGetDeviceState,
+	}
+
+	if dev != nil {
+		model.device = dev
+		model.state = nodeInfoGetProtocolState
+	}
+
+	return model
 }

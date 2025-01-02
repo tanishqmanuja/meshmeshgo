@@ -65,7 +65,7 @@ func PrintTable(network *Network) {
 			}
 		}
 
-		fmt.Printf("| %s | %15s | %-18s | %4d | %-48s | %3.2f |\n", FmtDeviceId(device), FmtDeviceId(device), device.Tag(), 6053, _path, weight)
+		fmt.Printf("| %s | %15s | %-18s | %4d | %-48s | %3.2f |\n", FmtDeviceId(device), FmtDeviceIdHass(device), device.Tag(), 6053, _path, weight)
 	}
 
 }

@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"bytes"
-	"log"
 	"strconv"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -21,12 +19,21 @@ const (
 	colDiscKeyDelta = "delta"
 )
 
+const (
+	discoveryChoiceInit = iota
+	discoveryChoiceDiscover
+	discoveryChoiceSave
+	discoveryChoiceClear
+)
+
 type DiscoveryModel struct {
-	ti        termInfo
+	BaseModel
 	table     table.Model
-	sel       *selection.Model[string]
+	sel       *selection.Model[choiceItem]
 	procedure *meshmesh.DiscoveryProcedure
 	nodeid    int64
+	state     int
+	err       error
 }
 
 type discoverErrorMsg error
@@ -34,6 +41,12 @@ type discoverInitDoneMsg int64
 type discoverStepDoneMsg int64
 type discoverSaveDoneMsg int64
 type discoverClearDoneMsg int64
+
+const (
+	discoveryStateInit = iota
+	discoveryStateWaitCommand
+	discoveryStateInProgress
+)
 
 func initDiscoveryCmd(d *DiscoveryModel) tea.Cmd {
 	return func() tea.Msg {
@@ -68,8 +81,9 @@ func saveDiscoveryCmd(d *DiscoveryModel) tea.Cmd {
 
 func clearDiscoveryCmd(d *DiscoveryModel) tea.Cmd {
 	return func() tea.Msg {
+		nodeid := d.procedure.CurrentNode()
 		d.procedure = nil
-		return discoverClearDoneMsg(d.procedure.CurrentNode())
+		return discoverClearDoneMsg(nodeid)
 	}
 }
 
@@ -105,17 +119,19 @@ func (m *DiscoveryModel) tableRows() []table.Row {
 	return rows
 }
 
-/*func (m *DiscoveryModel) blur(i int) {
-}
-
-func (m *DiscoveryModel) focus(i int) {
-}*/
-
-func (m *DiscoveryModel) changeFocus() {
+func (m *DiscoveryModel) initChoices() {
+	m.sel = createSelectionModel("select action:", []choiceItem{
+		{ID: discoveryChoiceInit, Name: "[I] Init discovery procedure"},
+		{ID: discoveryChoiceDiscover, Name: "[D] Discover from this node"},
+		{ID: discoveryChoiceSave, Name: "[S] Save discovery to file"},
+		{ID: discoveryChoiceClear, Name: "[C] Clear discovery"},
+	})
+	m.sel.Init()
 }
 
 func (m *DiscoveryModel) Init() tea.Cmd {
-	return tea.Batch([]tea.Cmd{m.sel.Init(), initDiscoveryCmd(m)}...)
+	m.state = discoveryStateInit
+	return tea.Batch([]tea.Cmd{m.initSpinner(), initDiscoveryCmd(m)}...)
 }
 
 func (m *DiscoveryModel) Update(msg tea.Msg) (Model, tea.Cmd) {
@@ -126,64 +142,82 @@ func (m *DiscoveryModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case discoverErrorMsg:
-		log.Println("Discovery error", msg.Error())
+		m.state = discoveryStateWaitCommand
+		m.err = msg
+		m.initChoices()
 	case discoverInitDoneMsg:
-		log.Println("Discovery done")
+		m.state = discoveryStateWaitCommand
 		m.table = m.table.WithRows(m.tableRows())
+		m.initChoices()
 	case discoverStepDoneMsg:
-		log.Println("Discovery Step done")
+		m.state = discoveryStateWaitCommand
 		m.table = m.table.WithRows(m.tableRows())
+		m.initChoices()
 	case discoverClearDoneMsg:
-		log.Println("Discovery Clear done")
-		m.table = m.table.WithRows(m.tableRows())
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeySpace:
-			var cmd tea.Cmd
-			if m.procedure == nil {
-				cmd = initDiscoveryCmd(m)
-				cmds = append(cmds, cmd)
-			} else {
-				cmd = stepDiscoveryCmd(m)
-				cmds = append(cmds, cmd)
+		m.state = discoveryChoiceInit
+		cmd = initDiscoveryCmd(m)
+		cmds = append(cmds, cmd)
+		m.initChoices()
+	}
 
-			}
-		case tea.KeyTab:
-			m.changeFocus()
-		default:
-			switch msg.String() {
-			case "s":
-				cmd = saveDiscoveryCmd(m)
-				cmds = append(cmds, cmd)
-			case "c":
-				cmd = clearDiscoveryCmd(m)
-				cmds = append(cmds, cmd)
+	cmd = m.updateSpinner(msg)
+	cmds = append(cmds, cmd)
+
+	switch m.state {
+	case discoveryStateWaitCommand:
+		m.table, cmd = m.table.Update(msg)
+		cmds = append(cmds, cmd)
+		_, cmd = m.sel.Update(msg)
+		if cmd != nil {
+			msg := cmd()
+			switch msg.(type) {
+			case tea.QuitMsg:
+				sel, err := m.sel.ValueAsChoice()
+				if err != nil {
+					m.err = err
+				} else {
+					switch sel.Value.ID {
+					case discoveryChoiceInit:
+						cmd = initDiscoveryCmd(m)
+						cmds = append(cmds, cmd)
+					case discoveryChoiceDiscover:
+						m.state = discoveryStateInProgress
+						cmd = stepDiscoveryCmd(m)
+						cmds = append(cmds, cmd)
+					case discoveryChoiceSave:
+						cmd = saveDiscoveryCmd(m)
+						cmds = append(cmds, cmd)
+					case discoveryChoiceClear:
+						cmd = clearDiscoveryCmd(m)
+						cmds = append(cmds, cmd)
+					}
+				}
 			}
 		}
 	}
-
-	m.sel.Update(msg)
-	//cmds = append(cmds, cmd)
-	m.table, cmd = m.table.Update(msg)
-	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
 }
 
 func (m *DiscoveryModel) View() string {
-	var buffer bytes.Buffer
-	if m.procedure == nil {
-		buffer.WriteString("Discovery inactive")
-	} else {
-		buffer.WriteString("Current Node: ")
-		buffer.WriteString(utils.FmtNodeId(m.procedure.CurrentNode()))
+	views := []string{}
+	if m.state >= discoveryStateWaitCommand {
+		views = append(views, "Current Node: "+utils.FmtNodeId(m.procedure.CurrentNode()))
 	}
-	buffer.WriteString("\n")
 
-	buffer.WriteString(m.table.View())
-	buffer.WriteString("\n\n")
-	buffer.WriteString(m.sel.View())
-	return buffer.String()
+	if m.state >= discoveryStateWaitCommand {
+		views = append(views, m.table.View())
+		views = append(views, m.sel.View())
+	}
+
+	if m.state == discoveryStateInProgress {
+		views = append(views, m.progressStyle.Render(m.viewSpinner()+" Discovery in progress from node "+utils.FmtNodeId(m.procedure.CurrentNode())))
+	}
+
+	if m.err != nil {
+		views = append(views, m.errorStyle.Render(m.err.Error()))
+	}
+	return lipgloss.JoinVertical(lipgloss.Top, views...)
 }
 
 func (m *DiscoveryModel) Focused() bool {
@@ -191,15 +225,12 @@ func (m *DiscoveryModel) Focused() bool {
 }
 
 func NewDiscoveryModel(ti termInfo, nodeid int64) *DiscoveryModel {
-	model := DiscoveryModel{ti: ti, nodeid: nodeid}
+	model := DiscoveryModel{BaseModel: NewBaseModel(ti), nodeid: nodeid}
 	_cols := model.makeColumns()
 	_rows := model.tableRows()
 	_style := ti.renderer.NewStyle().Align(lipgloss.Left)
 	_table := table.New(_cols).WithRows(_rows).BorderRounded().WithBaseStyle(_style).WithPageSize(20).SortByAsc(colKeyId).Focused(true)
 	model.table = _table
-	_sel := selection.New("discovery action:", []string{"[I] Init discovery procedure", "[D] Discover from this node"})
-	_sel.Filter = nil
-	_sel.Template = selection.DefaultTemplate
-	model.sel = selection.NewModel(_sel)
+	model.createSpinner()
 	return &model
 }

@@ -166,8 +166,12 @@ func (client *ApiConnection) Read() {
 }
 
 func (client *ApiConnection) ForwardData(data []byte) error {
-	logger.WithFields(logger.Fields{"handle": client.connpath.handle, "meshid": utils.FmtNodeId(int64(client.reqAddress))}).
-		Trace(fmt.Sprintf("SE-->HA: %s", hex.EncodeToString(data)))
+	logger.WithFields(logger.Fields{
+		"handle": client.connpath.handle,
+		"meshid": utils.FmtNodeId(int64(client.reqAddress)),
+		"len":    len(data),
+		"data":   utils.EncodeToHexEllipsis(data, 10),
+	}).Trace("SE-->HA")
 	n, err := client.socket.Write(data)
 	if err != nil {
 		return err

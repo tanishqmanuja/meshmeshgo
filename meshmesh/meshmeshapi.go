@@ -81,7 +81,7 @@ func (serialConn *SerialConnection) GetNextHandle() uint16 {
 func (serialConn *SerialConnection) ReadFrame(buffer []byte) {
 	frame := NewApiFrame(buffer, true)
 	if buffer[0] != logEventApiReply {
-		logger.Log().WithFields(logrus.Fields{"data": hex.EncodeToString(frame.data)}).Trace("From serial")
+		logger.Log().WithFields(logrus.Fields{"len": len(frame.data), "data": hex.EncodeToString(frame.data[0:min(len(frame.data), 10)])}).Trace("From serial")
 	}
 	if buffer[0] == logEventApiReply {
 		// Handle LOG packets first
@@ -275,7 +275,7 @@ func (serialConn *SerialConnection) QueueApiSession(session *SerialSession) {
 }
 
 func (serialConn *SerialConnection) SendApi(cmd interface{}) error {
-	frame, err := NewApiFrameFromStruct(cmd, directProtocol, 0)
+	frame, err := NewApiFrameFromStruct(cmd, DirectProtocol, 0)
 	if err != nil {
 		return err
 	}
@@ -303,7 +303,7 @@ func (serialConn *SerialConnection) sendReceiveApiProt(session *SerialSession) (
 
 func (serialConn *SerialConnection) SendReceiveApiProt(cmd interface{}, protocol MeshProtocol, target MeshNodeId) (interface{}, error) {
 	if target == 0 {
-		protocol = directProtocol
+		protocol = DirectProtocol
 	}
 	frame, err := NewApiFrameFromStruct(cmd, protocol, target)
 	if err != nil {
@@ -320,7 +320,7 @@ func (serialConn *SerialConnection) SendReceiveApiProt(cmd interface{}, protocol
 
 func (serialConn *SerialConnection) SendReceiveApiProtTimeout(cmd interface{}, protocol MeshProtocol, target MeshNodeId, timeoutMs int64) (interface{}, error) {
 	if target == 0 {
-		protocol = directProtocol
+		protocol = DirectProtocol
 	}
 	frame, err := NewApiFrameFromStruct(cmd, protocol, target)
 	if err != nil {
@@ -337,7 +337,7 @@ func (serialConn *SerialConnection) SendReceiveApiProtTimeout(cmd interface{}, p
 }
 
 func (serialConn *SerialConnection) SendReceiveApi(cmd interface{}) (interface{}, error) {
-	return serialConn.SendReceiveApiProt(cmd, directProtocol, 0)
+	return serialConn.SendReceiveApiProt(cmd, DirectProtocol, 0)
 }
 
 func NewSerial(portName string, baudRate int, debug bool) (*SerialConnection, error) {
