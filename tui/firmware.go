@@ -108,12 +108,13 @@ type FirmwareModel struct {
 }
 
 func (m *FirmwareModel) Init() tea.Cmd {
-	return tea.Batch([]tea.Cmd{m.initDeviceSelection(), m.fpick.Init(), m.confirm.Init(), m.confirm2.Init()}...)
+	return tea.Batch([]tea.Cmd{m.initDeviceSelection(), m.initSpinner(), m.fpick.Init(), m.confirm.Init(), m.confirm2.Init()}...)
 }
 
 func (m *FirmwareModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case deviceItemSelectedMsg:
 		cmd := initFirmwareCmd(m)
@@ -145,6 +146,9 @@ func (m *FirmwareModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 	if m.err != nil {
 		return m, cmd
 	}
+
+	cmd = m.updateSpinner(msg)
+	cmds = append(cmds, cmd)
 
 	switch m.state {
 	case firmwareGetDevice:
@@ -239,7 +243,7 @@ func (m *FirmwareModel) View() string {
 	}
 
 	if m.state == firmwareStateRebooting {
-		views = append(views, m.progressStyle.Render("Node rebooting in progress..."))
+		views = append(views, m.progressStyle.Render(fmt.Sprintf("%s Node rebooting in progress...", m.viewSpinner())))
 	}
 
 	if m.state >= firmwareStateRebootSuccess {
@@ -289,5 +293,6 @@ func NewFirmwareModel(ti termInfo) Model {
 		confirm2:  confirmation.NewModel(confirm2),
 	}
 
+	model.createSpinner()
 	return model
 }
