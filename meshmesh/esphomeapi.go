@@ -124,7 +124,7 @@ func (client *ApiConnection) CheckTimeout() {
 		}
 		if client.connpath.connState == connPathConnectionStateInit || client.connpath.connState == connPathConnectionStateHandshakeStarted {
 			if time.Since(client.timeout).Milliseconds() > 3000 {
-				logger.Error("Closing connection beacuse timeout in connPathConnectionStateInit")
+				logger.Error(fmt.Sprintf("Closing connection beacuse timeout after %dms in connPathConnectionStateInit for handle %d", time.Since(client.timeout).Milliseconds(), client.connpath.handle))
 				client.Close()
 			}
 		}
@@ -297,6 +297,11 @@ func NewServerApi(serial *SerialConnection, g *graph.Network, address MeshNodeId
 	return &server, nil
 }
 
+func (m *MultiServerApi) handleUnhandledReply(v *ConnectedPathApiReply) {
+	logger.WithFields(logger.Fields{"cmd": v.Command, "handle": v.Handle}).
+		Error("handleUnhandledReply: Connection not found for this handle")
+}
+
 func (m *MultiServerApi) HandleConnectedPathReply(v *ConnectedPathApiReply) {
 	var handled bool = false
 	for _, server := range m.Servers {
@@ -306,9 +311,7 @@ func (m *MultiServerApi) HandleConnectedPathReply(v *ConnectedPathApiReply) {
 		}
 	}
 	if !handled {
-		logger.WithFields(logger.Fields{"cmd": v.Command, "handle": v.Handle}).
-			Error("HandleConnectedPathReply: Connection not found for this handle")
-		SendInvalidHandle(m.serial, v.Handle)
+		m.handleUnhandledReply(v)
 	}
 }
 

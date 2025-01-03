@@ -2,7 +2,6 @@ package tui
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -10,13 +9,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"leguru.net/m/v2/graph"
 )
-
-type termInfo struct {
-	term     string
-	width    int
-	height   int
-	renderer *lipgloss.Renderer
-}
 
 type HelpModel struct {
 	ti termInfo
@@ -117,7 +109,7 @@ func get_suggestions(cmd string) []string {
 	sugg := []string{}
 	tokens := tokenize(cmd)
 	if len(tokens) == 0 {
-		sugg = []string{"coordinator", "graph", "node"}
+		sugg = []string{"help", "coordinator", "graph", "node", "discovery", "esphome", "firmware"}
 	} else {
 		token := tokens[0]
 		switch token {
@@ -126,42 +118,6 @@ func get_suggestions(cmd string) []string {
 		}
 	}
 	return sugg
-}
-
-func (m model) execute_node_info_command(tokens []string) Model {
-	if len(tokens) == 1 {
-		id, err := graph.ParseDeviceId(tokens[0])
-		if err != nil {
-			return NewErrorReplyModel(m.ti, err)
-		} else {
-			var dev *graph.Device
-			if id == 0 {
-				dev = graph.NewDevice(0, true, "local")
-			} else {
-				dev = gpath.GetDevice(id)
-			}
-			if dev == nil {
-				return NewErrorReplyModel(m.ti, errors.New("node info: device not found in graph"))
-			}
-			return NewNodeInfoModel(m.ti, dev)
-		}
-	} else {
-		//return NewErrorReplyModel(m.ti, errors.New("node info: invalid node ID"))
-		return NewNodeInfoModel(m.ti, nil)
-	}
-}
-
-func (m model) execute_node_command(tokens []string) Model {
-	if len(tokens) == 0 {
-
-	} else {
-		token := tokens[0]
-		tokens = tokens[1:]
-		if token == "info" {
-			return m.execute_node_info_command(tokens)
-		}
-	}
-	return NewErrorReplyModel(m.ti, errors.New("node: unknow command"))
 }
 
 func (m model) execute_discovery_command(tokens []string) Model {
@@ -188,7 +144,7 @@ func (m model) execute_command(cmd string) Model {
 		} else if token == "graph" {
 			return NewGraphShowModel(m.ti)
 		} else if token == "node" {
-			return m.execute_node_command(tokens)
+			return NewNodeInfoModel(m.ti, nil)
 		} else if token == "discovery" {
 			return m.execute_discovery_command(tokens)
 		} else if token == "esphome" {

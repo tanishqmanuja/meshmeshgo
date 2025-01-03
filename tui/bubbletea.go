@@ -1,12 +1,12 @@
 package tui
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"net"
 	"time"
 
+	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -36,16 +36,23 @@ type Model interface {
 func teaHandler(s ssh.Session) (tea.Model, []tea.ProgramOption) {
 	pty, _, _ := s.Pty()
 
+	renderer := bubbletea.MakeRenderer(s)
 	m := model{
 		ti: termInfo{
-			term:     pty.Term,
-			width:    pty.Window.Width,
-			height:   pty.Window.Height,
-			renderer: bubbletea.MakeRenderer(s),
+			term:          pty.Term,
+			width:         pty.Window.Width,
+			height:        pty.Window.Height,
+			renderer:      renderer,
+			errorStyle:    renderer.NewStyle().Foreground(lipgloss.ANSIColor(9)),
+			successStyle:  renderer.NewStyle().Foreground(lipgloss.ANSIColor(10)),
+			progressStyle: renderer.NewStyle().Foreground(lipgloss.ANSIColor(11)),
 		},
 		textInput:   textinput.New(),
+		help:        createHelpModel(renderer),
 		headerTable: table.New(),
 		submodel:    nil,
+		state:       bubbleWaitCommandState,
+		keymap:      GetKeymap(),
 	}
 
 	log.Printf("Terminal %s Color profile %s", pty.Term, m.ti.renderer.ColorProfile().Name())
@@ -56,7 +63,7 @@ func teaHandler(s ssh.Session) (tea.Model, []tea.ProgramOption) {
 	m.textInput.CharLimit = 128
 	m.textInput.Width = 64
 	m.textInput.SetSuggestions(get_suggestions(""))
-	//m.textInput.ShowSuggestions = true
+	m.textInput.ShowSuggestions = true
 
 	m.textInput.PromptStyle = m.ti.renderer.NewStyle().Bold(true).Foreground(lipgloss.ANSIColor(32))
 	m.textInput.PlaceholderStyle = m.ti.renderer.NewStyle().Foreground(lipgloss.ANSIColor(8))
@@ -67,13 +74,37 @@ func teaHandler(s ssh.Session) (tea.Model, []tea.ProgramOption) {
 	return m, []tea.ProgramOption{tea.WithAltScreen()}
 }
 
+type bubbleModuleStartedMsg string
+type bubbleModuleDoneMsg bool
+
+func ExecuteModuleCmd(m model, command string) tea.Cmd {
+	return func() tea.Msg {
+		return bubbleModuleStartedMsg(command)
+	}
+}
+
+func TerminateModuleCmd(m *model) tea.Cmd {
+	return func() tea.Msg {
+		m.submodel = nil
+		return bubbleModuleDoneMsg(true)
+	}
+}
+
+const (
+	bubbleWaitCommandState = iota
+	bubbleWaitProcedureState
+)
+
 // Just a generic tea.Model to demo terminal information of ssh.
 type model struct {
 	ti          termInfo
 	textInput   textinput.Model
+	help        help.Model
 	headerTable table.Model
 	submodel    Model
 	err         error
+	state       int
+	keymap      keymap
 }
 
 func (m model) Init() tea.Cmd {
@@ -84,27 +115,55 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds tea.BatchMsg
 
-	m.textInput, cmd = m.textInput.Update(msg)
-	cmds = append(cmds, cmd)
+	switch msg.(type) {
+	case bubbleModuleStartedMsg:
+		m.textInput.Blur()
+		m.err = nil
+		m.state = bubbleWaitProcedureState
+	case bubbleModuleDoneMsg:
+		m.textInput.SetValue("")
+		m.textInput.SetSuggestions(get_suggestions(""))
+		m.textInput.Focus()
+		cmds = append(cmds, textinput.Blink)
+		m.err = nil
+		m.submodel = nil
+		m.state = bubbleWaitCommandState
+	}
 
-	if m.submodel != nil {
+	switch m.state {
+	case bubbleWaitCommandState:
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.Type {
+			case tea.KeyEnter:
+				m.submodel = m.execute_command(m.textInput.Value())
+				if m.submodel != nil {
+					cmds = append(cmds, m.submodel.Init())
+					cmds = append(cmds, ExecuteModuleCmd(m, m.textInput.Value()))
+				} else {
+					m.err = errors.New("command '" + m.textInput.Value() + "' not found")
+				}
+			case tea.KeySpace:
+				m.textInput.SetSuggestions(get_suggestions(m.textInput.Value()))
+			}
+		}
+	case bubbleWaitProcedureState:
+		if m.submodel == nil {
+			log.Error("Submodel is nil")
+			return m, tea.Quit
+		}
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			if msg.Type == tea.KeyEsc {
+				return m, TerminateModuleCmd(&m)
+			}
+		}
 		m.submodel, cmd = m.submodel.Update(msg)
 		cmds = append(cmds, cmd)
 	}
 
-	if m.submodel != nil {
-		// Add or remove focus to command line
-		if m.submodel.Focused() && m.textInput.Focused() {
-			m.textInput.Blur()
-		}
-		if !m.submodel.Focused() && !m.textInput.Focused() {
-			m.textInput.Focus()
-		}
-	} else {
-		if !m.textInput.Focused() {
-			m.textInput.Focus()
-		}
-	}
+	m.textInput, cmd = m.textInput.Update(msg)
+	cmds = append(cmds, cmd)
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -114,26 +173,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC:
 			return m, tea.Quit
-		case tea.KeyEsc:
-			if m.submodel != nil && m.submodel.Focused() {
-				m.submodel = nil
-			} else {
-				return m, tea.Quit
-			}
-		case tea.KeySpace:
-			if m.submodel == nil || !m.submodel.Focused() {
-				m.textInput.SetSuggestions(get_suggestions(m.textInput.Value()))
-			}
-		case tea.KeyEnter:
-			if m.submodel == nil || !m.submodel.Focused() {
-				m.submodel = m.execute_command(m.textInput.Value())
-				if m.submodel != nil {
-					cmd = m.submodel.Init()
-					cmds = append(cmds, cmd)
-				}
-				m.textInput.SetValue("")
-				m.textInput.SetSuggestions(get_suggestions(""))
-			}
 		}
 	case error:
 		m.err = msg
@@ -143,13 +182,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	var buffer bytes.Buffer
-	buffer.WriteString(m.textInput.View())
-	buffer.WriteString("\n\n")
-	if m.submodel != nil {
-		buffer.WriteString(m.submodel.View())
+	views := []string{}
+	views = append(views, m.textInput.View())
+	if m.state == bubbleWaitCommandState {
+		views = append(views, m.help.View(m.keymap))
 	}
-	return buffer.String()
+	if m.state == bubbleWaitProcedureState {
+		views = append(views, m.submodel.View())
+	}
+	if m.err != nil {
+		views = append(views, m.ti.errorStyle.Render(m.err.Error()))
+	}
+	return lipgloss.JoinVertical(lipgloss.Top, views...)
 }
 
 func ShutdownSshServer(s *ssh.Server) {

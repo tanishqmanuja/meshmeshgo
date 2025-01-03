@@ -291,7 +291,7 @@ func (m *NodeInfoModel) View() string {
 	}
 
 	if m.err != nil {
-		views = append(views, m.errorStyle.Render(m.err.Error()))
+		views = append(views, m.ti.errorStyle.Render(m.err.Error()))
 	}
 
 	return strings.Join(views, "\n")

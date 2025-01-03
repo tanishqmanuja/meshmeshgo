@@ -22,6 +22,7 @@ type firmwareUploadDoneMsg bool
 type firmwareRebootDoneMsg bool
 type firmwareCheckRevAfterMsg string
 
+// Firmware state machine
 const (
 	firmwareGetDevice = iota
 	firmwareCheckNode
@@ -231,9 +232,9 @@ func (m *FirmwareModel) View() string {
 
 	if m.state >= firmwareStateUploading {
 		if m.state == firmwareStateUploading {
-			views = append(views, m.progressStyle.Render(fmt.Sprintf("Uploading firmware in progress: %d/%d bytes", m.procedure.BytesSent(), m.procedure.BytesTotal())))
+			views = append(views, m.ti.progressStyle.Render(fmt.Sprintf("Uploading firmware in progress: %d/%d bytes", m.procedure.BytesSent(), m.procedure.BytesTotal())))
 		} else {
-			views = append(views, m.successStyle.Render(fmt.Sprintf("Uploading firmware successful, sent %d bytes", m.procedure.BytesSent())))
+			views = append(views, m.ti.successStyle.Render(fmt.Sprintf("Uploading firmware successful, sent %d bytes", m.procedure.BytesSent())))
 		}
 		views = append(views, m.progress.ViewAs(m.procedure.Percent()))
 	}
@@ -243,11 +244,11 @@ func (m *FirmwareModel) View() string {
 	}
 
 	if m.state == firmwareStateRebooting {
-		views = append(views, m.progressStyle.Render(fmt.Sprintf("%s Node rebooting in progress...", m.viewSpinner())))
+		views = append(views, m.ti.progressStyle.Render(fmt.Sprintf("%s Node rebooting in progress...", m.viewSpinner())))
 	}
 
 	if m.state >= firmwareStateRebootSuccess {
-		views = append(views, m.successStyle.Render("Node reboot successful, procedure terminated."))
+		views = append(views, m.ti.successStyle.Render("Node reboot successful, procedure terminated."))
 	}
 
 	if m.state >= firmwareCheckRevAfter {
@@ -255,7 +256,7 @@ func (m *FirmwareModel) View() string {
 	}
 
 	if m.err != nil {
-		views = append(views, m.errorStyle.Render(m.err.Error()))
+		views = append(views, m.ti.errorStyle.Render(m.err.Error()))
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Top, views...)

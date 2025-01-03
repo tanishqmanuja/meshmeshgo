@@ -211,11 +211,11 @@ func (m *DiscoveryModel) View() string {
 	}
 
 	if m.state == discoveryStateInProgress {
-		views = append(views, m.progressStyle.Render(m.viewSpinner()+" Discovery in progress from node "+utils.FmtNodeId(m.procedure.CurrentNode())))
+		views = append(views, m.ti.progressStyle.Render(m.viewSpinner()+" Discovery in progress from node "+utils.FmtNodeId(m.procedure.CurrentNode())))
 	}
 
 	if m.err != nil {
-		views = append(views, m.errorStyle.Render(m.err.Error()))
+		views = append(views, m.ti.errorStyle.Render(m.err.Error()))
 	}
 	return lipgloss.JoinVertical(lipgloss.Top, views...)
 }

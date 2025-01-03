@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -11,6 +12,48 @@ import (
 	"leguru.net/m/v2/graph"
 	"leguru.net/m/v2/utils"
 )
+
+type termInfo struct {
+	term          string
+	width         int
+	height        int
+	renderer      *lipgloss.Renderer
+	errorStyle    lipgloss.Style
+	successStyle  lipgloss.Style
+	progressStyle lipgloss.Style
+}
+
+func createHelpModel(renderer *lipgloss.Renderer) help.Model {
+	keyStyle := renderer.NewStyle().Foreground(lipgloss.AdaptiveColor{
+		Light: "#909090",
+		Dark:  "#626262",
+	})
+
+	descStyle := renderer.NewStyle().Foreground(lipgloss.AdaptiveColor{
+		Light: "#B2B2B2",
+		Dark:  "#4A4A4A",
+	})
+
+	sepStyle := renderer.NewStyle().Foreground(lipgloss.AdaptiveColor{
+		Light: "#DDDADA",
+		Dark:  "#3C3C3C",
+	})
+
+	return help.Model{
+		ShortSeparator: " • ",
+		FullSeparator:  "    ",
+		Ellipsis:       "…",
+		Styles: help.Styles{
+			ShortKey:       keyStyle,
+			ShortDesc:      descStyle,
+			ShortSeparator: sepStyle,
+			Ellipsis:       sepStyle,
+			FullKey:        keyStyle,
+			FullDesc:       descStyle,
+			FullSeparator:  sepStyle,
+		},
+	}
+}
 
 type choiceItem struct {
 	ID   int
@@ -66,17 +109,11 @@ func createDeviceSelectionModel(network *graph.Network) *selection.Model[deviceI
 }
 
 type BaseModel struct {
-	ti termInfo
-
-	successStyle  lipgloss.Style
-	errorStyle    lipgloss.Style
-	progressStyle lipgloss.Style
-
+	ti        termInfo
 	selDevice *selection.Model[deviceItem]
 	spinner   spinner.Model
-
-	network *graph.Network
-	device  *graph.Device
+	network   *graph.Network
+	device    *graph.Device
 }
 
 type deviceItemSelectedMsg *graph.Device
@@ -137,19 +174,13 @@ func (m *BaseModel) viewSpinner() string {
 
 func NewBaseModel(ti termInfo) BaseModel {
 	return BaseModel{
-		ti:            ti,
-		successStyle:  ti.renderer.NewStyle().Foreground(lipgloss.ANSIColor(10)),
-		errorStyle:    ti.renderer.NewStyle().Foreground(lipgloss.ANSIColor(9)),
-		progressStyle: ti.renderer.NewStyle().Foreground(lipgloss.ANSIColor(11)),
+		ti: ti,
 	}
 }
 
 func NewBaseModelExtended(ti termInfo, network *graph.Network) BaseModel {
 	model := BaseModel{
-		ti:            ti,
-		successStyle:  ti.renderer.NewStyle().Foreground(lipgloss.ANSIColor(10)),
-		errorStyle:    ti.renderer.NewStyle().Foreground(lipgloss.ANSIColor(9)),
-		progressStyle: ti.renderer.NewStyle().Foreground(lipgloss.ANSIColor(11)),
+		ti: ti,
 	}
 	model.network = network
 	model.selDevice = createDeviceSelectionModel(network)

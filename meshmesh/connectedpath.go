@@ -12,12 +12,13 @@ import (
 )
 
 const connectedPathOpenConnectionRequest uint8 = 1
-const connectedPathInvalidHandleReply uint8 = 4
+const connectedPathSendDataNackReply uint8 = 4
 const connectedPathSendDataRequest uint8 = 5
 const connectedPathOpenConnectionAck uint8 = 6
 const connectedPathOpenConnectionNack uint8 = 7
 const connectedPathDisconnectRequest uint8 = 8
-const connectedPathSendDataError uint8 = 9
+
+// const connectedPathSendDataError uint8 = 9
 const connectedPathClearConnections uint8 = 10
 
 const (
@@ -83,10 +84,10 @@ func (client *ConnPathConnection) SendData(data []byte) error {
 	return err
 }
 
-func SendInvalidHandle(serial *SerialConnection, handle uint16) error {
+func SendSendDataNack(serial *SerialConnection, handle uint16) error {
 	err := serial.SendApi(ConnectedPathApiRequest{
 		Protocol: meshmeshProtocolConnectedPath,
-		Command:  connectedPathInvalidHandleReply,
+		Command:  connectedPathSendDataNackReply,
 		Handle:   handle,
 		Dummy:    0,
 		Sequence: 0,
@@ -196,11 +197,8 @@ func (client *ConnPathConnection) HandleIncomingReply(v *ConnectedPathApiReply) 
 		client.handleIncomingOpenConnAck(v)
 	} else if v.Command == connectedPathOpenConnectionNack {
 		client.handleIncomingOpenConnNack(v)
-	} else if v.Command == connectedPathSendDataError {
-		logger.WithField("handle", v.Handle).Error("HandleIncomingReply: SendDataError")
-		client.connState = connPathConnectionStateInvalid
-	} else if v.Command == connectedPathInvalidHandleReply {
-		logger.WithField("handle", v.Handle).Error("HandleIncomingReply: InvalidHandleReply")
+	} else if v.Command == connectedPathSendDataNackReply {
+		logger.WithField("handle", v.Handle).Error("HandleIncomingReply: SendDataNack")
 		client.connState = connPathConnectionStateInvalid
 	} else if v.Command == connectedPathDisconnectRequest {
 		logger.WithField("handle", v.Handle).Debug("HandleIncomingReply: DisconnectRequest")

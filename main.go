@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"leguru.net/m/v2/config"
 	gra "leguru.net/m/v2/graph"
 	"leguru.net/m/v2/logger"
 	"leguru.net/m/v2/meshmesh"
@@ -27,7 +28,7 @@ func waitForTermination() {
 func main() {
 	go waitForTermination()
 
-	config, err := NewConfig()
+	config, err := config.NewConfig()
 	if err != nil {
 		logger.Log().Fatal("Invalid config options: ", err)
 	}
