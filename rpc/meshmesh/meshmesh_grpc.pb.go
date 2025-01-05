@@ -26,6 +26,7 @@ const (
 	Meshmesh_SetTag_FullMethodName       = "/meshmesh.Meshmesh/SetTag"
 	Meshmesh_SetChannel_FullMethodName   = "/meshmesh.Meshmesh/SetChannel"
 	Meshmesh_NetworkNodes_FullMethodName = "/meshmesh.Meshmesh/NetworkNodes"
+	Meshmesh_NetworkEdges_FullMethodName = "/meshmesh.Meshmesh/NetworkEdges"
 )
 
 // MeshmeshClient is the client API for Meshmesh service.
@@ -42,6 +43,7 @@ type MeshmeshClient interface {
 	SetTag(ctx context.Context, in *SetTagRequest, opts ...grpc.CallOption) (*SetTagReply, error)
 	SetChannel(ctx context.Context, in *SetChannelRequest, opts ...grpc.CallOption) (*SetChannelReply, error)
 	NetworkNodes(ctx context.Context, in *NetworkNodesRequest, opts ...grpc.CallOption) (*NetworkNodesReply, error)
+	NetworkEdges(ctx context.Context, in *NetworkEdgesRequest, opts ...grpc.CallOption) (*NetworkEdgesReply, error)
 }
 
 type meshmeshClient struct {
@@ -122,6 +124,16 @@ func (c *meshmeshClient) NetworkNodes(ctx context.Context, in *NetworkNodesReque
 	return out, nil
 }
 
+func (c *meshmeshClient) NetworkEdges(ctx context.Context, in *NetworkEdgesRequest, opts ...grpc.CallOption) (*NetworkEdgesReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NetworkEdgesReply)
+	err := c.cc.Invoke(ctx, Meshmesh_NetworkEdges_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MeshmeshServer is the server API for Meshmesh service.
 // All implementations must embed UnimplementedMeshmeshServer
 // for forward compatibility.
@@ -136,6 +148,7 @@ type MeshmeshServer interface {
 	SetTag(context.Context, *SetTagRequest) (*SetTagReply, error)
 	SetChannel(context.Context, *SetChannelRequest) (*SetChannelReply, error)
 	NetworkNodes(context.Context, *NetworkNodesRequest) (*NetworkNodesReply, error)
+	NetworkEdges(context.Context, *NetworkEdgesRequest) (*NetworkEdgesReply, error)
 	mustEmbedUnimplementedMeshmeshServer()
 }
 
@@ -166,6 +179,9 @@ func (UnimplementedMeshmeshServer) SetChannel(context.Context, *SetChannelReques
 }
 func (UnimplementedMeshmeshServer) NetworkNodes(context.Context, *NetworkNodesRequest) (*NetworkNodesReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NetworkNodes not implemented")
+}
+func (UnimplementedMeshmeshServer) NetworkEdges(context.Context, *NetworkEdgesRequest) (*NetworkEdgesReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NetworkEdges not implemented")
 }
 func (UnimplementedMeshmeshServer) mustEmbedUnimplementedMeshmeshServer() {}
 func (UnimplementedMeshmeshServer) testEmbeddedByValue()                  {}
@@ -314,6 +330,24 @@ func _Meshmesh_NetworkNodes_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Meshmesh_NetworkEdges_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NetworkEdgesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MeshmeshServer).NetworkEdges(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Meshmesh_NetworkEdges_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MeshmeshServer).NetworkEdges(ctx, req.(*NetworkEdgesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Meshmesh_ServiceDesc is the grpc.ServiceDesc for Meshmesh service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -348,6 +382,10 @@ var Meshmesh_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NetworkNodes",
 			Handler:    _Meshmesh_NetworkNodes_Handler,
+		},
+		{
+			MethodName: "NetworkEdges",
+			Handler:    _Meshmesh_NetworkEdges_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

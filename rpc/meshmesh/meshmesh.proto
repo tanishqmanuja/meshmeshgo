@@ -17,6 +17,7 @@ service Meshmesh {
   rpc SetTag (SetTagRequest) returns (SetTagReply) {}
   rpc SetChannel (SetChannelRequest) returns (SetChannelReply) {}
   rpc NetworkNodes (NetworkNodesRequest) returns (NetworkNodesReply) {}
+  rpc NetworkEdges (NetworkEdgesRequest) returns (NetworkEdgesReply) {}
 }
 
 // The request message containing the user's name.
@@ -78,5 +79,25 @@ message NetworkNodesRequest {
 }
 
 message NetworkNodesReply {
-  repeated uint32 nodes = 1 [packed=true];
+  repeated NetworkNode nodes = 1;
+}
+
+message NetworkEdgesRequest {
+}
+
+message NetworkEdgesReply {
+  repeated NetworkEdge edges = 1;
+}
+
+message NetworkNode {
+  uint32 id = 1;
+  string tag = 2;
+  bool inuse = 3;
+}
+
+message NetworkEdge {
+  uint32 id = 1;
+  uint32 from = 2;
+  uint32 to = 3;
+  float weight = 4;
 }
