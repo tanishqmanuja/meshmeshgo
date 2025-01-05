@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 
+	"gopkg.in/ini.v1"
+
 	"github.com/urfave/cli/v2"
 	l "leguru.net/m/v2/logger"
 )
@@ -15,6 +17,25 @@ type Config struct {
 	TargetNode         int
 	Discovery          bool
 	DebugNodeAddr      string
+}
+
+var iniConfig *ini.File
+
+func InitINIConfig() {
+	var err error
+	iniConfig, err = ini.Load("meshmeshgo.ini")
+	if err != nil {
+		iniConfig = ini.Empty()
+	}
+}
+
+func GetINIValue(section string, key string) string {
+	return iniConfig.Section(section).Key(key).String()
+}
+
+func SetINIValue(section string, key string, value string) {
+	iniConfig.Section(section).Key(key).SetValue(value)
+	iniConfig.SaveTo("meshmeshgo.ini")
 }
 
 func NewConfig() (*Config, error) {

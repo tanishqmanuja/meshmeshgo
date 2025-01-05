@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/charmbracelet/bubbles/filepicker"
@@ -11,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/erikgeiser/promptkit/confirmation"
+	"leguru.net/m/v2/config"
 	"leguru.net/m/v2/graph"
 	"leguru.net/m/v2/meshmesh"
 )
@@ -118,10 +120,15 @@ func (m *FirmwareModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case deviceItemSelectedMsg:
+		config.SetINIValue("firmware", "device", graph.FmtDeviceId(m.device))
 		cmd := initFirmwareCmd(m)
 		cmds = append(cmds, cmd)
 	case firmwareInitDoneMsg:
 		m.currentRev = string(msg)
+		m.fpick.CurrentDirectory = config.GetINIValue("firmware", "path")
+		if m.fpick.CurrentDirectory == "" {
+			m.fpick.CurrentDirectory, _ = os.Getwd()
+		}
 		cmd = m.fpick.Init()
 		cmds = append(cmds, cmd)
 		m.state = firmwareStatePickFile
@@ -162,6 +169,7 @@ func (m *FirmwareModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.file = path
 			m.procedure.Init(m.file)
 			m.state = firmwareStateConfirmUpload
+			config.SetINIValue("firmware", "path", filepath.Dir(m.file))
 		}
 
 		if didSelect, path := m.fpick.DidSelectDisabledFile(msg); didSelect {

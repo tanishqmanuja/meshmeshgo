@@ -1,6 +1,8 @@
 module leguru.net/m/v2
 
-go 1.21
+go 1.22
+
+toolchain go1.23.4
 
 require (
 	github.com/charmbracelet/bubbles v0.20.0
@@ -17,6 +19,8 @@ require (
 	go.bug.st/serial v1.5.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	gonum.org/v1/gonum v0.12.0
+	google.golang.org/grpc v1.69.2
+	gopkg.in/ini.v1 v1.67.0
 )
 
 require (
@@ -50,9 +54,12 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
-	golang.org/x/crypto v0.26.0 // indirect
+	golang.org/x/crypto v0.28.0 // indirect
+	golang.org/x/net v0.30.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
-	golang.org/x/sys v0.24.0 // indirect
-	golang.org/x/term v0.23.0 // indirect
-	golang.org/x/text v0.17.0 // indirect
+	golang.org/x/sys v0.26.0 // indirect
+	golang.org/x/term v0.25.0 // indirect
+	golang.org/x/text v0.19.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20241015192408-796eee8c2d53 // indirect
+	google.golang.org/protobuf v1.35.1 // indirect
 )

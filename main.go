@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	gra "leguru.net/m/v2/graph"
 	"leguru.net/m/v2/logger"
 	"leguru.net/m/v2/meshmesh"
+	"leguru.net/m/v2/rpc"
 	"leguru.net/m/v2/tui"
 )
 
@@ -28,6 +31,14 @@ func waitForTermination() {
 func main() {
 	go waitForTermination()
 
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		fmt.Println("not ok")
+		return
+	}
+	fmt.Printf("Version: %s\n", bi.Main.Version)
+
+	config.InitINIConfig()
 	config, err := config.NewConfig()
 	if err != nil {
 		logger.Log().Fatal("Invalid config options: ", err)
@@ -78,6 +89,10 @@ func main() {
 	if err != nil {
 		logger.Error(err)
 	}
+	// Start RPC Server
+	rpcServer := rpc.NewRpcServer(":50051")
+	rpcServer.Start()
+	defer rpcServer.Stop()
 
 	var lastStatsTime time.Time
 	for {

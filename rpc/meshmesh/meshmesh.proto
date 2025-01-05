@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+option go_package = "leguru.net/m/v2/rpc/meshmesh";
+option java_multiple_files = true;
+option java_package = "leguru.net.meshmesh";
+option java_outer_classname = "MeshmeshProto";
+
+package meshmesh;
+
+// The greeting service definition.
+service Meshmesh {
+  // Sends a greeting
+  rpc SayHello (HelloRequest) returns (HelloReply) {}
+}
+
+// The request message containing the user's name.
+message HelloRequest {
+  string name = 1;
+}
+
+// The response message containing the greetings
+message HelloReply {
+  string message = 1;
+}

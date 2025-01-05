@@ -3,3 +3,4 @@ go.sum
 __debug_bin
 build/
 .ssh/
+.vscode/

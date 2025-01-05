@@ -27,6 +27,10 @@ func Error(args ...interface{}) {
 	log.Error(args...)
 }
 
+func Info(args ...interface{}) {
+	log.Info(args...)
+}
+
 func Debug(args ...interface{}) {
 	log.Debug(args...)
 }
