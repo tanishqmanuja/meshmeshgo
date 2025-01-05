@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -17,6 +17,17 @@ import (
 	"leguru.net/m/v2/tui"
 )
 
+const (
+	programName        = "meshmeshgo"
+	programDescription = "hub server for meshmesh network"
+)
+
+var (
+	vcsHash  string
+	vcsTime  time.Time
+	vcsDirty bool
+)
+
 var quitProgram bool = false
 var debugNodeId *gra.Device
 
@@ -24,47 +35,57 @@ func waitForTermination() {
 	terminationRequested := make(chan os.Signal, 1)
 	signal.Notify(terminationRequested, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-terminationRequested
-	logger.Log().Info("Program termination requested")
+	logger.Info("Program termination requested")
 	quitProgram = true
 }
 
-func main() {
-	go waitForTermination()
-
+func getBuildInfo() {
 	bi, ok := debug.ReadBuildInfo()
 	if !ok {
-		logger.Log().Fatal("Failed to read build info")
+		logger.Fatal("Failed to read build info")
 	}
 
 	for _, kv := range bi.Settings {
-		log.Println(kv)
-		/*switch kv.Key {
+		switch kv.Key {
 		case "vcs.revision":
-			Revision = kv.Value
+			vcsHash = kv.Value
 		case "vcs.time":
-			LastCommit, _ = time.Parse(time.RFC3339, kv.Value)
+			vcsTime, _ = time.Parse(time.RFC3339, kv.Value)
 		case "vcs.modified":
-			DirtyBuild = kv.Value == "true"
-		}*/
+			vcsDirty = kv.Value == "true"
+		}
 	}
+}
 
+func initConfig() *config.Config {
 	config.InitINIConfig()
-	config, err := config.NewConfig()
+	c, err := config.NewConfig()
 	if err != nil {
-		logger.Log().Fatal("Invalid config options: ", err)
+		logger.Fatal("Invalid config options: ", err)
 	}
 
-	if config.WantHelp {
+	if c.WantHelp {
 		os.Exit(0)
 	}
 
-	if config.VerboseLevel > 3 {
+	if c.VerboseLevel > 3 {
 		logger.SetLevel(logrus.TraceLevel)
-	} else if config.VerboseLevel > 2 {
+	} else if c.VerboseLevel > 2 {
 		logger.SetLevel(logrus.DebugLevel)
-	} else if config.VerboseLevel > 1 {
+	} else if c.VerboseLevel > 1 {
 		logger.SetLevel(logrus.InfoLevel)
 	}
+
+	return c
+}
+
+func main() {
+	getBuildInfo()
+	go waitForTermination()
+	config := initConfig()
+
+	logger.WithFields(logger.Fields{"programName": programName, "vcsHash": vcsHash, "vcsTime": vcsTime, "vcsDirty": vcsDirty}).Info("Starting program")
+	logger.Info(programDescription)
 
 	logger.WithFields(logger.Fields{"portName": config.SerialPortName, "baudRate": config.SerialPortBaudRate}).Debug("Opening serial port")
 	serialPort, err := meshmesh.NewSerial(config.SerialPortName, config.SerialPortBaudRate, false)
@@ -101,7 +122,7 @@ func main() {
 	}
 	// Start RPC Server
 	rpcServer := rpc.NewRpcServer(":50051")
-	rpcServer.Start()
+	rpcServer.Start(fmt.Sprintf("%s - %s", programName, programDescription), fmt.Sprintf("%s - %s", vcsHash[:8], vcsTime.Format(time.RFC3339)))
 	defer rpcServer.Stop()
 
 	var lastStatsTime time.Time

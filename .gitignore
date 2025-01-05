@@ -3,6 +3,5 @@ go.sum
 build/
 .ssh/
 .vscode/
-*.pb.go
 __debug_bin*
 *.bin

@@ -9,16 +9,20 @@ import (
 	"leguru.net/m/v2/rpc/meshmesh"
 )
 
+// protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative meshmesh/meshmesh.proto
+
 type Server struct {
 	meshmesh.UnimplementedMeshmeshServer
+	programName    string
+	programVersion string
 }
 
-func NewServer() *Server {
-	return &Server{}
+func NewServer(programName string, programVersion string) *Server {
+	return &Server{programName: programName, programVersion: programVersion}
 }
 
 func (s *Server) SayHello(_ context.Context, req *meshmesh.HelloRequest) (*meshmesh.HelloReply, error) {
-	return &meshmesh.HelloReply{Message: "Hello, " + req.Name}, nil
+	return &meshmesh.HelloReply{Name: s.programName, Version: s.programVersion}, nil
 }
 
 type RpcServer struct {
@@ -37,7 +41,7 @@ func (s *RpcServer) serve() {
 	}
 }
 
-func (s *RpcServer) Start() error {
+func (s *RpcServer) Start(programName string, programVersion string) error {
 	var err error
 	s.lis, err = net.Listen("tcp", s.port)
 	if err != nil {
@@ -45,7 +49,7 @@ func (s *RpcServer) Start() error {
 	}
 
 	s.grpcServer = grpc.NewServer()
-	meshmesh.RegisterMeshmeshServer(s.grpcServer, NewServer())
+	meshmesh.RegisterMeshmeshServer(s.grpcServer, NewServer(programName, programVersion))
 	logger.WithField("port", s.port).Info("Starting gRPC server")
 	go s.serve()
 

@@ -15,7 +15,6 @@ type Config struct {
 	SerialPortBaudRate int
 	VerboseLevel       int
 	TargetNode         int
-	Discovery          bool
 	DebugNodeAddr      string
 }
 
@@ -67,13 +66,6 @@ func NewConfig() (*Config, error) {
 				Aliases:     []string{"t"},
 				Destination: &config.TargetNode,
 				Base:        16,
-			},
-			&cli.BoolFlag{
-				Name:        "discovery",
-				Value:       false,
-				Usage:       "Execute a round of discovey on the network",
-				Aliases:     []string{"d"},
-				Destination: &config.Discovery,
 			},
 			&cli.StringFlag{
 				Name:        "node_to_debug",

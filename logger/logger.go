@@ -35,6 +35,10 @@ func Debug(args ...interface{}) {
 	log.Debug(args...)
 }
 
+func Fatal(args ...interface{}) {
+	log.Fatal(args...)
+}
+
 func Printf(format string, args ...interface{}) {
 	log.Printf(format, args...)
 }

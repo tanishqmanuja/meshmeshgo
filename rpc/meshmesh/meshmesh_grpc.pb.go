@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	Meshmesh_SayHello_FullMethodName = "/meshmesh.Meshmesh/SayHello"
+	Meshmesh_NodeInfo_FullMethodName = "/meshmesh.Meshmesh/NodeInfo"
 )
 
 // MeshmeshClient is the client API for Meshmesh service.
@@ -30,6 +31,7 @@ const (
 type MeshmeshClient interface {
 	// Sends a greeting
 	SayHello(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error)
+	NodeInfo(ctx context.Context, in *NodeInfoRequest, opts ...grpc.CallOption) (*NodeInfoReply, error)
 }
 
 type meshmeshClient struct {
@@ -50,6 +52,16 @@ func (c *meshmeshClient) SayHello(ctx context.Context, in *HelloRequest, opts ..
 	return out, nil
 }
 
+func (c *meshmeshClient) NodeInfo(ctx context.Context, in *NodeInfoRequest, opts ...grpc.CallOption) (*NodeInfoReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NodeInfoReply)
+	err := c.cc.Invoke(ctx, Meshmesh_NodeInfo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MeshmeshServer is the server API for Meshmesh service.
 // All implementations must embed UnimplementedMeshmeshServer
 // for forward compatibility.
@@ -58,6 +70,7 @@ func (c *meshmeshClient) SayHello(ctx context.Context, in *HelloRequest, opts ..
 type MeshmeshServer interface {
 	// Sends a greeting
 	SayHello(context.Context, *HelloRequest) (*HelloReply, error)
+	NodeInfo(context.Context, *NodeInfoRequest) (*NodeInfoReply, error)
 	mustEmbedUnimplementedMeshmeshServer()
 }
 
@@ -70,6 +83,9 @@ type UnimplementedMeshmeshServer struct{}
 
 func (UnimplementedMeshmeshServer) SayHello(context.Context, *HelloRequest) (*HelloReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SayHello not implemented")
+}
+func (UnimplementedMeshmeshServer) NodeInfo(context.Context, *NodeInfoRequest) (*NodeInfoReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NodeInfo not implemented")
 }
 func (UnimplementedMeshmeshServer) mustEmbedUnimplementedMeshmeshServer() {}
 func (UnimplementedMeshmeshServer) testEmbeddedByValue()                  {}
@@ -110,6 +126,24 @@ func _Meshmesh_SayHello_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Meshmesh_NodeInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MeshmeshServer).NodeInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Meshmesh_NodeInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MeshmeshServer).NodeInfo(ctx, req.(*NodeInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Meshmesh_ServiceDesc is the grpc.ServiceDesc for Meshmesh service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -120,6 +154,10 @@ var Meshmesh_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SayHello",
 			Handler:    _Meshmesh_SayHello_Handler,
+		},
+		{
+			MethodName: "NodeInfo",
+			Handler:    _Meshmesh_NodeInfo_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
