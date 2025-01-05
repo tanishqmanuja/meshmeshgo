@@ -12,6 +12,11 @@ service Meshmesh {
   // Sends a greeting
   rpc SayHello (HelloRequest) returns (HelloReply) {}
   rpc NodeInfo (NodeInfoRequest) returns (NodeInfoReply) {}
+  rpc NodeReboot (NodeRebootRequest) returns (NodeRebootReply) {}
+  rpc BindClear (BindClearRequest) returns (BindClearReply) {}
+  rpc SetTag (SetTagRequest) returns (SetTagReply) {}
+  rpc SetChannel (SetChannelRequest) returns (SetChannelReply) {}
+  rpc NetworkNodes (NetworkNodesRequest) returns (NetworkNodesReply) {}
 }
 
 // The request message containing the user's name.
@@ -25,9 +30,53 @@ message HelloReply {
 }
 
 message NodeInfoRequest {
+  uint32 id = 1;
 }
 
 message NodeInfoReply {
   uint32 id = 1;
   string tag = 2;
+  uint32 channel = 3;
+  string rev = 4;
+}
+
+message NodeRebootRequest {
+  uint32 id = 1;
+}
+
+message NodeRebootReply {
+  bool success = 1;
+}
+
+message BindClearRequest {
+  uint32 id = 1;
+}
+
+message BindClearReply {
+  bool success = 1;
+}
+
+message SetTagRequest {
+  uint32 id = 1;
+  string tag = 2;
+}
+
+message SetTagReply {
+  bool success = 1;
+}
+
+message SetChannelRequest {
+  uint32 id = 1;
+  uint32 channel = 2;
+}
+
+message SetChannelReply {
+  bool success = 1;
+}
+
+message NetworkNodesRequest {
+}
+
+message NetworkNodesReply {
+  repeated uint32 nodes = 1 [packed=true];
 }

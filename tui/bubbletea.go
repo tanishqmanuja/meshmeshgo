@@ -44,6 +44,7 @@ func teaHandler(s ssh.Session) (tea.Model, []tea.ProgramOption) {
 			height:        pty.Window.Height,
 			renderer:      renderer,
 			errorStyle:    renderer.NewStyle().Foreground(lipgloss.ANSIColor(9)),
+			warningStyle:  renderer.NewStyle().Foreground(lipgloss.ANSIColor(13)),
 			successStyle:  renderer.NewStyle().Foreground(lipgloss.ANSIColor(10)),
 			progressStyle: renderer.NewStyle().Foreground(lipgloss.ANSIColor(11)),
 		},

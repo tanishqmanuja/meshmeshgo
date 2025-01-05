@@ -79,6 +79,18 @@ type NodeSetTagApiReply struct {
 	Id uint8 `struct:"uint8"`
 }
 
+const nodeBindClearApiRequest = 10
+
+type NodeBindClearApiRequest struct {
+	Id uint8 `struct:"uint8"`
+}
+
+const nodeBindClearApiReply = 11
+
+type NodeBindClearApiReply struct {
+	Id uint8 `struct:"uint8"`
+}
+
 const nodeSetChannelApiRequest = 12
 
 type NodeSetChannelApiRequest struct {
@@ -449,6 +461,10 @@ func (frame *ApiFrame) Decode() (interface{}, error) {
 		v := NodeSetTagApiReply{}
 		restruct.Unpack(frame.data, binary.LittleEndian, &v)
 		return v, nil
+	case nodeBindClearApiReply:
+		v := NodeBindClearApiReply{}
+		restruct.Unpack(frame.data, binary.LittleEndian, &v)
+		return v, nil
 	case nodeSetChannelApiReply:
 		v := NodeSetChannelApiReply{}
 		restruct.Unpack(frame.data, binary.LittleEndian, &v)
@@ -538,6 +554,9 @@ func EncodeBuffer(cmd interface{}) ([]byte, error) {
 		b, err = restruct.Pack(binary.LittleEndian, &v)
 	case NodeSetTagApiRequest:
 		v.Id = nodeSetTagApiRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case NodeBindClearApiRequest:
+		v.Id = nodeBindClearApiRequest
 		b, err = restruct.Pack(binary.LittleEndian, &v)
 	case NodeSetChannelApiRequest:
 		v.Id = nodeSetChannelApiRequest

@@ -19,8 +19,13 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Meshmesh_SayHello_FullMethodName = "/meshmesh.Meshmesh/SayHello"
-	Meshmesh_NodeInfo_FullMethodName = "/meshmesh.Meshmesh/NodeInfo"
+	Meshmesh_SayHello_FullMethodName     = "/meshmesh.Meshmesh/SayHello"
+	Meshmesh_NodeInfo_FullMethodName     = "/meshmesh.Meshmesh/NodeInfo"
+	Meshmesh_NodeReboot_FullMethodName   = "/meshmesh.Meshmesh/NodeReboot"
+	Meshmesh_BindClear_FullMethodName    = "/meshmesh.Meshmesh/BindClear"
+	Meshmesh_SetTag_FullMethodName       = "/meshmesh.Meshmesh/SetTag"
+	Meshmesh_SetChannel_FullMethodName   = "/meshmesh.Meshmesh/SetChannel"
+	Meshmesh_NetworkNodes_FullMethodName = "/meshmesh.Meshmesh/NetworkNodes"
 )
 
 // MeshmeshClient is the client API for Meshmesh service.
@@ -32,6 +37,11 @@ type MeshmeshClient interface {
 	// Sends a greeting
 	SayHello(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error)
 	NodeInfo(ctx context.Context, in *NodeInfoRequest, opts ...grpc.CallOption) (*NodeInfoReply, error)
+	NodeReboot(ctx context.Context, in *NodeRebootRequest, opts ...grpc.CallOption) (*NodeRebootReply, error)
+	BindClear(ctx context.Context, in *BindClearRequest, opts ...grpc.CallOption) (*BindClearReply, error)
+	SetTag(ctx context.Context, in *SetTagRequest, opts ...grpc.CallOption) (*SetTagReply, error)
+	SetChannel(ctx context.Context, in *SetChannelRequest, opts ...grpc.CallOption) (*SetChannelReply, error)
+	NetworkNodes(ctx context.Context, in *NetworkNodesRequest, opts ...grpc.CallOption) (*NetworkNodesReply, error)
 }
 
 type meshmeshClient struct {
@@ -62,6 +72,56 @@ func (c *meshmeshClient) NodeInfo(ctx context.Context, in *NodeInfoRequest, opts
 	return out, nil
 }
 
+func (c *meshmeshClient) NodeReboot(ctx context.Context, in *NodeRebootRequest, opts ...grpc.CallOption) (*NodeRebootReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NodeRebootReply)
+	err := c.cc.Invoke(ctx, Meshmesh_NodeReboot_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *meshmeshClient) BindClear(ctx context.Context, in *BindClearRequest, opts ...grpc.CallOption) (*BindClearReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BindClearReply)
+	err := c.cc.Invoke(ctx, Meshmesh_BindClear_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *meshmeshClient) SetTag(ctx context.Context, in *SetTagRequest, opts ...grpc.CallOption) (*SetTagReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetTagReply)
+	err := c.cc.Invoke(ctx, Meshmesh_SetTag_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *meshmeshClient) SetChannel(ctx context.Context, in *SetChannelRequest, opts ...grpc.CallOption) (*SetChannelReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetChannelReply)
+	err := c.cc.Invoke(ctx, Meshmesh_SetChannel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *meshmeshClient) NetworkNodes(ctx context.Context, in *NetworkNodesRequest, opts ...grpc.CallOption) (*NetworkNodesReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NetworkNodesReply)
+	err := c.cc.Invoke(ctx, Meshmesh_NetworkNodes_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MeshmeshServer is the server API for Meshmesh service.
 // All implementations must embed UnimplementedMeshmeshServer
 // for forward compatibility.
@@ -71,6 +131,11 @@ type MeshmeshServer interface {
 	// Sends a greeting
 	SayHello(context.Context, *HelloRequest) (*HelloReply, error)
 	NodeInfo(context.Context, *NodeInfoRequest) (*NodeInfoReply, error)
+	NodeReboot(context.Context, *NodeRebootRequest) (*NodeRebootReply, error)
+	BindClear(context.Context, *BindClearRequest) (*BindClearReply, error)
+	SetTag(context.Context, *SetTagRequest) (*SetTagReply, error)
+	SetChannel(context.Context, *SetChannelRequest) (*SetChannelReply, error)
+	NetworkNodes(context.Context, *NetworkNodesRequest) (*NetworkNodesReply, error)
 	mustEmbedUnimplementedMeshmeshServer()
 }
 
@@ -86,6 +151,21 @@ func (UnimplementedMeshmeshServer) SayHello(context.Context, *HelloRequest) (*He
 }
 func (UnimplementedMeshmeshServer) NodeInfo(context.Context, *NodeInfoRequest) (*NodeInfoReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NodeInfo not implemented")
+}
+func (UnimplementedMeshmeshServer) NodeReboot(context.Context, *NodeRebootRequest) (*NodeRebootReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NodeReboot not implemented")
+}
+func (UnimplementedMeshmeshServer) BindClear(context.Context, *BindClearRequest) (*BindClearReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BindClear not implemented")
+}
+func (UnimplementedMeshmeshServer) SetTag(context.Context, *SetTagRequest) (*SetTagReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetTag not implemented")
+}
+func (UnimplementedMeshmeshServer) SetChannel(context.Context, *SetChannelRequest) (*SetChannelReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetChannel not implemented")
+}
+func (UnimplementedMeshmeshServer) NetworkNodes(context.Context, *NetworkNodesRequest) (*NetworkNodesReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NetworkNodes not implemented")
 }
 func (UnimplementedMeshmeshServer) mustEmbedUnimplementedMeshmeshServer() {}
 func (UnimplementedMeshmeshServer) testEmbeddedByValue()                  {}
@@ -144,6 +224,96 @@ func _Meshmesh_NodeInfo_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Meshmesh_NodeReboot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeRebootRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MeshmeshServer).NodeReboot(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Meshmesh_NodeReboot_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MeshmeshServer).NodeReboot(ctx, req.(*NodeRebootRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Meshmesh_BindClear_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BindClearRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MeshmeshServer).BindClear(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Meshmesh_BindClear_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MeshmeshServer).BindClear(ctx, req.(*BindClearRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Meshmesh_SetTag_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetTagRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MeshmeshServer).SetTag(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Meshmesh_SetTag_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MeshmeshServer).SetTag(ctx, req.(*SetTagRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Meshmesh_SetChannel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetChannelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MeshmeshServer).SetChannel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Meshmesh_SetChannel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MeshmeshServer).SetChannel(ctx, req.(*SetChannelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Meshmesh_NetworkNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NetworkNodesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MeshmeshServer).NetworkNodes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Meshmesh_NetworkNodes_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MeshmeshServer).NetworkNodes(ctx, req.(*NetworkNodesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Meshmesh_ServiceDesc is the grpc.ServiceDesc for Meshmesh service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -158,6 +328,26 @@ var Meshmesh_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NodeInfo",
 			Handler:    _Meshmesh_NodeInfo_Handler,
+		},
+		{
+			MethodName: "NodeReboot",
+			Handler:    _Meshmesh_NodeReboot_Handler,
+		},
+		{
+			MethodName: "BindClear",
+			Handler:    _Meshmesh_BindClear_Handler,
+		},
+		{
+			MethodName: "SetTag",
+			Handler:    _Meshmesh_SetTag_Handler,
+		},
+		{
+			MethodName: "SetChannel",
+			Handler:    _Meshmesh_SetChannel_Handler,
+		},
+		{
+			MethodName: "NetworkNodes",
+			Handler:    _Meshmesh_NetworkNodes_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

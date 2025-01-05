@@ -122,7 +122,7 @@ func main() {
 	}
 	// Start RPC Server
 	rpcServer := rpc.NewRpcServer(":50051")
-	rpcServer.Start(fmt.Sprintf("%s - %s", programName, programDescription), fmt.Sprintf("%s - %s", vcsHash[:8], vcsTime.Format(time.RFC3339)))
+	rpcServer.Start(fmt.Sprintf("%s - %s", programName, programDescription), fmt.Sprintf("%s - %s", vcsHash[:8], vcsTime.Format(time.RFC3339)), serialPort, network)
 	defer rpcServer.Stop()
 
 	var lastStatsTime time.Time

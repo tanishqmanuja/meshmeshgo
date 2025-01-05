@@ -20,6 +20,7 @@ type termInfo struct {
 	renderer      *lipgloss.Renderer
 	errorStyle    lipgloss.Style
 	successStyle  lipgloss.Style
+	warningStyle  lipgloss.Style
 	progressStyle lipgloss.Style
 }
 

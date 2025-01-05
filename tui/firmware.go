@@ -17,6 +17,8 @@ import (
 	"leguru.net/m/v2/meshmesh"
 )
 
+const firmwareMaxRetries = 3
+
 type firmwareErrorMsg error
 type firmwareInitDoneMsg string
 type firmwareUploadProgressMsg float64
@@ -61,11 +63,19 @@ func uploadStepFirmwareCmd(m *FirmwareModel) tea.Cmd {
 			return firmwareUploadDoneMsg(true)
 		}
 		if err1 != nil {
-			return firmwareErrorMsg(err1)
+			m.retries += 1
+			if m.retries > firmwareMaxRetries {
+				m.warning = nil
+				return firmwareErrorMsg(err1)
+			}
+			m.warning = err1
+			return firmwareUploadProgressMsg(0)
 		}
 		if err2 != nil {
 			return firmwareErrorMsg(err2)
 		}
+		m.warning = nil
+		m.retries = 0
 		return firmwareUploadProgressMsg(m.procedure.Percent())
 	}
 }
@@ -104,10 +114,12 @@ type FirmwareModel struct {
 	focused    int
 	file       string
 	err        error
+	warning    error
 	currentRev string
 	afterRev   string
 	procedure  *meshmesh.FirmwareUploadProcedure
 	state      int
+	retries    int
 }
 
 func (m *FirmwareModel) Init() tea.Cmd {
@@ -240,7 +252,11 @@ func (m *FirmwareModel) View() string {
 
 	if m.state >= firmwareStateUploading {
 		if m.state == firmwareStateUploading {
-			views = append(views, m.ti.progressStyle.Render(fmt.Sprintf("Uploading firmware in progress: %d/%d bytes", m.procedure.BytesSent(), m.procedure.BytesTotal())))
+			_retries := ""
+			if m.retries > 0 {
+				_retries = fmt.Sprintf(" (%d retries)", m.retries)
+			}
+			views = append(views, m.ti.progressStyle.Render(fmt.Sprintf("Uploading firmware in progress: %d/%d bytes %s", m.procedure.BytesSent(), m.procedure.BytesTotal(), _retries)))
 		} else {
 			views = append(views, m.ti.successStyle.Render(fmt.Sprintf("Uploading firmware successful, sent %d bytes", m.procedure.BytesSent())))
 		}
@@ -261,6 +277,10 @@ func (m *FirmwareModel) View() string {
 
 	if m.state >= firmwareCheckRevAfter {
 		views = append(views, "After revision: "+m.afterRev)
+	}
+
+	if m.warning != nil {
+		views = append(views, m.ti.warningStyle.Render(m.warning.Error()))
 	}
 
 	if m.err != nil {
