@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -33,10 +33,20 @@ func main() {
 
 	bi, ok := debug.ReadBuildInfo()
 	if !ok {
-		fmt.Println("not ok")
-		return
+		logger.Log().Fatal("Failed to read build info")
 	}
-	fmt.Printf("Version: %s\n", bi.Main.Version)
+
+	for _, kv := range bi.Settings {
+		log.Println(kv)
+		/*switch kv.Key {
+		case "vcs.revision":
+			Revision = kv.Value
+		case "vcs.time":
+			LastCommit, _ = time.Parse(time.RFC3339, kv.Value)
+		case "vcs.modified":
+			DirtyBuild = kv.Value == "true"
+		}*/
+	}
 
 	config.InitINIConfig()
 	config, err := config.NewConfig()
