@@ -1,6 +1,8 @@
 *.graphml
 go.sum
-__debug_bin
 build/
 .ssh/
 .vscode/
+*.pb.go
+__debug_bin*
+*.bin
