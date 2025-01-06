@@ -14,7 +14,8 @@ type MeshNodeId uint32
 type MeshProtocol byte
 
 const (
-	DirectProtocol MeshProtocol = iota
+	AutoProtocol MeshProtocol = iota
+	DirectProtocol
 	BradcastProtocol
 	UnicastProtocol
 	MultipathProtocol
@@ -751,6 +752,13 @@ func FindBestProtocol(target MeshNodeId) MeshProtocol {
 	} else {
 		return MultipathProtocol
 	}
+}
+
+func FindBestProtocolOverride(target MeshNodeId, protocol MeshProtocol) MeshProtocol {
+	if protocol == AutoProtocol {
+		return FindBestProtocol(target)
+	}
+	return protocol
 }
 
 func NewApiFrame(buffer []byte, escaped bool) *ApiFrame {

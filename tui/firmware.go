@@ -29,6 +29,7 @@ type firmwareCheckRevAfterMsg string
 // Firmware state machine
 const (
 	firmwareGetDevice = iota
+	firmwareGetProtocol
 	firmwareCheckNode
 	firmwareStatePickFile
 	firmwareStateConfirmUpload
@@ -123,7 +124,7 @@ type FirmwareModel struct {
 }
 
 func (m *FirmwareModel) Init() tea.Cmd {
-	return tea.Batch([]tea.Cmd{m.initDeviceSelection(), m.initSpinner(), m.fpick.Init(), m.confirm.Init(), m.confirm2.Init()}...)
+	return tea.Batch([]tea.Cmd{m.initDeviceSelection(), m.initProtocolSelection(), m.initSpinner(), m.fpick.Init(), m.confirm.Init(), m.confirm2.Init()}...)
 }
 
 func (m *FirmwareModel) Update(msg tea.Msg) (Model, tea.Cmd) {
@@ -133,7 +134,10 @@ func (m *FirmwareModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case deviceItemSelectedMsg:
 		config.SetINIValue("firmware", "device", graph.FmtDeviceId(m.device))
-		cmd := initFirmwareCmd(m)
+		m.state = firmwareGetProtocol
+	case protocolSelectedMsg:
+		m.protocol = meshmesh.FindBestProtocolOverride(meshmesh.MeshNodeId(m.device.ID()), meshmesh.MeshProtocol(msg))
+		cmd = initFirmwareCmd(m)
 		cmds = append(cmds, cmd)
 	case firmwareInitDoneMsg:
 		m.currentRev = string(msg)
@@ -173,6 +177,9 @@ func (m *FirmwareModel) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch m.state {
 	case firmwareGetDevice:
 		cmd = m.updateDeviceSelection(msg)
+		cmds = append(cmds, cmd)
+	case firmwareGetProtocol:
+		cmd = m.updateProtocolSelection(msg)
 		cmds = append(cmds, cmd)
 	case firmwareStatePickFile:
 		m.fpick, cmd = m.fpick.Update(msg)
@@ -235,6 +242,10 @@ func (m *FirmwareModel) View() string {
 
 	if m.state >= firmwareGetDevice {
 		views = append(views, m.viewDeviceSelection())
+	}
+
+	if m.state >= firmwareGetProtocol {
+		views = append(views, m.viewProtocolSelection())
 	}
 
 	if m.state >= firmwareCheckNode {

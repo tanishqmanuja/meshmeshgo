@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/erikgeiser/promptkit/selection"
 	"leguru.net/m/v2/graph"
+	"leguru.net/m/v2/meshmesh"
 	"leguru.net/m/v2/utils"
 )
 
@@ -75,6 +76,30 @@ func createSelectionModel(placeholder string, choices []choiceItem) *selection.M
 	return selection.NewModel(_sel)
 }
 
+func createProtocolSelectionModel() *selection.Model[choiceItem] {
+	choices := []choiceItem{
+		{ID: -1, Name: "Autodetect protocol"},
+		{ID: 0, Name: "Unicast protocol"},
+		{ID: 1, Name: "Multipath protocol"},
+		{ID: 2, Name: "Direct protocol"},
+	}
+	return createSelectionModel("Select protocol:", choices)
+}
+
+func getProtocolFromSelectionModel(choice choiceItem) meshmesh.MeshProtocol {
+	switch choice.ID {
+	case -1:
+		return meshmesh.AutoProtocol
+	case 0:
+		return meshmesh.UnicastProtocol
+	case 1:
+		return meshmesh.MultipathProtocol
+	case 2:
+		return meshmesh.DirectProtocol
+	}
+	return meshmesh.UnicastProtocol
+}
+
 type deviceItem struct {
 	ID  int64
 	Tag string
@@ -110,11 +135,48 @@ func createDeviceSelectionModel(network *graph.Network) *selection.Model[deviceI
 }
 
 type BaseModel struct {
-	ti        termInfo
-	selDevice *selection.Model[deviceItem]
-	spinner   spinner.Model
-	network   *graph.Network
-	device    *graph.Device
+	ti          termInfo
+	selProtocol *selection.Model[choiceItem]
+	selDevice   *selection.Model[deviceItem]
+	spinner     spinner.Model
+	network     *graph.Network
+	device      *graph.Device
+	protocol    meshmesh.MeshProtocol
+}
+
+type protocolSelectedMsg meshmesh.MeshProtocol
+
+func selectProtocolCmd(m *BaseModel) tea.Cmd {
+	return func() tea.Msg {
+		choice, err := m.selProtocol.Value()
+		if err == nil {
+			protocol := getProtocolFromSelectionModel(choice)
+			return protocolSelectedMsg(protocol)
+		}
+		return nil
+	}
+}
+
+func (m *BaseModel) initProtocolSelection() tea.Cmd {
+	return m.selProtocol.Init()
+}
+
+func (m *BaseModel) updateProtocolSelection(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	_, cmd = m.selProtocol.Update(msg)
+	if cmd != nil {
+		msg := cmd()
+		switch msg.(type) {
+		case tea.QuitMsg:
+			return selectProtocolCmd(m)
+		}
+	}
+
+	return cmd
+}
+
+func (m *BaseModel) viewProtocolSelection() string {
+	return m.selProtocol.View()
 }
 
 type deviceItemSelectedMsg *graph.Device
@@ -184,6 +246,7 @@ func NewBaseModelExtended(ti termInfo, network *graph.Network) BaseModel {
 		ti: ti,
 	}
 	model.network = network
+	model.selProtocol = createProtocolSelectionModel()
 	model.selDevice = createDeviceSelectionModel(network)
 	return model
 }
