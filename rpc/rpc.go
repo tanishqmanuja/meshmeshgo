@@ -91,6 +91,59 @@ func (s *Server) SetChannel(_ context.Context, req *meshmesh.SetChannelRequest) 
 	return &meshmesh.SetChannelReply{Success: true}, nil
 }
 
+func (s *Server) EntitiesCount(_ context.Context, req *meshmesh.EntitiesCountRequest) (*meshmesh.EntitiesCountReply, error) {
+	rep, err := s.serialConn.SendReceiveApiProt(mm.EntitiesCountApiRequest{}, mm.UnicastProtocol, mm.MeshNodeId(req.Id))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to get entities count: %v", err)
+	}
+	cnt := rep.(mm.EntitiesCountApiReply)
+	return &meshmesh.EntitiesCountReply{
+		All:           uint32(cnt.Counters[0]),
+		Sensors:       uint32(cnt.Counters[1]),
+		BinarySensors: uint32(cnt.Counters[2]),
+		Switches:      uint32(cnt.Counters[3]),
+		Lights:        uint32(cnt.Counters[4]),
+		TextSensors:   uint32(cnt.Counters[5]),
+	}, nil
+}
+
+func (s *Server) EntityHash(_ context.Context, req *meshmesh.EntityHashRequest) (*meshmesh.EntityHashReply, error) {
+	rep, err := s.serialConn.SendReceiveApiProt(mm.EntityHashApiRequest{Service: uint8(req.Service), Index: uint8(req.Index)}, mm.UnicastProtocol, mm.MeshNodeId(req.Id))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to get entity hash: %v", err)
+	}
+	hash := rep.(mm.EntityHashApiReply)
+	if hash.Hash == 0 && hash.Info == "E!" {
+		return nil, status.Errorf(codes.NotFound, "Entity not found")
+	}
+	return &meshmesh.EntityHashReply{Id: req.Id, Hash: uint32(hash.Hash), Info: hash.Info}, nil
+}
+
+func (s *Server) GetEntityState(_ context.Context, req *meshmesh.GetEntityStateRequest) (*meshmesh.GetEntityStateReply, error) {
+	rep, err := s.serialConn.SendReceiveApiProt(mm.GetEntityStateApiRequest{
+		Service: uint8(req.Service),
+		Hash:    uint16(req.Hash),
+	}, mm.UnicastProtocol, mm.MeshNodeId(req.Id))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to get entity state: %v", err)
+	}
+	state := rep.(mm.GetEntityStateApiReply)
+	return &meshmesh.GetEntityStateReply{State: uint32(state.State)}, nil
+}
+
+func (s *Server) SetEntityState(_ context.Context, req *meshmesh.SetEntityStateRequest) (*meshmesh.SetEntityStateReply, error) {
+	_, err := s.serialConn.SendReceiveApiProt(mm.SetEntityStateApiRequest{
+		Service: uint8(req.Service),
+		Hash:    uint16(req.Hash),
+		State:   uint16(req.State),
+	}, mm.UnicastProtocol, mm.MeshNodeId(req.Id))
+
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to set entity state: %v", err)
+	}
+	return &meshmesh.SetEntityStateReply{Success: true}, nil
+}
+
 func (s *Server) NetworkNodes(_ context.Context, req *meshmesh.NetworkNodesRequest) (*meshmesh.NetworkNodesReply, error) {
 	nodes := s.network.Nodes()
 	device := make([]*meshmesh.NetworkNode, nodes.Len())

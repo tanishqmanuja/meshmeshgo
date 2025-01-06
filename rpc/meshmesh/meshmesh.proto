@@ -7,6 +7,15 @@ option java_outer_classname = "MeshmeshProto";
 
 package meshmesh;
 
+enum EntityType {
+  ALL = 0;
+  SENSOR = 1;
+  BINARY_SENSOR = 2;
+  SWITCH = 3;
+  LIGHT = 4;
+  TEXT_SENSOR = 5;
+}
+
 // The greeting service definition.
 service Meshmesh {
   // Sends a greeting
@@ -16,6 +25,10 @@ service Meshmesh {
   rpc BindClear (BindClearRequest) returns (BindClearReply) {}
   rpc SetTag (SetTagRequest) returns (SetTagReply) {}
   rpc SetChannel (SetChannelRequest) returns (SetChannelReply) {}
+  rpc EntitiesCount (EntitiesCountRequest) returns (EntitiesCountReply) {}
+  rpc EntityHash (EntityHashRequest) returns (EntityHashReply) {}
+  rpc GetEntityState (GetEntityStateRequest) returns (GetEntityStateReply) {}
+  rpc SetEntityState (SetEntityStateRequest) returns (SetEntityStateReply) {}
   rpc NetworkNodes (NetworkNodesRequest) returns (NetworkNodesReply) {}
   rpc NetworkEdges (NetworkEdgesRequest) returns (NetworkEdgesReply) {}
 }
@@ -74,6 +87,53 @@ message SetChannelRequest {
 message SetChannelReply {
   bool success = 1;
 }
+
+message EntitiesCountRequest {
+  uint32 id = 1;
+}
+
+message EntitiesCountReply {
+  uint32 all = 1;
+  uint32 sensors = 2;
+  uint32 binarySensors = 3;
+  uint32 switches = 4;
+  uint32 lights = 5;
+  uint32 textSensors = 6;
+  uint32 analogSensors = 7;
+}
+
+message EntityHashRequest {
+  uint32 id = 1;
+  EntityType service = 2;
+  uint32 index = 3;
+}
+
+message EntityHashReply {
+  uint32 id = 1;
+  uint32 hash = 2;
+  string info = 3;
+}
+
+message GetEntityStateRequest {
+  uint32 id = 1;
+  EntityType service = 2;
+  uint32 hash = 3;
+}
+
+message GetEntityStateReply {
+  uint32 state = 1;
+} 
+
+message SetEntityStateRequest {
+  uint32 id = 1;
+  EntityType service = 2;
+  uint32 hash = 3;
+  uint32 state = 4;
+}
+
+message SetEntityStateReply {
+  bool success = 1;
+} 
 
 message NetworkNodesRequest {
 }

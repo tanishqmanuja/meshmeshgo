@@ -19,14 +19,18 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Meshmesh_SayHello_FullMethodName     = "/meshmesh.Meshmesh/SayHello"
-	Meshmesh_NodeInfo_FullMethodName     = "/meshmesh.Meshmesh/NodeInfo"
-	Meshmesh_NodeReboot_FullMethodName   = "/meshmesh.Meshmesh/NodeReboot"
-	Meshmesh_BindClear_FullMethodName    = "/meshmesh.Meshmesh/BindClear"
-	Meshmesh_SetTag_FullMethodName       = "/meshmesh.Meshmesh/SetTag"
-	Meshmesh_SetChannel_FullMethodName   = "/meshmesh.Meshmesh/SetChannel"
-	Meshmesh_NetworkNodes_FullMethodName = "/meshmesh.Meshmesh/NetworkNodes"
-	Meshmesh_NetworkEdges_FullMethodName = "/meshmesh.Meshmesh/NetworkEdges"
+	Meshmesh_SayHello_FullMethodName       = "/meshmesh.Meshmesh/SayHello"
+	Meshmesh_NodeInfo_FullMethodName       = "/meshmesh.Meshmesh/NodeInfo"
+	Meshmesh_NodeReboot_FullMethodName     = "/meshmesh.Meshmesh/NodeReboot"
+	Meshmesh_BindClear_FullMethodName      = "/meshmesh.Meshmesh/BindClear"
+	Meshmesh_SetTag_FullMethodName         = "/meshmesh.Meshmesh/SetTag"
+	Meshmesh_SetChannel_FullMethodName     = "/meshmesh.Meshmesh/SetChannel"
+	Meshmesh_EntitiesCount_FullMethodName  = "/meshmesh.Meshmesh/EntitiesCount"
+	Meshmesh_EntityHash_FullMethodName     = "/meshmesh.Meshmesh/EntityHash"
+	Meshmesh_GetEntityState_FullMethodName = "/meshmesh.Meshmesh/GetEntityState"
+	Meshmesh_SetEntityState_FullMethodName = "/meshmesh.Meshmesh/SetEntityState"
+	Meshmesh_NetworkNodes_FullMethodName   = "/meshmesh.Meshmesh/NetworkNodes"
+	Meshmesh_NetworkEdges_FullMethodName   = "/meshmesh.Meshmesh/NetworkEdges"
 )
 
 // MeshmeshClient is the client API for Meshmesh service.
@@ -42,6 +46,10 @@ type MeshmeshClient interface {
 	BindClear(ctx context.Context, in *BindClearRequest, opts ...grpc.CallOption) (*BindClearReply, error)
 	SetTag(ctx context.Context, in *SetTagRequest, opts ...grpc.CallOption) (*SetTagReply, error)
 	SetChannel(ctx context.Context, in *SetChannelRequest, opts ...grpc.CallOption) (*SetChannelReply, error)
+	EntitiesCount(ctx context.Context, in *EntitiesCountRequest, opts ...grpc.CallOption) (*EntitiesCountReply, error)
+	EntityHash(ctx context.Context, in *EntityHashRequest, opts ...grpc.CallOption) (*EntityHashReply, error)
+	GetEntityState(ctx context.Context, in *GetEntityStateRequest, opts ...grpc.CallOption) (*GetEntityStateReply, error)
+	SetEntityState(ctx context.Context, in *SetEntityStateRequest, opts ...grpc.CallOption) (*SetEntityStateReply, error)
 	NetworkNodes(ctx context.Context, in *NetworkNodesRequest, opts ...grpc.CallOption) (*NetworkNodesReply, error)
 	NetworkEdges(ctx context.Context, in *NetworkEdgesRequest, opts ...grpc.CallOption) (*NetworkEdgesReply, error)
 }
@@ -114,6 +122,46 @@ func (c *meshmeshClient) SetChannel(ctx context.Context, in *SetChannelRequest, 
 	return out, nil
 }
 
+func (c *meshmeshClient) EntitiesCount(ctx context.Context, in *EntitiesCountRequest, opts ...grpc.CallOption) (*EntitiesCountReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EntitiesCountReply)
+	err := c.cc.Invoke(ctx, Meshmesh_EntitiesCount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *meshmeshClient) EntityHash(ctx context.Context, in *EntityHashRequest, opts ...grpc.CallOption) (*EntityHashReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EntityHashReply)
+	err := c.cc.Invoke(ctx, Meshmesh_EntityHash_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *meshmeshClient) GetEntityState(ctx context.Context, in *GetEntityStateRequest, opts ...grpc.CallOption) (*GetEntityStateReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetEntityStateReply)
+	err := c.cc.Invoke(ctx, Meshmesh_GetEntityState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *meshmeshClient) SetEntityState(ctx context.Context, in *SetEntityStateRequest, opts ...grpc.CallOption) (*SetEntityStateReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetEntityStateReply)
+	err := c.cc.Invoke(ctx, Meshmesh_SetEntityState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *meshmeshClient) NetworkNodes(ctx context.Context, in *NetworkNodesRequest, opts ...grpc.CallOption) (*NetworkNodesReply, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(NetworkNodesReply)
@@ -147,6 +195,10 @@ type MeshmeshServer interface {
 	BindClear(context.Context, *BindClearRequest) (*BindClearReply, error)
 	SetTag(context.Context, *SetTagRequest) (*SetTagReply, error)
 	SetChannel(context.Context, *SetChannelRequest) (*SetChannelReply, error)
+	EntitiesCount(context.Context, *EntitiesCountRequest) (*EntitiesCountReply, error)
+	EntityHash(context.Context, *EntityHashRequest) (*EntityHashReply, error)
+	GetEntityState(context.Context, *GetEntityStateRequest) (*GetEntityStateReply, error)
+	SetEntityState(context.Context, *SetEntityStateRequest) (*SetEntityStateReply, error)
 	NetworkNodes(context.Context, *NetworkNodesRequest) (*NetworkNodesReply, error)
 	NetworkEdges(context.Context, *NetworkEdgesRequest) (*NetworkEdgesReply, error)
 	mustEmbedUnimplementedMeshmeshServer()
@@ -176,6 +228,18 @@ func (UnimplementedMeshmeshServer) SetTag(context.Context, *SetTagRequest) (*Set
 }
 func (UnimplementedMeshmeshServer) SetChannel(context.Context, *SetChannelRequest) (*SetChannelReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetChannel not implemented")
+}
+func (UnimplementedMeshmeshServer) EntitiesCount(context.Context, *EntitiesCountRequest) (*EntitiesCountReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EntitiesCount not implemented")
+}
+func (UnimplementedMeshmeshServer) EntityHash(context.Context, *EntityHashRequest) (*EntityHashReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EntityHash not implemented")
+}
+func (UnimplementedMeshmeshServer) GetEntityState(context.Context, *GetEntityStateRequest) (*GetEntityStateReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetEntityState not implemented")
+}
+func (UnimplementedMeshmeshServer) SetEntityState(context.Context, *SetEntityStateRequest) (*SetEntityStateReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetEntityState not implemented")
 }
 func (UnimplementedMeshmeshServer) NetworkNodes(context.Context, *NetworkNodesRequest) (*NetworkNodesReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NetworkNodes not implemented")
@@ -312,6 +376,78 @@ func _Meshmesh_SetChannel_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Meshmesh_EntitiesCount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EntitiesCountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MeshmeshServer).EntitiesCount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Meshmesh_EntitiesCount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MeshmeshServer).EntitiesCount(ctx, req.(*EntitiesCountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Meshmesh_EntityHash_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EntityHashRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MeshmeshServer).EntityHash(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Meshmesh_EntityHash_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MeshmeshServer).EntityHash(ctx, req.(*EntityHashRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Meshmesh_GetEntityState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetEntityStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MeshmeshServer).GetEntityState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Meshmesh_GetEntityState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MeshmeshServer).GetEntityState(ctx, req.(*GetEntityStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Meshmesh_SetEntityState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetEntityStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MeshmeshServer).SetEntityState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Meshmesh_SetEntityState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MeshmeshServer).SetEntityState(ctx, req.(*SetEntityStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Meshmesh_NetworkNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(NetworkNodesRequest)
 	if err := dec(in); err != nil {
@@ -378,6 +514,22 @@ var Meshmesh_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetChannel",
 			Handler:    _Meshmesh_SetChannel_Handler,
+		},
+		{
+			MethodName: "EntitiesCount",
+			Handler:    _Meshmesh_EntitiesCount_Handler,
+		},
+		{
+			MethodName: "EntityHash",
+			Handler:    _Meshmesh_EntityHash_Handler,
+		},
+		{
+			MethodName: "GetEntityState",
+			Handler:    _Meshmesh_GetEntityState_Handler,
+		},
+		{
+			MethodName: "SetEntityState",
+			Handler:    _Meshmesh_SetEntityState_Handler,
 		},
 		{
 			MethodName: "NetworkNodes",
