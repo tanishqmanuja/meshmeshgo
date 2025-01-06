@@ -157,6 +157,65 @@ type FlashOperationApiReply struct {
 	ApiId uint8 `struct:"uint8"`
 }
 
+const entitiesCountApiRequest uint8 = 38
+
+type EntitiesCountApiRequest struct {
+	Id uint8 `struct:"uint8"`
+}
+
+const entitiesCountApiReply uint8 = 39
+
+type EntitiesCountApiReply struct {
+	Id       uint8   `struct:"uint8"`
+	Counters []uint8 `struct:"[6]uint8"`
+}
+
+const entityHashApiRequest uint8 = 40
+
+type EntityHashApiRequest struct {
+	Id      uint8 `struct:"uint8"`
+	Service uint8 `struct:"uint8"`
+	Index   uint8 `struct:"uint8"`
+}
+
+const entityHashApiReply uint8 = 41
+
+type EntityHashApiReply struct {
+	Id   uint8  `struct:"uint8"`
+	Hash uint16 `struct:"uint16"`
+	Info string `struct:"string"`
+}
+
+const getEntityStateApiRequest uint8 = 42
+
+type GetEntityStateApiRequest struct {
+	Id      uint8  `struct:"uint8"`
+	Service uint8  `struct:"uint8"`
+	Hash    uint16 `struct:"uint16"`
+}
+
+const getEntityStateApiReply uint8 = 43
+
+type GetEntityStateApiReply struct {
+	Id    uint8  `struct:"uint8"`
+	State uint16 `struct:"uint16"`
+}
+
+const setEntityStateApiRequest uint8 = 44
+
+type SetEntityStateApiRequest struct {
+	Id      uint8  `struct:"uint8"`
+	Service uint8  `struct:"uint8"`
+	Hash    uint16 `struct:"uint16"`
+	State   uint16 `struct:"uint16"`
+}
+
+const setEntityStateApiReply uint8 = 45
+
+type SetEntityStateApiReply struct {
+	Id uint8 `struct:"uint8"`
+}
+
 const logEventApiReply uint8 = 57
 
 type LogEventApiReply struct {
@@ -477,6 +536,22 @@ func (frame *ApiFrame) Decode() (interface{}, error) {
 		v := NodeRebootApiReply{}
 		restruct.Unpack(frame.data, binary.LittleEndian, &v)
 		return v, nil
+	case entitiesCountApiReply:
+		v := EntitiesCountApiReply{}
+		restruct.Unpack(frame.data, binary.LittleEndian, &v)
+		return v, nil
+	case entityHashApiReply:
+		v := EntityHashApiReply{}
+		restruct.Unpack(frame.data, binary.LittleEndian, &v)
+		return v, nil
+	case getEntityStateApiReply:
+		v := GetEntityStateApiReply{}
+		restruct.Unpack(frame.data, binary.LittleEndian, &v)
+		return v, nil
+	case setEntityStateApiReply:
+		v := SetEntityStateApiReply{}
+		restruct.Unpack(frame.data, binary.LittleEndian, &v)
+		return v, nil
 	case logEventApiReply:
 		v := LogEventApiReply{}
 		restruct.Unpack(frame.data, binary.LittleEndian, &v)
@@ -566,6 +641,18 @@ func EncodeBuffer(cmd interface{}) ([]byte, error) {
 		b, err = restruct.Pack(binary.LittleEndian, &v)
 	case NodeRebootApiRequest:
 		v.Id = nodeRebootApiRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case EntitiesCountApiRequest:
+		v.Id = entitiesCountApiRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case EntityHashApiRequest:
+		v.Id = entityHashApiRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case GetEntityStateApiRequest:
+		v.Id = getEntityStateApiRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case SetEntityStateApiRequest:
+		v.Id = setEntityStateApiRequest
 		b, err = restruct.Pack(binary.LittleEndian, &v)
 	case ConnectedPathApiRequest:
 		v.Id = connectedPathApiRequest
