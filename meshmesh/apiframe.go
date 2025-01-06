@@ -724,6 +724,35 @@ func SetNetworkGraph(graph *graph.Network) {
 	networkGraph = graph
 }
 
+func FindBestProtocol(target MeshNodeId) MeshProtocol {
+	if networkGraph == nil {
+		return UnicastProtocol
+	}
+
+	device := networkGraph.GetDevice(int64(target))
+
+	if device == nil {
+		return UnicastProtocol
+	}
+
+	if networkGraph.LocalDevice().ID() == device.ID() {
+		return DirectProtocol
+	}
+
+	path, _, err := networkGraph.GetPath(device)
+	if err != nil {
+		return UnicastProtocol
+	}
+
+	if len(path) == 1 {
+		return DirectProtocol
+	} else if len(path) == 2 {
+		return UnicastProtocol
+	} else {
+		return MultipathProtocol
+	}
+}
+
 func NewApiFrame(buffer []byte, escaped bool) *ApiFrame {
 	f := &ApiFrame{
 		data:    buffer,
