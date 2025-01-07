@@ -93,9 +93,15 @@ func main() {
 		logger.Log().Fatal("Serial port error: ", err)
 	}
 
-	network, err := gra.NewNeworkFromFile("meshmesh.graphml", int64(serialPort.LocalNode))
-	if err != nil {
-		logger.Log().Fatal("Graph read error: ", err)
+	var network *gra.Network
+	if _, err := os.Stat("meshmesh.graphml"); err == nil {
+		network, err = gra.NewNeworkFromFile("meshmesh.graphml", int64(serialPort.LocalNode))
+		if err != nil {
+			logger.Log().Fatal("Graph read error: ", err)
+		}
+	} else {
+		network = gra.NewNetwork(int64(serialPort.LocalNode))
+		network.SaveToFile("meshmesh.graphml")
 	}
 
 	if len(config.DebugNodeAddr) > 0 {

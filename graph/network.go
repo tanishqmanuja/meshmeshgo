@@ -144,10 +144,10 @@ func (g *Network) SaveToFile(filename string) error {
 	return g.writeGraph(filename)
 }
 
-func NewNetwork(localDevice *Device) *Network {
-	network := Network{localDevice: localDevice}
+func NewNetwork(localDeviceId int64) *Network {
+	network := Network{localDevice: NewDevice(localDeviceId, true, "local")}
 	network.WeightedDirectedGraph = *simple.NewWeightedDirectedGraph(0, math.Inf(1))
-	network.AddNode(localDevice)
+	network.AddNode(network.localDevice)
 	return &network
 }
 

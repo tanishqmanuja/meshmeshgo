@@ -108,7 +108,7 @@ func _findNextNode(g *gra.Network) *gra.Device {
 
 func (d *DiscoveryProcedure) Init() error {
 	if d.network == nil {
-		d.network = gra.NewNetwork(gra.NewDevice(int64(d.serial.LocalNode), true, "local"))
+		d.network = gra.NewNetwork(int64(d.serial.LocalNode))
 	}
 	if d.currentDevice == nil {
 		d.currentDevice = _findNextNode(d.network)
