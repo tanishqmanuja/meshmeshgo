@@ -30,7 +30,7 @@ type discWeights struct {
 	Next    float64
 }
 
-func _rssi2weight(rssi int16) float64 {
+func Rssi2weight(rssi int16) float64 {
 	if rssi <= 0 {
 		rssi *= -2
 	} else if rssi > 44 {
@@ -166,7 +166,7 @@ func (d *DiscoveryProcedure) Step() error {
 		}
 
 		logger.Log().Printf("Query of row %d node %s rssi1 %d rssi2 %d", i, utils.FmtNodeId(int64(tableItem.NodeId)), tableItem.Rssi1, tableItem.Rssi2)
-		_updateNeighbor(d.Neighbors, int64(tableItem.NodeId), _rssi2weight(tableItem.Rssi1), _rssi2weight(tableItem.Rssi2))
+		_updateNeighbor(d.Neighbors, int64(tableItem.NodeId), Rssi2weight(tableItem.Rssi1), Rssi2weight(tableItem.Rssi2))
 	}
 
 	return err
@@ -186,7 +186,6 @@ func (d *DiscoveryProcedure) Save() error {
 	d.network.SaveToFile("discovery.graphml")
 	neighborsAdavance(d.Neighbors)
 	return nil
-
 }
 
 func NewDiscoveryProcedure(serial *SerialConnection, network *gra.Network, nodeid int64) *DiscoveryProcedure {

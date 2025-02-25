@@ -138,6 +138,7 @@ type BaseModel struct {
 	ti          termInfo
 	selProtocol *selection.Model[choiceItem]
 	selDevice   *selection.Model[deviceItem]
+	selDevice2  deviceSelectModel
 	spinner     spinner.Model
 	network     *graph.Network
 	device      *graph.Device
@@ -213,6 +214,27 @@ func (m *BaseModel) viewDeviceSelection() string {
 	return m.selDevice.View()
 }
 
+func (m *BaseModel) initDeviceSelection2() tea.Cmd {
+	return m.selDevice2.Init()
+}
+
+func (m *BaseModel) updateDeviceSelection2(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	_, cmd = m.selDevice2.Update(msg)
+	if cmd != nil {
+		msg := cmd()
+		switch msg.(type) {
+		case tea.QuitMsg:
+			return selectDeviceCmd(m)
+		}
+	}
+	return cmd
+}
+
+func (m *BaseModel) viewDeviceSelection2() string {
+	return m.selDevice2.View()
+}
+
 func (m *BaseModel) createSpinner() {
 	m.spinner = spinner.New()
 	m.spinner.Spinner = spinner.Dot
@@ -248,5 +270,6 @@ func NewBaseModelExtended(ti termInfo, network *graph.Network) BaseModel {
 	model.network = network
 	model.selProtocol = createProtocolSelectionModel()
 	model.selDevice = createDeviceSelectionModel(network)
+	model.selDevice2 = createDeviceSelectModel(network)
 	return model
 }

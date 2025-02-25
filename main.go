@@ -15,6 +15,7 @@ import (
 	"leguru.net/m/v2/meshmesh"
 	"leguru.net/m/v2/rpc"
 	"leguru.net/m/v2/tui"
+	"leguru.net/m/v2/utils"
 )
 
 const (
@@ -119,6 +120,29 @@ func main() {
 	logger.Log().Info("Coordinator node is " + gra.FmtDeviceId(network.LocalDevice()))
 	meshmesh.SetNetworkGraph(network)
 	gra.PrintTable(network)
+
+	// Handle DiscAssociateReply received from other nodes
+	serialPort.DiscAssociateFn = func(v *meshmesh.DiscAssociateApiReply) {
+		logger.WithFields(logger.Fields{"server": utils.FmtNodeId(int64(v.Server)), "source": utils.FmtNodeId(int64(v.Source))}).Debug("DiscAssociateReply received")
+		source := network.GetDevice(int64(v.Source))
+		if source == nil {
+			source = gra.NewDevice(int64(v.Source), true, "")
+			network.AddNode(source)
+		}
+		for i := range 3 {
+			if v.NodeId[i] > 0 {
+				node := network.GetDevice(int64(v.NodeId[i]))
+				if node != nil {
+					network.ChangeEdgeWeight(node.ID(), source.ID(), meshmesh.Rssi2weight(v.Rssi[i]), meshmesh.Rssi2weight(v.Rssi[i]))
+					logger.WithFields(logger.Fields{"id": utils.FmtNodeId(int64(v.NodeId[i])), "rssi": v.Rssi[i]}).Debug("DiscAssociateReply received")
+				}
+			}
+		}
+		network.SaveToFile("meshmesh.graphml")
+		serialPort.SendReceiveApiProt(meshmesh.NodeIdApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(source.ID()))
+		// ***** TODO: Update network graph with new node
+	}
+
 	// Initialize Esphome to HomeAssistant Server
 	esphomeapi := meshmesh.NewMultiServerApi(serialPort, network)
 	// Initialize SSH Server

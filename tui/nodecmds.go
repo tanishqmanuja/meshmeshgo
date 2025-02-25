@@ -236,7 +236,7 @@ func (m *NodeInfoModel) View() string {
 	views := []string{}
 
 	if m.state >= nodeInfoGetDeviceState {
-		views = append(views, m.selDevice.View())
+		views = append(views, m.viewDeviceSelection())
 	}
 
 	if m.state >= nodeInfoGetProtocolState {
@@ -259,6 +259,7 @@ func (m *NodeInfoModel) View() string {
 		buffer.WriteString(fmt.Sprintf("\nNode TxPower   : %d", m.cfg.TxPower))
 		buffer.WriteString(fmt.Sprintf("\nNode Groups    : %d", m.cfg.Groups))
 		buffer.WriteString(fmt.Sprintf("\nNode Binded    : 0x%06X", m.cfg.BindedServer))
+		buffer.WriteString(fmt.Sprintf("\nNode Flags     : %02X", m.cfg.Flags))
 		buffer.WriteString("\n\n")
 		buffer.WriteString(m.sel1.View())
 		if len(m.res) > 0 {

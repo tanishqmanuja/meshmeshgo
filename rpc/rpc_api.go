@@ -26,10 +26,12 @@ func (s *Server) NodeInfo(_ context.Context, req *meshmesh.NodeInfoRequest) (*me
 	cfg := rep.(mm.NodeConfigApiReply)
 
 	return &meshmesh.NodeInfoReply{
-		Id:      req.Id,
-		Tag:     string(cfg.Tag[:bytes.IndexByte(cfg.Tag, 0)]),
-		Channel: uint32(cfg.Channel),
-		Rev:     rev.Revision[:strings.IndexByte(rev.Revision, 0)]}, nil
+		Id:           req.Id,
+		Tag:          string(cfg.Tag[:bytes.IndexByte(cfg.Tag, 0)]),
+		Channel:      uint32(cfg.Channel),
+		Rev:          rev.Revision[:strings.IndexByte(rev.Revision, 0)],
+		IsAssociated: cfg.Flags&0x01 != 0,
+	}, nil
 }
 
 func (s *Server) NodeReboot(_ context.Context, req *meshmesh.NodeRebootRequest) (*meshmesh.NodeRebootReply, error) {
@@ -129,4 +131,13 @@ func (s *Server) SetEntityState(_ context.Context, req *meshmesh.SetEntityStateR
 		return nil, status.Errorf(codes.Internal, "Failed to set entity state: %v", err)
 	}
 	return &meshmesh.SetEntityStateReply{Success: true}, nil
+}
+
+func (s *Server) ExecuteDiscovery(_ context.Context, req *meshmesh.ExecuteDiscoveryRequest) (*meshmesh.ExecuteDiscoveryReply, error) {
+	mmid := mm.MeshNodeId(req.Id)
+	_, err := s.serialConn.SendReceiveApiProt(mm.DiscStartDiscoverApiRequest{Mask: 0, Filter: 0, Slotnum: 100}, mm.FindBestProtocol(mmid), mmid)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to set entity state: %v", err)
+	}
+	return &meshmesh.ExecuteDiscoveryReply{Success: true}, nil
 }

@@ -121,6 +121,7 @@ type NodeConfigApiReply struct {
 	TxPower      uint8  `struct:"uint8"`
 	Groups       uint32 `struct:"uint32"`
 	BindedServer uint32 `struct:"uint32"`
+	Flags        uint8  `struct:"uint8"`
 }
 
 const nodeRebootApiRequest uint8 = 24
@@ -351,6 +352,17 @@ const discStartDiscoverApiReply uint8 = 0x07
 type DiscStartDiscoverApiReply struct {
 	Id    uint8 `struct:"uint8"`
 	ApiId uint8 `struct:"uint8"`
+}
+
+const discAssociateApiReply uint8 = 0x0B
+
+type DiscAssociateApiReply struct {
+	Id     uint8         `struct:"uint8"`
+	ApiId  uint8         `struct:"uint8"`
+	Source MeshNodeId    `struct:"uint32"`
+	Server MeshNodeId    `struct:"uint32"`
+	Rssi   [3]int16      `struct:"[3]int16"`
+	NodeId [3]MeshNodeId `struct:"[3]uint32"`
 }
 
 /* ----------------------------------------------------------------
@@ -585,6 +597,10 @@ func (frame *ApiFrame) Decode() (interface{}, error) {
 			return vv, nil
 		case discStartDiscoverApiReply:
 			vv := DiscStartDiscoverApiReply{}
+			restruct.Unpack(frame.data, binary.LittleEndian, &vv)
+			return vv, nil
+		case discAssociateApiReply:
+			vv := DiscAssociateApiReply{}
 			restruct.Unpack(frame.data, binary.LittleEndian, &vv)
 			return vv, nil
 		}

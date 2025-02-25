@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+	{{ template "head.html" .}}
+  </head>
+  <body>
+    {{ template "navbar.html" .}}  
+    
+    <div class="main-container">
+      <div class="table-container">
+        <table class="table table-striped">
+          <thead class="table-light">
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">ID</th>
+              <th scope="col">Tag</th>
+              <th scope="col">InUse</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ range .Nodes }}
+              <tr>
+                <th scope="row">{{ .Index }}</th>
+                <td>{{ .Id }}</td>
+                <td>{{ .Tag }}</td>
+                <td>{{ .InUse }}</td>
+                <td>
+                  <button class="btn btn-primary btn-edit" data-nodeid="{{ .Id }}" data-nodetag="{{ .Tag }}">Edit</button>
+                  <button class="btn btn-danger btn-delete" data-nodeid="{{ .Id }}" data-nodetag="{{ .Tag }}">Delete</button>
+                </td>
+              </tr>
+            {{ end }}
+          </tbody>
+        </table>
+        <div class="btn-container">
+          <button type="button" class="btn btn-primary btn-add">Add</button>
+        </div>
+        </div>
+    </div>
+
+    <div id="network-graph" style="width: 100%; height: 100%; border: 1px solid #000;">
+
+    </div>
+
+    <button type="button" class="btn btn-primary click" data-nodeid="0x123456">
+      Launch demo modal
+    </button>
+
+    <!-- Delete Node Modal -->
+    <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="confirmDeleteModalLabel">Confirm Node Deletion</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form>
+              <div class="mb-3">
+                <label for="nodeId" class="form-label">Node ID</label>
+                <input type="text" class="form-control" id="nodeId" readonly>
+              </div>
+              <div class="mb-3">
+                <label for="nodeTag" class="form-label">Tag</label>
+                <input type="text" class="form-control" id="nodeTag">
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-danger btn-confirm-delete">Delete</button>
+          </div>
+        </div>
+      </div>      
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-force-graph@0.4.3/dist/d3-force-graph.js"></script>
+    <script type="module" src="/d3force.js"></script>
+    <script type="module" src="/network.js"></script>
+  </body>
+</html>

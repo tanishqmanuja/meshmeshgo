@@ -29,6 +29,7 @@ service Meshmesh {
   rpc EntityHash (EntityHashRequest) returns (EntityHashReply) {}
   rpc GetEntityState (GetEntityStateRequest) returns (GetEntityStateReply) {}
   rpc SetEntityState (SetEntityStateRequest) returns (SetEntityStateReply) {}
+  rpc ExecuteDiscovery (ExecuteDiscoveryRequest) returns (ExecuteDiscoveryReply) {}
   rpc NetworkNodes (NetworkNodesRequest) returns (NetworkNodesReply) {}
   rpc NetworkEdges (NetworkEdgesRequest) returns (NetworkEdgesReply) {}
 }
@@ -52,6 +53,7 @@ message NodeInfoReply {
   string tag = 2;
   uint32 channel = 3;
   string rev = 4;
+  bool isAssociated = 5;
 }
 
 message NodeRebootRequest {
@@ -133,7 +135,16 @@ message SetEntityStateRequest {
 
 message SetEntityStateReply {
   bool success = 1;
-} 
+}
+
+message ExecuteDiscoveryRequest {
+  uint32 id = 1;
+  optional uint32 num_slots = 2;
+}
+
+message ExecuteDiscoveryReply {
+  bool success = 1;
+}
 
 message NetworkNodesRequest {
 }

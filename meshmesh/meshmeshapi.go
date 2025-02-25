@@ -2,12 +2,14 @@ package meshmesh
 
 import (
 	"container/list"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/go-restruct/restruct"
 	"github.com/sirupsen/logrus"
 	"go.bug.st/serial"
 	"leguru.net/m/v2/logger"
@@ -46,16 +48,17 @@ func NewSerialSession(request *ApiFrame) (*SerialSession, error) {
 }
 
 type SerialConnection struct {
-	connected    bool
-	port         serial.Port
-	debug        bool
-	incoming     chan []byte
-	session      *SerialSession
-	Sessions     *list.List
-	SessionsLock sync.Mutex
-	NextHandle   uint16
-	LocalNode    uint32
-	ConnPathFn   func(*ConnectedPathApiReply)
+	connected       bool
+	port            serial.Port
+	debug           bool
+	incoming        chan []byte
+	session         *SerialSession
+	Sessions        *list.List
+	SessionsLock    sync.Mutex
+	NextHandle      uint16
+	LocalNode       uint32
+	ConnPathFn      func(*ConnectedPathApiReply)
+	DiscAssociateFn func(*DiscAssociateApiReply)
 }
 
 const (
@@ -122,7 +125,15 @@ func (serialConn *SerialConnection) ReadFrame(buffer []byte) {
 				}
 			}
 		} else {
-			logger.Log().WithField("type", fmt.Sprintf("%02X", buffer[0])).Error("Unused packet received")
+			if frame.AssertType(discoveryApiReply, discResetTableApiReply) {
+				vv := DiscAssociateApiReply{}
+				restruct.Unpack(frame.data, binary.LittleEndian, &vv)
+				if serialConn.DiscAssociateFn != nil {
+					serialConn.DiscAssociateFn(&vv)
+				}
+			} else {
+				logger.Log().WithField("type", fmt.Sprintf("%02X", buffer[0])).Error("Unused packet received")
+			}
 		}
 	}
 }
