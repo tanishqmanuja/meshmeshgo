@@ -19,19 +19,21 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Meshmesh_SayHello_FullMethodName         = "/meshmesh.Meshmesh/SayHello"
-	Meshmesh_NodeInfo_FullMethodName         = "/meshmesh.Meshmesh/NodeInfo"
-	Meshmesh_NodeReboot_FullMethodName       = "/meshmesh.Meshmesh/NodeReboot"
-	Meshmesh_BindClear_FullMethodName        = "/meshmesh.Meshmesh/BindClear"
-	Meshmesh_SetTag_FullMethodName           = "/meshmesh.Meshmesh/SetTag"
-	Meshmesh_SetChannel_FullMethodName       = "/meshmesh.Meshmesh/SetChannel"
-	Meshmesh_EntitiesCount_FullMethodName    = "/meshmesh.Meshmesh/EntitiesCount"
-	Meshmesh_EntityHash_FullMethodName       = "/meshmesh.Meshmesh/EntityHash"
-	Meshmesh_GetEntityState_FullMethodName   = "/meshmesh.Meshmesh/GetEntityState"
-	Meshmesh_SetEntityState_FullMethodName   = "/meshmesh.Meshmesh/SetEntityState"
-	Meshmesh_ExecuteDiscovery_FullMethodName = "/meshmesh.Meshmesh/ExecuteDiscovery"
-	Meshmesh_NetworkNodes_FullMethodName     = "/meshmesh.Meshmesh/NetworkNodes"
-	Meshmesh_NetworkEdges_FullMethodName     = "/meshmesh.Meshmesh/NetworkEdges"
+	Meshmesh_SayHello_FullMethodName             = "/meshmesh.Meshmesh/SayHello"
+	Meshmesh_NodeInfo_FullMethodName             = "/meshmesh.Meshmesh/NodeInfo"
+	Meshmesh_NodeReboot_FullMethodName           = "/meshmesh.Meshmesh/NodeReboot"
+	Meshmesh_BindClear_FullMethodName            = "/meshmesh.Meshmesh/BindClear"
+	Meshmesh_SetTag_FullMethodName               = "/meshmesh.Meshmesh/SetTag"
+	Meshmesh_SetChannel_FullMethodName           = "/meshmesh.Meshmesh/SetChannel"
+	Meshmesh_EntitiesCount_FullMethodName        = "/meshmesh.Meshmesh/EntitiesCount"
+	Meshmesh_EntityHash_FullMethodName           = "/meshmesh.Meshmesh/EntityHash"
+	Meshmesh_GetEntityState_FullMethodName       = "/meshmesh.Meshmesh/GetEntityState"
+	Meshmesh_SetEntityState_FullMethodName       = "/meshmesh.Meshmesh/SetEntityState"
+	Meshmesh_ExecuteDiscovery_FullMethodName     = "/meshmesh.Meshmesh/ExecuteDiscovery"
+	Meshmesh_NetworkNodes_FullMethodName         = "/meshmesh.Meshmesh/NetworkNodes"
+	Meshmesh_NetworkEdges_FullMethodName         = "/meshmesh.Meshmesh/NetworkEdges"
+	Meshmesh_NetworkNodeConfigure_FullMethodName = "/meshmesh.Meshmesh/NetworkNodeConfigure"
+	Meshmesh_NetworkNodeDelete_FullMethodName    = "/meshmesh.Meshmesh/NetworkNodeDelete"
 )
 
 // MeshmeshClient is the client API for Meshmesh service.
@@ -54,6 +56,8 @@ type MeshmeshClient interface {
 	ExecuteDiscovery(ctx context.Context, in *ExecuteDiscoveryRequest, opts ...grpc.CallOption) (*ExecuteDiscoveryReply, error)
 	NetworkNodes(ctx context.Context, in *NetworkNodesRequest, opts ...grpc.CallOption) (*NetworkNodesReply, error)
 	NetworkEdges(ctx context.Context, in *NetworkEdgesRequest, opts ...grpc.CallOption) (*NetworkEdgesReply, error)
+	NetworkNodeConfigure(ctx context.Context, in *NetworkNodeConfigureRequest, opts ...grpc.CallOption) (*NetworkNodeConfigureReply, error)
+	NetworkNodeDelete(ctx context.Context, in *NetworkNodeDeleteRequest, opts ...grpc.CallOption) (*NetworkNodeDeleteReply, error)
 }
 
 type meshmeshClient struct {
@@ -194,6 +198,26 @@ func (c *meshmeshClient) NetworkEdges(ctx context.Context, in *NetworkEdgesReque
 	return out, nil
 }
 
+func (c *meshmeshClient) NetworkNodeConfigure(ctx context.Context, in *NetworkNodeConfigureRequest, opts ...grpc.CallOption) (*NetworkNodeConfigureReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NetworkNodeConfigureReply)
+	err := c.cc.Invoke(ctx, Meshmesh_NetworkNodeConfigure_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *meshmeshClient) NetworkNodeDelete(ctx context.Context, in *NetworkNodeDeleteRequest, opts ...grpc.CallOption) (*NetworkNodeDeleteReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NetworkNodeDeleteReply)
+	err := c.cc.Invoke(ctx, Meshmesh_NetworkNodeDelete_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MeshmeshServer is the server API for Meshmesh service.
 // All implementations must embed UnimplementedMeshmeshServer
 // for forward compatibility.
@@ -214,6 +238,8 @@ type MeshmeshServer interface {
 	ExecuteDiscovery(context.Context, *ExecuteDiscoveryRequest) (*ExecuteDiscoveryReply, error)
 	NetworkNodes(context.Context, *NetworkNodesRequest) (*NetworkNodesReply, error)
 	NetworkEdges(context.Context, *NetworkEdgesRequest) (*NetworkEdgesReply, error)
+	NetworkNodeConfigure(context.Context, *NetworkNodeConfigureRequest) (*NetworkNodeConfigureReply, error)
+	NetworkNodeDelete(context.Context, *NetworkNodeDeleteRequest) (*NetworkNodeDeleteReply, error)
 	mustEmbedUnimplementedMeshmeshServer()
 }
 
@@ -262,6 +288,12 @@ func (UnimplementedMeshmeshServer) NetworkNodes(context.Context, *NetworkNodesRe
 }
 func (UnimplementedMeshmeshServer) NetworkEdges(context.Context, *NetworkEdgesRequest) (*NetworkEdgesReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NetworkEdges not implemented")
+}
+func (UnimplementedMeshmeshServer) NetworkNodeConfigure(context.Context, *NetworkNodeConfigureRequest) (*NetworkNodeConfigureReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NetworkNodeConfigure not implemented")
+}
+func (UnimplementedMeshmeshServer) NetworkNodeDelete(context.Context, *NetworkNodeDeleteRequest) (*NetworkNodeDeleteReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NetworkNodeDelete not implemented")
 }
 func (UnimplementedMeshmeshServer) mustEmbedUnimplementedMeshmeshServer() {}
 func (UnimplementedMeshmeshServer) testEmbeddedByValue()                  {}
@@ -518,6 +550,42 @@ func _Meshmesh_NetworkEdges_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Meshmesh_NetworkNodeConfigure_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NetworkNodeConfigureRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MeshmeshServer).NetworkNodeConfigure(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Meshmesh_NetworkNodeConfigure_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MeshmeshServer).NetworkNodeConfigure(ctx, req.(*NetworkNodeConfigureRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Meshmesh_NetworkNodeDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NetworkNodeDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MeshmeshServer).NetworkNodeDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Meshmesh_NetworkNodeDelete_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MeshmeshServer).NetworkNodeDelete(ctx, req.(*NetworkNodeDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Meshmesh_ServiceDesc is the grpc.ServiceDesc for Meshmesh service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -576,6 +644,14 @@ var Meshmesh_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NetworkEdges",
 			Handler:    _Meshmesh_NetworkEdges_Handler,
+		},
+		{
+			MethodName: "NetworkNodeConfigure",
+			Handler:    _Meshmesh_NetworkNodeConfigure_Handler,
+		},
+		{
+			MethodName: "NetworkNodeDelete",
+			Handler:    _Meshmesh_NetworkNodeDelete_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

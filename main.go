@@ -21,6 +21,7 @@ import (
 const (
 	programName        = "meshmeshgo"
 	programDescription = "hub server for meshmesh network"
+	graphFilename      = "meshmesh.graphml"
 )
 
 var (
@@ -95,15 +96,18 @@ func main() {
 	}
 
 	var network *gra.Network
-	if _, err := os.Stat("meshmesh.graphml"); err == nil {
-		network, err = gra.NewNeworkFromFile("meshmesh.graphml", int64(serialPort.LocalNode))
+	if _, err := os.Stat(graphFilename); err == nil {
+		network, err = gra.NewNeworkFromFile(graphFilename, int64(serialPort.LocalNode))
 		if err != nil {
 			logger.Log().Fatal("Graph read error: ", err)
 		}
 	} else {
 		network = gra.NewNetwork(int64(serialPort.LocalNode))
-		network.SaveToFile("meshmesh.graphml")
+		network.SaveToFile(graphFilename)
 	}
+	network.SetNetworkChangedCb(func() {
+		network.SaveToFile(graphFilename)
+	})
 
 	if len(config.DebugNodeAddr) > 0 {
 		_debugNodeId, err := gra.ParseDeviceId(config.DebugNodeAddr)
@@ -138,7 +142,7 @@ func main() {
 				}
 			}
 		}
-		network.SaveToFile("meshmesh.graphml")
+		network.SaveToFile(graphFilename)
 		serialPort.SendReceiveApiProt(meshmesh.NodeIdApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(source.ID()))
 		// ***** TODO: Update network graph with new node
 	}

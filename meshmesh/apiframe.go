@@ -3,6 +3,7 @@ package meshmesh
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 
 	"github.com/go-restruct/restruct"
 	"leguru.net/m/v2/graph"
@@ -627,7 +628,7 @@ func (frame *ApiFrame) Decode() (interface{}, error) {
 		}
 	}
 
-	return EchoApiReply{}, errors.New("unknow api frame")
+	return nil, fmt.Errorf("unknow api frame: %d", frame.data[0])
 }
 
 func EncodeBuffer(cmd interface{}) ([]byte, error) {

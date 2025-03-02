@@ -80,8 +80,7 @@ func (m *GraphShowModel) changeFocus() {
 }
 
 func (m *GraphShowModel) Init() tea.Cmd {
-	var cmd tea.Cmd
-	return cmd
+	return m.table.Init()
 }
 
 func (m *GraphShowModel) Update(msg tea.Msg) (Model, tea.Cmd) {
@@ -118,7 +117,9 @@ func NewGraphShowModel(ti termInfo) *GraphShowModel {
 	_cols := makeColumns()
 	_rows := graphTableRows()
 	_style := ti.renderer.NewStyle().Align(lipgloss.Left)
+	_bgStyle := ti.renderer.NewStyle().Background(lipgloss.ANSIColor(10))
 	_table := table.New(_cols).WithRows(_rows).BorderRounded().WithBaseStyle(_style).WithPageSize(20).SortByAsc(colKeyId).Focused(true)
+	_table = _table.HighlightStyle(_bgStyle)
 	return &GraphShowModel{ti: ti, table: _table}
 
 }

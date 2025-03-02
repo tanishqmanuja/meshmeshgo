@@ -32,6 +32,8 @@ service Meshmesh {
   rpc ExecuteDiscovery (ExecuteDiscoveryRequest) returns (ExecuteDiscoveryReply) {}
   rpc NetworkNodes (NetworkNodesRequest) returns (NetworkNodesReply) {}
   rpc NetworkEdges (NetworkEdgesRequest) returns (NetworkEdgesReply) {}
+  rpc NetworkNodeConfigure (NetworkNodeConfigureRequest) returns (NetworkNodeConfigureReply) {}
+  rpc NetworkNodeDelete (NetworkNodeDeleteRequest) returns (NetworkNodeDeleteReply) {}
 }
 
 // The request message containing the user's name.
@@ -171,4 +173,22 @@ message NetworkEdge {
   uint32 from = 2;
   uint32 to = 3;
   float weight = 4;
+}
+
+message NetworkNodeConfigureRequest {
+  uint32 id = 1;
+  string tag = 2;
+  bool inuse = 3;
+}
+
+message NetworkNodeConfigureReply {
+  bool success = 1;
+}
+
+message NetworkNodeDeleteRequest {
+  uint32 id = 1;
+}
+
+message NetworkNodeDeleteReply {
+  bool success = 1;
 }

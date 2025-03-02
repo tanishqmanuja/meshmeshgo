@@ -31,18 +31,33 @@ type TplIndex struct {
 
 type TplNode struct {
 	Index uint32
-	Id    uint32
-	Tag   string
-	InUse bool
+	Id    uint32 `json:"id"`
+	Tag   string `json:"tag"`
+	InUse bool   `json:"inuse"`
+}
+
+type TplEdge struct {
+	From   uint32  `json:"from"`
+	To     uint32  `json:"to"`
+	Weight float32 `json:"weight"`
 }
 
 type TplNetwork struct {
 	TplBase
 	Nodes []TplNode
+	Edges []TplEdge
 }
 
 var rpcConn *grpc.ClientConn
 var rpcClient pb.MeshmeshClient
+
+func _handleError(c *gin.Context, err error) {
+	c.JSON(http.StatusInternalServerError, TplError{
+		Error:   true,
+		Type:    "rpc error",
+		Message: err.Error(),
+	})
+}
 
 func handleIndexGet(c *gin.Context) {
 	c.HTML(http.StatusOK, "index.html", TplIndex{
@@ -55,13 +70,13 @@ func handleIndexGet(c *gin.Context) {
 
 func handleNetworkGet(c *gin.Context) {
 	nodes, err := rpcClient.NetworkNodes(context.Background(), &pb.NetworkNodesRequest{})
-
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, TplError{
-			Error:   true,
-			Type:    "rpc error",
-			Message: err.Error(),
-		})
+		_handleError(c, err)
+		return
+	}
+	edges, err := rpcClient.NetworkEdges(context.Background(), &pb.NetworkEdgesRequest{})
+	if err != nil {
+		_handleError(c, err)
 		return
 	}
 
@@ -75,43 +90,41 @@ func handleNetworkGet(c *gin.Context) {
 		}
 	}
 
+	edgesTpl := make([]TplEdge, len(edges.Edges))
+	for i, edge := range edges.Edges {
+		edgesTpl[i] = TplEdge{
+			From:   edge.From,
+			To:     edge.To,
+			Weight: edge.Weight,
+		}
+	}
+
 	c.HTML(http.StatusOK, "network.html", TplNetwork{
 		TplBase: TplBase{
 			PageTitle: "Network graph",
 			PageKey:   "network",
 		},
 		Nodes: nodesTpl,
+		Edges: edgesTpl,
 	})
 }
 
-func handleJsonNodesGet(c *gin.Context) {
-	nodes, err := rpcClient.NetworkNodes(context.Background(), &pb.NetworkNodesRequest{})
-
+func handleEditNodePost(c *gin.Context) {
+	var node TplNode
+	err := c.ShouldBindJSON(&node)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, TplError{
-			Error:   true,
-			Type:    "rpc error",
-			Message: err.Error(),
-		})
+		log.Println(err.Error())
+		_handleError(c, err)
 		return
 	}
 
-	nodesTpl := make([]TplNode, len(nodes.Nodes))
-	for i, node := range nodes.Nodes {
-		nodesTpl[i] = TplNode{
-			Id:    node.Id,
-			Tag:   node.Tag,
-			InUse: node.Inuse,
-		}
-	}
-
-	c.JSON(http.StatusOK, TplNetwork{
-		TplBase: TplBase{
-			PageTitle: "Network graph",
-			PageKey:   "network",
-		},
-		Nodes: nodesTpl,
+	rpcClient.NetworkNodeConfigure(context.Background(), &pb.NetworkNodeConfigureRequest{
+		Id:    node.Id,
+		Tag:   node.Tag,
+		Inuse: node.InUse,
 	})
+
+	c.JSON(http.StatusOK, TplBase{})
 }
 
 func initRpcClient() {
@@ -138,7 +151,7 @@ func main() {
 	router.Use(static.Serve("/", static.LocalFile("./static", false)))
 	router.GET("/index", handleIndexGet)
 	router.GET("/network", handleNetworkGet)
-	router.GET("/network/nodes", handleJsonNodesGet)
+	router.POST("/network/node/configure", handleEditNodePost)
 
 	router.Run("localhost:8080")
 	rpcConn.Close()

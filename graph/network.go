@@ -27,6 +27,10 @@ func (d Device) InUse() bool {
 	return d.inuse
 }
 
+func (d *Device) SetInUse(inuse bool) {
+	d.inuse = inuse
+}
+
 func (d Device) Discovered() bool {
 	return d.discovered
 }
@@ -47,6 +51,10 @@ func (d Device) Tag() string {
 	return d.tag
 }
 
+func (d *Device) SetTag(tag string) {
+	d.tag = tag
+}
+
 func (d Device) Address() string {
 	return d.address
 }
@@ -57,7 +65,8 @@ func NewDevice(id int64, inuse bool, tag string) *Device {
 
 type Network struct {
 	simple.WeightedDirectedGraph
-	localDevice *Device
+	localDevice      *Device
+	networkChangedCb func()
 }
 
 func (g *Network) LocalDevice() *Device {
@@ -142,6 +151,16 @@ func (g *Network) GetPath(to *Device) ([]int64, float64, error) {
 
 func (g *Network) SaveToFile(filename string) error {
 	return g.writeGraph(filename)
+}
+
+func (g *Network) SetNetworkChangedCb(cb func()) {
+	g.networkChangedCb = cb
+}
+
+func (g *Network) NotifyNetworkChanged() {
+	if g.networkChangedCb != nil {
+		g.networkChangedCb()
+	}
 }
 
 func NewNetwork(localDeviceId int64) *Network {

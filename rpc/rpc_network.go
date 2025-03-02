@@ -3,6 +3,8 @@ package rpc
 import (
 	"context"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"leguru.net/m/v2/graph"
 	"leguru.net/m/v2/rpc/meshmesh"
 )
@@ -37,4 +39,27 @@ func (s *Server) NetworkEdges(_ context.Context, req *meshmesh.NetworkEdgesReque
 		i += 1
 	}
 	return &meshmesh.NetworkEdgesReply{Edges: _edges}, nil
+}
+
+func (s *Server) NetworkNodeConfigure(_ context.Context, req *meshmesh.NetworkNodeConfigureRequest) (*meshmesh.NetworkNodeConfigureReply, error) {
+	node := s.network.Node(int64(req.Id))
+	if node == nil {
+		return nil, status.Errorf(codes.NotFound, "Node not found")
+	}
+	dev := node.(*graph.Device)
+	dev.SetTag(req.Tag)
+	dev.SetInUse(req.Inuse)
+	s.network.NotifyNetworkChanged()
+	return &meshmesh.NetworkNodeConfigureReply{Success: true}, nil
+}
+
+func (s *Server) NetworkNodeDelete(_ context.Context, req *meshmesh.NetworkNodeDeleteRequest) (*meshmesh.NetworkNodeDeleteReply, error) {
+	node := s.network.Node(int64(req.Id))
+	if node == nil {
+		return nil, status.Errorf(codes.NotFound, "Node not found")
+	}
+
+	s.network.RemoveNode(int64(req.Id))
+	s.network.NotifyNetworkChanged()
+	return &meshmesh.NetworkNodeDeleteReply{Success: true}, nil
 }
