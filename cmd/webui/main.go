@@ -113,7 +113,6 @@ func handleEditNodePost(c *gin.Context) {
 	var node TplNode
 	err := c.ShouldBindJSON(&node)
 	if err != nil {
-		log.Println(err.Error())
 		_handleError(c, err)
 		return
 	}
@@ -122,6 +121,21 @@ func handleEditNodePost(c *gin.Context) {
 		Id:    node.Id,
 		Tag:   node.Tag,
 		Inuse: node.InUse,
+	})
+
+	c.JSON(http.StatusOK, TplBase{})
+}
+
+func handleNodeDelete(c *gin.Context) {
+	var node TplNode
+	err := c.ShouldBindJSON(&node)
+	if err != nil {
+		_handleError(c, err)
+		return
+	}
+
+	rpcClient.NetworkNodeDelete(context.Background(), &pb.NetworkNodeDeleteRequest{
+		Id: node.Id,
 	})
 
 	c.JSON(http.StatusOK, TplBase{})
@@ -152,6 +166,7 @@ func main() {
 	router.GET("/index", handleIndexGet)
 	router.GET("/network", handleNetworkGet)
 	router.POST("/network/node/configure", handleEditNodePost)
+	router.DELETE("/network/node", handleNodeDelete)
 
 	router.Run("localhost:8080")
 	rpcConn.Close()

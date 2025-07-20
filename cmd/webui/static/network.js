@@ -13,9 +13,23 @@ document.querySelectorAll(".btn-edit-node").forEach(function(button) {
     });
 });
 
+document.querySelector("btn-add-node").forEach(function(button) {
+    button.addEventListener("click", function(event) {
+        let src = event.target;
+        let modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('editNodeModal'));
+        document.getElementById("editNodeId").readOnly = false;
+        document.getElementById("editNodeId").value = "0";
+        document.getElementById("editNodeTag").value = "";
+        document.getElementById("editNodeInUse").checked = true;
+        modal.show();
+    });
+});
+
+
 document.querySelector(".btn-confirm-edit-node").addEventListener("click", function(event) {
     let myModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('editNodeModal'));
     myModal.hide();
+    document.getElementById("editNodeId").readOnly = true;
     let nodeId = document.getElementById("editNodeId").value;
     let nodeTag = document.getElementById("editNodeTag").value;
     let inUse = document.getElementById("editNodeInUse").checked;
