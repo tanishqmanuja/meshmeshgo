@@ -1,9 +1,16 @@
 package rest
 
-import "github.com/gin-gonic/gin"
+import (
+	"net/http"
+
+	"leguru.net/m/v2/managerui"
+
+	"github.com/gin-gonic/gin"
+)
 
 func serveStaticFiles(g *gin.Engine) {
-	g.Static("/static", "./static")
+	//g.Static("/manager", "./static")
+	g.StaticFS("/manager", http.FS(managerui.Assets))
 }
 
 func StartRestServer(router Router) {
