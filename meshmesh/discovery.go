@@ -6,23 +6,58 @@ import (
 	"time"
 
 	"leguru.net/m/v2/logger"
+	"leguru.net/m/v2/utils"
 
 	gra "leguru.net/m/v2/graph"
-	"leguru.net/m/v2/utils"
+)
+
+const maxRepetitions = 3
+
+type DiscoveryProcedureState int
+
+const (
+	DiscoveryProcedureStateIdle DiscoveryProcedureState = iota
+	DiscoveryProcedureStateRun
+	DiscoveryProcedureStateDiscovering
+	DiscoveryProcedureStateDone
+	DiscoveryProcedureStateError
 )
 
 type DiscoveryProcedure struct {
-	serial        *SerialConnection
-	network       *gra.Network
-	currentDevice *gra.Device
-	Neighbors     map[int64]discWeights
+	serial          *SerialConnection
+	network         *gra.Network
+	currentDeviceId int64
+	Neighbors       map[int64]discWeights
+	state           DiscoveryProcedureState
+	repeat          int
 }
 
-func (d *DiscoveryProcedure) CurrentNode() int64 {
-	if d.currentDevice == nil {
-		return 0
+func (d *DiscoveryProcedure) State() DiscoveryProcedureState {
+	return d.state
+}
+
+func (d *DiscoveryProcedure) StateString() string {
+	switch d.state {
+	case DiscoveryProcedureStateIdle:
+		return "idle"
+	case DiscoveryProcedureStateRun:
+		return "running"
+	case DiscoveryProcedureStateDiscovering:
+		return "discovering"
+	case DiscoveryProcedureStateDone:
+		return "done"
+	case DiscoveryProcedureStateError:
+		return "error"
 	}
-	return d.currentDevice.ID()
+	return "unknown"
+}
+
+func (d *DiscoveryProcedure) CurrentDeviceId() int64 {
+	return d.currentDeviceId
+}
+
+func (d *DiscoveryProcedure) CurrentRepeat() int {
+	return d.repeat
 }
 
 type discWeights struct {
@@ -36,13 +71,14 @@ func Rssi2weight(rssi int16) float64 {
 	} else if rssi > 44 {
 		rssi = 44
 	}
-	return 1.0 - float64(rssi)/45.0
+	cost := 1.0 - float64(rssi)/45.0
+	return math.Round(cost*100) / 100
 }
 
-func neighborsFromGraph(g *gra.Network, n *gra.Device, w map[int64]discWeights) error {
+func neighborsFromGraph(g *gra.Network, n gra.NodeDevice, w map[int64]discWeights) error {
 	neighbors := g.From(n.ID())
 	for neighbors.Next() {
-		neighbor := neighbors.Node().(*gra.Device)
+		neighbor := neighbors.Node().(gra.NodeDevice)
 		weightTo, ok := g.Weight(n.ID(), neighbor.ID())
 		if !ok {
 			return errors.New("corrupted graph")
@@ -58,24 +94,23 @@ func neighborsFromGraph(g *gra.Network, n *gra.Device, w map[int64]discWeights) 
 	return nil
 }
 
-func neighborsAdavance(w map[int64]discWeights) {
+func _neighborsAdavance(w map[int64]discWeights) {
 	for i, d := range w {
 		w[i] = discWeights{Current: d.Next, Next: 1.0}
 	}
 }
 
-func neighborsToGraph(g *gra.Network, n *gra.Device, w map[int64]discWeights) {
-	nodes := g.From(n.ID())
+func neighborsToGraph(g *gra.Network, nodeId int64, w map[int64]discWeights) {
+	nodes := g.From(nodeId)
 
 	for nodes.Next() {
-		neighbor := nodes.Node()
-		g.RemoveEdge(n.ID(), neighbor.ID())
-		g.RemoveEdge(neighbor.ID(), n.ID())
+		neighbor := nodes.Node().(gra.NodeDevice)
+		g.RemoveEdge(nodeId, neighbor.ID())
 	}
 
 	for id, d := range w {
-		logger.WithFields(logger.Fields{"id": id, "weight": d, "exists": g.NodeIdExists(id)}).Info("neighbor to graph")
-		g.ChangeEdgeWeight(n.ID(), id, d.Next, d.Next)
+		logger.WithFields(logger.Fields{"from": nodeId, "to": id, "weight": d, "exists": g.NodeIdExists(id)}).Info("neighbor to graph")
+		g.ChangeEdgeWeight(nodeId, id, d.Next, d.Next)
 	}
 }
 
@@ -88,64 +123,78 @@ func _updateNeighbor(w map[int64]discWeights, id int64, rssi1, rssi2 float64) er
 	return nil
 }
 
-func _findNextNode(g *gra.Network) *gra.Device {
+func _findNextNode(g *gra.Network) gra.NodeDevice {
 	nodes := g.Nodes()
-	var found_node *gra.Device
+	var found_node gra.NodeDevice
 	var found_weight float64 = 1e9
 	for nodes.Next() {
-		dev := nodes.Node().(*gra.Device)
-		if dev.InUse() && !dev.Discovered() && dev.Seen() {
+		dev := nodes.Node().(gra.NodeDevice)
+		if dev.Device().InUse() && !dev.Device().Discovered() {
 			path, weight, err := g.GetPath(dev)
 			if weight < found_weight {
 				found_weight = weight
 				found_node = dev
 			}
-			logger.Log().Println("path", path, weight, err)
+			logger.WithFields(logger.Fields{"node": dev.ID(), "path": path, "weight": weight, "err": err}).Debug("_findNextNode not disvoered node")
 		}
 	}
 	return found_node
 }
 
-func (d *DiscoveryProcedure) Init() error {
+func (d *DiscoveryProcedure) Init(forever bool) error {
+	d.state = DiscoveryProcedureStateRun
+
 	if d.network == nil {
 		d.network = gra.NewNetwork(int64(d.serial.LocalNode))
 	}
-	if d.currentDevice == nil {
-		d.currentDevice = _findNextNode(d.network)
+	if d.currentDeviceId != 0 {
+		if d.repeat < maxRepetitions {
+			// Repeat same node
+			return nil
+		} else {
+			d.currentDeviceId = 0
+		}
 	}
-	if d.currentDevice == nil {
+	if d.currentDeviceId == 0 {
+		d.currentDeviceId = _findNextNode(d.network).ID()
+	}
+	if d.currentDeviceId == 0 && forever {
 		d.Clear()
-		d.currentDevice = _findNextNode(d.network)
+		d.currentDeviceId = _findNextNode(d.network).ID()
 	}
-	if d.currentDevice == nil {
+	if d.currentDeviceId == 0 {
+		d.state = DiscoveryProcedureStateDone
 		return errors.New("no nodes to discover")
 	}
 	d.Neighbors = make(map[int64]discWeights)
-	neighborsFromGraph(d.network, d.currentDevice, d.Neighbors)
+
+	node, err := d.network.GetNodeDevice(d.currentDeviceId)
+	if err != nil {
+		return err
+	}
+
+	neighborsFromGraph(d.network, node, d.Neighbors)
+	d.repeat = 0
 	return nil
 }
 
 func (d *DiscoveryProcedure) Step() error {
-	protocol := DirectProtocol
-	if d.currentDevice.ID() != d.network.LocalDevice().ID() {
-		protocol = UnicastProtocol
-	}
+	protocol := FindBestProtocol(MeshNodeId(d.currentDeviceId), d.network)
+	logger.Log().Printf("Start dicover of node 0x%06X with protocol %d repetition %d", d.currentDeviceId, protocol, d.repeat)
 
-	logger.Log().Printf("Start dicover of node %06X", d.currentDevice.ID())
-
-	_, err := d.serial.SendReceiveApiProt(DiscResetTableApiRequest{}, protocol, MeshNodeId(d.currentDevice.ID()))
+	_, err := d.serial.SendReceiveApiProt(DiscResetTableApiRequest{}, protocol, MeshNodeId(d.currentDeviceId), d.network)
 	if err != nil {
 		return err
 	}
 
-	_, err = d.serial.SendReceiveApiProt(DiscStartDiscoverApiRequest{Mask: 0, Filter: 0, Slotnum: 100}, protocol, MeshNodeId(d.currentDevice.ID()))
+	_, err = d.serial.SendReceiveApiProt(DiscStartDiscoverApiRequest{Mask: 0, Filter: 0, Slotnum: 100}, protocol, MeshNodeId(d.currentDeviceId), d.network)
 	if err != nil {
 		return err
 	}
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
-	reply1, err := d.serial.SendReceiveApiProt(DiscTableSizeApiRequest{}, protocol, MeshNodeId(d.currentDevice.ID()))
+	reply1, err := d.serial.SendReceiveApiProt(DiscTableSizeApiRequest{}, protocol, MeshNodeId(d.currentDeviceId), d.network)
 	if err != nil {
 		return err
 	}
@@ -154,9 +203,11 @@ func (d *DiscoveryProcedure) Step() error {
 		return errors.New("comunication error")
 	}
 
+	_neighborsAdavance(d.Neighbors)
+	logger.Log().Printf("Discovery of node 0x%06X: table size %d", d.currentDeviceId, tableSize.Size)
 	for i := uint8(0); i < tableSize.Size; i++ {
 
-		reply1, err = d.serial.SendReceiveApiProt(DiscTableItemGetApiRequest{Index: i}, protocol, MeshNodeId(d.currentDevice.ID()))
+		reply1, err = d.serial.SendReceiveApiProt(DiscTableItemGetApiRequest{Index: i}, protocol, MeshNodeId(d.currentDeviceId), d.network)
 		if err != nil {
 			return err
 		}
@@ -169,29 +220,56 @@ func (d *DiscoveryProcedure) Step() error {
 		_updateNeighbor(d.Neighbors, int64(tableItem.NodeId), Rssi2weight(tableItem.Rssi1), Rssi2weight(tableItem.Rssi2))
 	}
 
+	logger.Log().Printf("Discovery of node 0x%06X done", d.currentDeviceId)
 	return err
 }
 
 func (d *DiscoveryProcedure) Clear() {
-	d.network.SetAllNodesUnseen()
-	d.network.LocalDevice().SetSeen(true)
+	if d.network != nil {
+		nodes := d.network.Nodes()
+		for nodes.Next() {
+			node := nodes.Node().(gra.NodeDevice)
+			node.Device().SetDiscovered(false)
+		}
+	}
+	d.state = DiscoveryProcedureStateIdle
 }
 
 func (d *DiscoveryProcedure) Save() error {
-	if d.currentDevice.ID() == -1 {
+	if d.currentDeviceId == 0 {
 		return errors.New("discovery is inactive")
 	}
-	d.currentDevice.SetDiscovered(true)
-	neighborsToGraph(d.network, d.currentDevice, d.Neighbors)
+
+	node, err := d.network.GetNodeDevice(d.currentDeviceId)
+	if err != nil {
+		return err
+	}
+
+	d.repeat++
+	node.Device().SetDiscovered(true)
+	neighborsToGraph(d.network, d.currentDeviceId, d.Neighbors)
 	d.network.SaveToFile("discovery.graphml")
-	neighborsAdavance(d.Neighbors)
 	return nil
 }
 
-func NewDiscoveryProcedure(serial *SerialConnection, network *gra.Network, nodeid int64) *DiscoveryProcedure {
-	var currentDevice *gra.Device
-	if network != nil {
-		currentDevice = network.GetDevice(nodeid)
+func (d *DiscoveryProcedure) Run() {
+	first := true
+	for d.state != DiscoveryProcedureStateDone && d.state != DiscoveryProcedureStateError {
+		d.Init(first)
+		first = false
+
+		if d.state == DiscoveryProcedureStateRun {
+			err := d.Step()
+			if err != nil {
+				d.state = DiscoveryProcedureStateError
+				logger.Log().Println("Discovery procedure error", err)
+			} else {
+				d.Save()
+			}
+		}
 	}
-	return &DiscoveryProcedure{serial: serial, network: network, currentDevice: currentDevice}
+}
+
+func NewDiscoveryProcedure(serial *SerialConnection, network *gra.Network, nodeid int64) *DiscoveryProcedure {
+	return &DiscoveryProcedure{serial: serial, network: network, currentDeviceId: 0, state: DiscoveryProcedureStateIdle, repeat: 0}
 }

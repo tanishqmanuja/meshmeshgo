@@ -14,11 +14,11 @@ func (s *Server) NetworkNodes(_ context.Context, req *meshmesh.NetworkNodesReque
 	device := make([]*meshmesh.NetworkNode, nodes.Len())
 	i := 0
 	for nodes.Next() {
-		dev := nodes.Node().(*graph.Device)
+		dev := nodes.Node().(graph.NodeDevice)
 		device[i] = &meshmesh.NetworkNode{
 			Id:    uint32(dev.ID()),
-			Tag:   string(dev.Tag()),
-			Inuse: dev.InUse(),
+			Tag:   string(dev.Device().Tag()),
+			Inuse: dev.Device().InUse(),
 		}
 		i += 1
 	}
@@ -46,9 +46,9 @@ func (s *Server) NetworkNodeConfigure(_ context.Context, req *meshmesh.NetworkNo
 	if node == nil {
 		return nil, status.Errorf(codes.NotFound, "Node not found")
 	}
-	dev := node.(*graph.Device)
-	dev.SetTag(req.Tag)
-	dev.SetInUse(req.Inuse)
+	dev := node.(graph.NodeDevice)
+	dev.Device().SetTag(req.Tag)
+	dev.Device().SetInUse(req.Inuse)
 	s.network.NotifyNetworkChanged()
 	return &meshmesh.NetworkNodeConfigureReply{Success: true}, nil
 }

@@ -30,7 +30,7 @@ type FirmwareUploadProcedure struct {
 }
 
 func (f *FirmwareUploadProcedure) checkMemoryMd5(md5 [16]byte, memoryAddress uint32, length uint32) (bool, bool, error) {
-	reply, err := f.serial.SendReceiveApiProt(FlashGetMd5ApiRequest{Address: memoryAddress, Length: length}, UnicastProtocol, f.nodeid)
+	reply, err := f.serial.SendReceiveApiProt(FlashGetMd5ApiRequest{Address: memoryAddress, Length: length}, UnicastProtocol, f.nodeid, f.network)
 	if err != nil {
 		return false, false, err
 	}
@@ -116,7 +116,7 @@ func (f *FirmwareUploadProcedure) Step() (bool, error, error) {
 			return equal, nil, f.errFatal
 		}
 
-		_, err = f.serial.SendReceiveApiProt(FlashEBootApiRequest{Address: StartAddress, Length: uint32(len(f.firmware))}, UnicastProtocol, f.nodeid)
+		_, err = f.serial.SendReceiveApiProt(FlashEBootApiRequest{Address: StartAddress, Length: uint32(len(f.firmware))}, UnicastProtocol, f.nodeid, f.network)
 		if err != nil {
 			f.errFatal = errors.Join(errors.New("flash eboot failed"), err)
 			return false, nil, f.errFatal
@@ -150,7 +150,7 @@ func (f *FirmwareUploadProcedure) Step() (bool, error, error) {
 	}
 
 	if !erased {
-		reply, err := f.serial.SendReceiveApiProtTimeout(FlashEraseApiRequest{Address: f.memoryAddress, Length: SectorSize}, UnicastProtocol, f.nodeid, 1000)
+		reply, err := f.serial.SendReceiveApiProtTimeout(FlashEraseApiRequest{Address: f.memoryAddress, Length: SectorSize}, UnicastProtocol, f.nodeid, f.network, 1000)
 		if err != nil {
 			f.errWarn = errors.Join(errors.New("flash erase failed"), err)
 			return false, f.errWarn, nil
@@ -167,7 +167,7 @@ func (f *FirmwareUploadProcedure) Step() (bool, error, error) {
 	sectorChunks := uint32((len(sector)-1)/int(ChunkSize)) + 1
 	for i := uint32(0); i < sectorChunks; i++ {
 		chunk := sector[i*ChunkSize : min(i*ChunkSize+ChunkSize, uint32(len(sector)))]
-		reply, err := f.serial.SendReceiveApiProtTimeout(FlashWriteApiRequest{Address: f.memoryAddress + sectorOffset, Data: chunk}, UnicastProtocol, f.nodeid, 5000)
+		reply, err := f.serial.SendReceiveApiProtTimeout(FlashWriteApiRequest{Address: f.memoryAddress + sectorOffset, Data: chunk}, UnicastProtocol, f.nodeid, f.network, 5000)
 		if err != nil {
 			f.errWarn = errors.Join(errors.New("flash write failed"), err)
 			return false, f.errWarn, nil

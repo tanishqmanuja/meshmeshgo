@@ -26,8 +26,6 @@ const startApiFrame byte = 0xFE
 const escapeApiFrame byte = 0xEA
 const stopApiFrame byte = 0xEF
 
-var networkGraph *graph.Network = nil
-
 const echoApiRequest uint8 = 0
 
 type EchoApiRequest struct {
@@ -738,26 +736,21 @@ func (frame *ApiFrame) EncodeFrame(cmd interface{}) error {
 	return err
 }
 
-func SetNetworkGraph(graph *graph.Network) {
-	networkGraph = graph
-}
-
-func FindBestProtocol(target MeshNodeId) MeshProtocol {
-	if networkGraph == nil {
+func FindBestProtocol(target MeshNodeId, network *graph.Network) MeshProtocol {
+	if network == nil {
 		return UnicastProtocol
 	}
 
-	device := networkGraph.GetDevice(int64(target))
-
-	if device == nil {
+	device, err := network.GetNodeDevice(int64(target))
+	if err != nil {
 		return UnicastProtocol
 	}
 
-	if networkGraph.LocalDevice().ID() == device.ID() {
+	if network.LocalDeviceId() == device.ID() {
 		return DirectProtocol
 	}
 
-	path, _, err := networkGraph.GetPath(device)
+	path, _, err := network.GetPath(device)
 	if err != nil {
 		return UnicastProtocol
 	}
@@ -771,9 +764,9 @@ func FindBestProtocol(target MeshNodeId) MeshProtocol {
 	}
 }
 
-func FindBestProtocolOverride(target MeshNodeId, protocol MeshProtocol) MeshProtocol {
+func FindBestProtocolOverride(target MeshNodeId, protocol MeshProtocol, network *graph.Network) MeshProtocol {
 	if protocol == AutoProtocol {
-		return FindBestProtocol(target)
+		return FindBestProtocol(target, network)
 	}
 	return protocol
 }
@@ -787,17 +780,17 @@ func NewApiFrame(buffer []byte, escaped bool) *ApiFrame {
 	return f
 }
 
-func NewApiFrameFromStruct(v interface{}, protocol MeshProtocol, target MeshNodeId) (*ApiFrame, error) {
+func NewApiFrameFromStruct(v interface{}, protocol MeshProtocol, target MeshNodeId, network *graph.Network) (*ApiFrame, error) {
 	f := &ApiFrame{}
 
-	if protocol == DirectProtocol {
+	switch protocol {
+	case DirectProtocol:
 		// direct prtocol talk with the serial connected device
 		err := f.EncodeFrame(v)
 		if err != nil {
 			return nil, err
 		}
-
-	} else if protocol == UnicastProtocol {
+	case UnicastProtocol:
 		// unicast protocol talk with the mesh network without hops
 		var err error
 		p := UnicastRequest{Id: connectedUnicastRequest, Target: target}
@@ -809,17 +802,16 @@ func NewApiFrameFromStruct(v interface{}, protocol MeshProtocol, target MeshNode
 		if err != nil {
 			return nil, err
 		}
-
-	} else if protocol == MultipathProtocol {
+	case MultipathProtocol:
 		// multipath protocol talk with the mesh network with hops
-		if networkGraph == nil {
+		if network == nil {
 			return nil, errors.New("multipathProtocol requested, but network graph not initialized")
 		}
-		device := networkGraph.GetDevice(int64(target))
-		if device == nil {
-			return nil, errors.New("device not found in network graph")
+		device, err := network.GetNodeDevice(int64(target))
+		if err != nil {
+			return nil, err
 		}
-		path, _, err := networkGraph.GetPath(device)
+		path, _, err := network.GetPath(device)
 		if err != nil {
 			return nil, err
 		}
@@ -842,7 +834,7 @@ func NewApiFrameFromStruct(v interface{}, protocol MeshProtocol, target MeshNode
 		if err != nil {
 			return nil, err
 		}
-	} else {
+	default:
 		return nil, errors.New("unknow protocol requested")
 	}
 

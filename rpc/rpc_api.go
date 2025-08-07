@@ -13,13 +13,13 @@ import (
 
 func (s *Server) NodeInfo(_ context.Context, req *meshmesh.NodeInfoRequest) (*meshmesh.NodeInfoReply, error) {
 	mmid := mm.MeshNodeId(req.Id)
-	rep, err := s.serialConn.SendReceiveApiProt(mm.FirmRevApiRequest{}, mm.FindBestProtocol(mmid), mmid)
+	rep, err := s.serialConn.SendReceiveApiProt(mm.FirmRevApiRequest{}, mm.FindBestProtocol(mmid, s.network), mmid, s.network)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get firmware revision: %v", err)
 	}
 	rev := rep.(mm.FirmRevApiReply)
 
-	rep, err = s.serialConn.SendReceiveApiProt(mm.NodeConfigApiRequest{}, mm.UnicastProtocol, mm.MeshNodeId(req.Id))
+	rep, err = s.serialConn.SendReceiveApiProt(mm.NodeConfigApiRequest{}, mm.UnicastProtocol, mm.MeshNodeId(req.Id), s.network)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get node configuration: %v", err)
 	}
@@ -36,7 +36,7 @@ func (s *Server) NodeInfo(_ context.Context, req *meshmesh.NodeInfoRequest) (*me
 
 func (s *Server) NodeReboot(_ context.Context, req *meshmesh.NodeRebootRequest) (*meshmesh.NodeRebootReply, error) {
 	mmid := mm.MeshNodeId(req.Id)
-	_, err := s.serialConn.SendReceiveApiProt(mm.NodeRebootApiRequest{}, mm.FindBestProtocol(mmid), mmid)
+	_, err := s.serialConn.SendReceiveApiProt(mm.NodeRebootApiRequest{}, mm.FindBestProtocol(mmid, s.network), mmid, s.network)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to reboot node: %v", err)
 	}
@@ -45,7 +45,7 @@ func (s *Server) NodeReboot(_ context.Context, req *meshmesh.NodeRebootRequest) 
 
 func (s *Server) BindClear(_ context.Context, req *meshmesh.BindClearRequest) (*meshmesh.BindClearReply, error) {
 	mmid := mm.MeshNodeId(req.Id)
-	_, err := s.serialConn.SendReceiveApiProt(mm.NodeBindClearApiRequest{}, mm.FindBestProtocol(mmid), mmid)
+	_, err := s.serialConn.SendReceiveApiProt(mm.NodeBindClearApiRequest{}, mm.FindBestProtocol(mmid, s.network), mmid, s.network)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to clear binded server: %v", err)
 	}
@@ -57,7 +57,7 @@ func (s *Server) SetTag(_ context.Context, req *meshmesh.SetTagRequest) (*meshme
 		return nil, status.Errorf(codes.InvalidArgument, "Tag must be less than 30 characters")
 	}
 	mmid := mm.MeshNodeId(req.Id)
-	_, err := s.serialConn.SendReceiveApiProt(mm.NodeSetTagApiRequest{Tag: req.Tag}, mm.FindBestProtocol(mmid), mmid)
+	_, err := s.serialConn.SendReceiveApiProt(mm.NodeSetTagApiRequest{Tag: req.Tag}, mm.FindBestProtocol(mmid, s.network), mmid, s.network)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to set tag: %v", err)
 	}
@@ -69,7 +69,7 @@ func (s *Server) SetChannel(_ context.Context, req *meshmesh.SetChannelRequest) 
 		return nil, status.Errorf(codes.InvalidArgument, "Channel must be between 1 and 13")
 	}
 	mmid := mm.MeshNodeId(req.Id)
-	_, err := s.serialConn.SendReceiveApiProt(mm.NodeSetChannelApiRequest{Channel: uint8(req.Channel)}, mm.FindBestProtocol(mmid), mmid)
+	_, err := s.serialConn.SendReceiveApiProt(mm.NodeSetChannelApiRequest{Channel: uint8(req.Channel)}, mm.FindBestProtocol(mmid, s.network), mmid, s.network)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to set channel: %v", err)
 	}
@@ -78,7 +78,7 @@ func (s *Server) SetChannel(_ context.Context, req *meshmesh.SetChannelRequest) 
 
 func (s *Server) EntitiesCount(_ context.Context, req *meshmesh.EntitiesCountRequest) (*meshmesh.EntitiesCountReply, error) {
 	mmid := mm.MeshNodeId(req.Id)
-	rep, err := s.serialConn.SendReceiveApiProt(mm.EntitiesCountApiRequest{}, mm.FindBestProtocol(mmid), mmid)
+	rep, err := s.serialConn.SendReceiveApiProt(mm.EntitiesCountApiRequest{}, mm.FindBestProtocol(mmid, s.network), mmid, s.network)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get entities count: %v", err)
 	}
@@ -95,7 +95,7 @@ func (s *Server) EntitiesCount(_ context.Context, req *meshmesh.EntitiesCountReq
 
 func (s *Server) EntityHash(_ context.Context, req *meshmesh.EntityHashRequest) (*meshmesh.EntityHashReply, error) {
 	mmid := mm.MeshNodeId(req.Id)
-	rep, err := s.serialConn.SendReceiveApiProt(mm.EntityHashApiRequest{Service: uint8(req.Service), Index: uint8(req.Index)}, mm.FindBestProtocol(mmid), mmid)
+	rep, err := s.serialConn.SendReceiveApiProt(mm.EntityHashApiRequest{Service: uint8(req.Service), Index: uint8(req.Index)}, mm.FindBestProtocol(mmid, s.network), mmid, s.network)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get entity hash: %v", err)
 	}
@@ -111,7 +111,7 @@ func (s *Server) GetEntityState(_ context.Context, req *meshmesh.GetEntityStateR
 	rep, err := s.serialConn.SendReceiveApiProt(mm.GetEntityStateApiRequest{
 		Service: uint8(req.Service),
 		Hash:    uint16(req.Hash),
-	}, mm.FindBestProtocol(mmid), mmid)
+	}, mm.FindBestProtocol(mmid, s.network), mmid, s.network)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get entity state: %v", err)
 	}
@@ -125,7 +125,7 @@ func (s *Server) SetEntityState(_ context.Context, req *meshmesh.SetEntityStateR
 		Service: uint8(req.Service),
 		Hash:    uint16(req.Hash),
 		State:   uint16(req.State),
-	}, mm.FindBestProtocol(mmid), mmid)
+	}, mm.FindBestProtocol(mmid, s.network), mmid, s.network)
 
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to set entity state: %v", err)
@@ -135,7 +135,7 @@ func (s *Server) SetEntityState(_ context.Context, req *meshmesh.SetEntityStateR
 
 func (s *Server) ExecuteDiscovery(_ context.Context, req *meshmesh.ExecuteDiscoveryRequest) (*meshmesh.ExecuteDiscoveryReply, error) {
 	mmid := mm.MeshNodeId(req.Id)
-	_, err := s.serialConn.SendReceiveApiProt(mm.DiscStartDiscoverApiRequest{Mask: 0, Filter: 0, Slotnum: 100}, mm.FindBestProtocol(mmid), mmid)
+	_, err := s.serialConn.SendReceiveApiProt(mm.DiscStartDiscoverApiRequest{Mask: 0, Filter: 0, Slotnum: 100}, mm.FindBestProtocol(mmid, s.network), mmid, s.network)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to set entity state: %v", err)
 	}

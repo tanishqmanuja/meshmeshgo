@@ -8,19 +8,13 @@ import (
 	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
 	"leguru.net/m/v2/logger"
+	"leguru.net/m/v2/utils"
 )
 
 type Device struct {
-	id         int64
 	inuse      bool
 	discovered bool
-	seen       bool
 	tag        string
-	address    string
-}
-
-func (d Device) ID() int64 {
-	return d.id
 }
 
 func (d Device) InUse() bool {
@@ -39,14 +33,6 @@ func (d *Device) SetDiscovered(discovered bool) {
 	d.discovered = discovered
 }
 
-func (d Device) Seen() bool {
-	return d.seen
-}
-
-func (d *Device) SetSeen(seen bool) {
-	d.seen = seen
-}
-
 func (d Device) Tag() string {
 	return d.tag
 }
@@ -55,53 +41,65 @@ func (d *Device) SetTag(tag string) {
 	d.tag = tag
 }
 
-func (d Device) Address() string {
-	return d.address
+func NewDevice(inuse bool, tag string) *Device {
+	return &Device{inuse: inuse, tag: tag}
 }
 
-func NewDevice(id int64, inuse bool, tag string) *Device {
-	return &Device{id: id, inuse: inuse, tag: tag}
+type NodeDevice struct {
+	id     int64
+	device *Device
+}
+
+func (n NodeDevice) ID() int64 {
+	return n.id
+}
+
+func (n NodeDevice) Device() *Device {
+	return n.device
+}
+
+func NewNodeDevice(id int64, inuse bool, tag string) NodeDevice {
+	return NodeDevice{id: id, device: NewDevice(inuse, tag)}
 }
 
 type Network struct {
 	simple.WeightedDirectedGraph
-	localDevice      *Device
+	localDeviceId    int64
 	networkChangedCb func()
 }
 
-func (g *Network) LocalDevice() *Device {
-	return g.localDevice
+func (g *Network) LocalDeviceId() int64 {
+	return g.localDeviceId
 }
 
-func (g *Network) GetDevice(id int64) *Device {
-	node := g.Node(id)
-	if node == nil {
-		return nil
+func (g *Network) GetNodeDevice(id int64) (NodeDevice, error) {
+	if node, ok := g.Node(id).(NodeDevice); ok {
+		return node, nil
 	}
-	return node.(*Device)
+	return NodeDevice{}, fmt.Errorf("node 0x%06X not found in network graph", id)
+}
+
+func (g *Network) AddNodeWithId(id int64, inuse bool, tag string, seen bool) {
+	g.AddNode(NewNodeDevice(id, inuse, tag))
 }
 
 func (g *Network) NodeIdExists(id int64) bool {
 	return g.Node(id) != nil
 }
 
-func (g *Network) SetAllNodesUnseen() {
-	nodes := g.Nodes()
-	for nodes.Next() {
-		node := nodes.Node().(*Device)
-		node.SetSeen(false)
-	}
-}
-
 func (g *Network) ChangeEdgeWeight(fromId int64, toId int64, weightFrom float64, weightTo float64) {
-	fromNode := g.GetDevice(fromId)
-	toNode := g.GetDevice(toId)
-	if toNode == nil {
-		toNode = NewDevice(toId, true, "")
+	fromNode, err := g.GetNodeDevice(fromId)
+	if err != nil {
+		fromNode = NewNodeDevice(fromId, false, "")
+		g.AddNode(fromNode)
+	}
+
+	toNode, err := g.GetNodeDevice(toId)
+	if err != nil {
+		toNode = NewNodeDevice(toId, true, "")
 		g.AddNode(toNode)
 	}
 
-	toNode.SetSeen(true)
 	if !g.HasEdgeFromTo(fromId, toId) {
 		g.SetWeightedEdge(g.NewWeightedEdge(fromNode, toNode, weightTo))
 	} else {
@@ -127,22 +125,22 @@ func (g *Network) ChangeEdgeWeight(fromId int64, toId int64, weightFrom float64,
 // - No valid path exists between the local device and target
 // The weight returned is currently always 0 (not implemented).
 
-func (g *Network) GetPath(to *Device) ([]int64, float64, error) {
-	if !to.InUse() {
+func (g *Network) GetPath(to NodeDevice) ([]int64, float64, error) {
+	if !to.Device().InUse() {
 		return nil, 0, fmt.Errorf("node is 0x%06X is not active", to.ID())
 	}
 	allShortest := path.DijkstraAllPaths(g)
-	allBetween, weight := allShortest.AllBetween(g.localDevice.ID(), to.ID())
+	allBetween, weight := allShortest.AllBetween(g.localDeviceId, to.ID())
 	if len(allBetween) == 0 {
-		return nil, 0, fmt.Errorf("no path found between 0x%06X and 0x%06X", g.localDevice.ID(), to.ID())
+		return nil, 0, fmt.Errorf("no path found between 0x%06X and 0x%06X", g.localDeviceId, to.ID())
 	}
 	logrus.WithFields(logrus.Fields{"length": len(allBetween[0]), "weight": weight}).
-		Debug(fmt.Sprintf("Get path from 0x%06X to 0x%06X", g.localDevice.ID(), to.ID()))
+		Debug(fmt.Sprintf("Get path from 0x%06X to 0x%06X", g.localDeviceId, to.ID()))
 
 	nodes := allBetween[0]
 	path := make([]int64, len(nodes))
 	for i, item := range nodes {
-		item := item.(*Device)
+		item := item.(NodeDevice)
 		path[i] = item.ID()
 	}
 
@@ -164,9 +162,9 @@ func (g *Network) NotifyNetworkChanged() {
 }
 
 func NewNetwork(localDeviceId int64) *Network {
-	network := Network{localDevice: NewDevice(localDeviceId, true, "local")}
+	network := Network{localDeviceId: localDeviceId}
 	network.WeightedDirectedGraph = *simple.NewWeightedDirectedGraph(0, math.Inf(1))
-	network.AddNode(network.localDevice)
+	network.AddNode(NewNodeDevice(localDeviceId, true, "local"))
 	return &network
 }
 
@@ -178,11 +176,10 @@ func NewNeworkFromFile(filename string, localDeviceId int64) (*Network, error) {
 		return nil, err
 	}
 
-	network.localDevice = network.GetDevice(localDeviceId)
-	if network.localDevice == nil {
-		network.localDevice = NewDevice(localDeviceId, true, "local")
-		logger.WithField("device", FmtDeviceId(network.localDevice)).Warn("Local device not found in graph, adding it. Will be an isolated node")
-		network.AddNode(network.localDevice)
+	network.localDeviceId = localDeviceId
+	if !network.NodeIdExists(localDeviceId) {
+		network.AddNode(NewNodeDevice(localDeviceId, true, "local"))
+		logger.WithField("device", utils.FmtNodeId(localDeviceId)).Warn("Local device not found in graph, adding it. Will be an isolated node")
 	}
 	return &network, nil
 }

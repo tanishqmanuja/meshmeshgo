@@ -343,11 +343,11 @@ func NewMultiServerApi(serial *SerialConnection, g *graph.Network) *MultiServerA
 	SendClearConnections(serial)
 	multisrv.serial.ConnPathFn = multisrv.HandleConnectedPathReply
 
-	devices := g.Nodes()
-	for devices.Next() {
-		device := devices.Node().(*graph.Device)
-		if device.InUse() {
-			server, err := NewServerApi(serial, g, MeshNodeId(device.ID()))
+	nodes := g.Nodes()
+	for nodes.Next() {
+		node := nodes.Node().(graph.NodeDevice)
+		if node.Device().InUse() {
+			server, err := NewServerApi(serial, g, MeshNodeId(node.ID()))
 			if err != nil {
 				log.Error(err)
 			} else {

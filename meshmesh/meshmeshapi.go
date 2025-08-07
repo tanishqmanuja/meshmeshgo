@@ -12,6 +12,7 @@ import (
 	"github.com/go-restruct/restruct"
 	"github.com/sirupsen/logrus"
 	"go.bug.st/serial"
+	"leguru.net/m/v2/graph"
 	"leguru.net/m/v2/logger"
 )
 
@@ -286,7 +287,7 @@ func (serialConn *SerialConnection) QueueApiSession(session *SerialSession) {
 }
 
 func (serialConn *SerialConnection) SendApi(cmd interface{}) error {
-	frame, err := NewApiFrameFromStruct(cmd, DirectProtocol, 0)
+	frame, err := NewApiFrameFromStruct(cmd, DirectProtocol, 0, nil)
 	if err != nil {
 		return err
 	}
@@ -312,11 +313,11 @@ func (serialConn *SerialConnection) sendReceiveApiProt(session *SerialSession) (
 	}
 }
 
-func (serialConn *SerialConnection) SendReceiveApiProt(cmd interface{}, protocol MeshProtocol, target MeshNodeId) (interface{}, error) {
+func (serialConn *SerialConnection) SendReceiveApiProt(cmd interface{}, protocol MeshProtocol, target MeshNodeId, network *graph.Network) (interface{}, error) {
 	if target == 0 {
 		protocol = DirectProtocol
 	}
-	frame, err := NewApiFrameFromStruct(cmd, protocol, target)
+	frame, err := NewApiFrameFromStruct(cmd, protocol, target, network)
 	if err != nil {
 		return nil, err
 	}
@@ -329,11 +330,11 @@ func (serialConn *SerialConnection) SendReceiveApiProt(cmd interface{}, protocol
 	return serialConn.sendReceiveApiProt(session)
 }
 
-func (serialConn *SerialConnection) SendReceiveApiProtTimeout(cmd interface{}, protocol MeshProtocol, target MeshNodeId, timeoutMs int64) (interface{}, error) {
+func (serialConn *SerialConnection) SendReceiveApiProtTimeout(cmd interface{}, protocol MeshProtocol, target MeshNodeId, network *graph.Network, timeoutMs int64) (interface{}, error) {
 	if target == 0 {
 		protocol = DirectProtocol
 	}
-	frame, err := NewApiFrameFromStruct(cmd, protocol, target)
+	frame, err := NewApiFrameFromStruct(cmd, protocol, target, network)
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +349,7 @@ func (serialConn *SerialConnection) SendReceiveApiProtTimeout(cmd interface{}, p
 }
 
 func (serialConn *SerialConnection) SendReceiveApi(cmd interface{}) (interface{}, error) {
-	return serialConn.SendReceiveApiProt(cmd, DirectProtocol, 0)
+	return serialConn.SendReceiveApiProt(cmd, DirectProtocol, 0, nil)
 }
 
 func NewSerial(portName string, baudRate int, debug bool) (*SerialConnection, error) {

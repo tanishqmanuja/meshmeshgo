@@ -1,0 +1,39 @@
+package rest
+
+import (
+	"strconv"
+
+	"leguru.net/m/v2/graph"
+	mm "leguru.net/m/v2/meshmesh"
+)
+
+type Handler struct {
+	serialConn         *mm.SerialConnection
+	network            *graph.Network
+	discoveryProcedure *mm.DiscoveryProcedure
+}
+
+func smartInteger(v any) int64 {
+	switch v := v.(type) {
+	case string:
+		i, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return -1
+		}
+		return i
+	case int:
+		return int64(v)
+	case float64:
+		return int64(v)
+	}
+
+	return -1
+}
+
+func NewHandler(serialConn *mm.SerialConnection, network *graph.Network) Handler {
+	return Handler{
+		serialConn:         serialConn,
+		network:            network,
+		discoveryProcedure: mm.NewDiscoveryProcedure(serialConn, nil, network.LocalDeviceId()),
+	}
+}

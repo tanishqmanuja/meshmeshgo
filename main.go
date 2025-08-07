@@ -13,8 +13,8 @@ import (
 	gra "leguru.net/m/v2/graph"
 	"leguru.net/m/v2/logger"
 	"leguru.net/m/v2/meshmesh"
+	"leguru.net/m/v2/rest"
 	"leguru.net/m/v2/rpc"
-	"leguru.net/m/v2/tui"
 	"leguru.net/m/v2/utils"
 )
 
@@ -31,7 +31,7 @@ var (
 )
 
 var quitProgram bool = false
-var debugNodeId *gra.Device
+var debugNodeId gra.NodeDevice
 
 func waitForTermination() {
 	terminationRequested := make(chan os.Signal, 1)
@@ -114,50 +114,48 @@ func main() {
 		if err != nil {
 			logger.WithField("err", err).Fatal("Invalid debug node id")
 		}
-		debugNodeId = network.Node(_debugNodeId).(*gra.Device)
-		if debugNodeId == nil {
+		debugNodeId, err = network.GetNodeDevice(int64(_debugNodeId))
+		if err != nil {
 			logger.WithField("id", _debugNodeId).Fatal("Debug node not found in graph")
 		}
 		logger.WithFields(logger.Fields{"id": debugNodeId}).Info("Enabling debug of node")
 	}
 
-	logger.Log().Info("Coordinator node is " + gra.FmtDeviceId(network.LocalDevice()))
-	meshmesh.SetNetworkGraph(network)
+	logger.Log().Info("Coordinator node is " + utils.FmtNodeId(network.LocalDeviceId()))
 	gra.PrintTable(network)
 
 	// Handle DiscAssociateReply received from other nodes
 	serialPort.DiscAssociateFn = func(v *meshmesh.DiscAssociateApiReply) {
 		logger.WithFields(logger.Fields{"server": utils.FmtNodeId(int64(v.Server)), "source": utils.FmtNodeId(int64(v.Source))}).Debug("DiscAssociateReply received")
-		source := network.GetDevice(int64(v.Source))
-		if source == nil {
-			source = gra.NewDevice(int64(v.Source), true, "")
+		source, err := network.GetNodeDevice(int64(v.Source))
+		if err != nil {
+			source = gra.NewNodeDevice(int64(v.Source), true, "")
 			network.AddNode(source)
 		}
 		for i := range 3 {
 			if v.NodeId[i] > 0 {
-				node := network.GetDevice(int64(v.NodeId[i]))
-				if node != nil {
+				node, err := network.GetNodeDevice(int64(v.NodeId[i]))
+				if err != nil {
 					network.ChangeEdgeWeight(node.ID(), source.ID(), meshmesh.Rssi2weight(v.Rssi[i]), meshmesh.Rssi2weight(v.Rssi[i]))
 					logger.WithFields(logger.Fields{"id": utils.FmtNodeId(int64(v.NodeId[i])), "rssi": v.Rssi[i]}).Debug("DiscAssociateReply received")
 				}
 			}
 		}
 		network.SaveToFile(graphFilename)
-		serialPort.SendReceiveApiProt(meshmesh.NodeIdApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(source.ID()))
+		serialPort.SendReceiveApiProt(meshmesh.NodeIdApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(source.ID()), nil)
 		// ***** TODO: Update network graph with new node
 	}
 
 	// Initialize Esphome to HomeAssistant Server
 	esphomeapi := meshmesh.NewMultiServerApi(serialPort, network)
-	// Initialize SSH Server
-	sshsrv, err := tui.NewSshServer("0.0.0.0", "2024", network, serialPort, esphomeapi)
-	if err != nil {
-		logger.Error(err)
-	}
 	// Start RPC Server
 	rpcServer := rpc.NewRpcServer(":50051")
 	rpcServer.Start(fmt.Sprintf("%s - %s", programName, programDescription), fmt.Sprintf("%s - %s", vcsHash[:8], vcsTime.Format(time.RFC3339)), serialPort, network)
 	defer rpcServer.Stop()
+
+	// Start rest server
+	restHandler := rest.NewHandler(serialPort, network)
+	rest.StartRestServer(rest.NewRouter(restHandler))
 
 	var lastStatsTime time.Time
 	for {
@@ -173,6 +171,4 @@ func main() {
 			esphomeapi.PrintStats()
 		}
 	}
-
-	tui.ShutdownSshServer(sshsrv)
 }

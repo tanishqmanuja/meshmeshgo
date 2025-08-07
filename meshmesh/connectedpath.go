@@ -2,7 +2,6 @@ package meshmesh
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -125,9 +124,9 @@ func (client *ConnPathConnection) OpenConnectionAsync(addr MeshNodeId, port uint
 	logger.WithFields(logger.Fields{"addr": utils.FmtNodeId(int64(addr)), "port": port, "handle": client.handle}).
 		Debug("ConnPathConnection.OpenConnectionAsync")
 
-	device := client.graph.Node(int64(addr)).(*graph.Device)
-	if device == nil {
-		return fmt.Errorf("device %s not found in graph", utils.FmtNodeId(int64(addr)))
+	device, err := client.graph.GetNodeDevice(int64(addr))
+	if err != nil {
+		return err
 	}
 	_path, _, err := client.graph.GetPath(device)
 	if err != nil {
@@ -193,17 +192,18 @@ func (client *ConnPathConnection) handleIncomingOpenConnNack(v *ConnectedPathApi
 
 func (client *ConnPathConnection) HandleIncomingReply(v *ConnectedPathApiReply) {
 	logger.WithFields(logger.Fields{"handle": v.Handle, "reply": v.Command}).Debug("HandleIncomingReply")
-	if v.Command == connectedPathOpenConnectionAck {
+	switch v.Command {
+	case connectedPathOpenConnectionAck:
 		client.handleIncomingOpenConnAck(v)
-	} else if v.Command == connectedPathOpenConnectionNack {
+	case connectedPathOpenConnectionNack:
 		client.handleIncomingOpenConnNack(v)
-	} else if v.Command == connectedPathSendDataNackReply {
+	case connectedPathSendDataNackReply:
 		logger.WithField("handle", v.Handle).Error("HandleIncomingReply: SendDataNack")
 		client.connState = connPathConnectionStateInvalid
-	} else if v.Command == connectedPathDisconnectRequest {
+	case connectedPathDisconnectRequest:
 		logger.WithField("handle", v.Handle).Debug("HandleIncomingReply: DisconnectRequest")
 		client.connState = connPathConnectionStateInvalid
-	} else {
+	default:
 		logger.WithFields(logger.Fields{"handle": v.Handle, "reply": v.Command}).
 			Error("HandleIncomingReply: unknow command reply received", v.Command, v.Handle)
 	}

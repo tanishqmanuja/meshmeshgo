@@ -29,6 +29,7 @@ func (g *Network) readGraph(filename string) error {
 		if i == 0 {
 			logger.Log().WithFields(logrus.Fields{"description": gr.Description}).Info("found graph")
 			for _, n := range gr.Nodes {
+				descr := n.Description
 				attrs, err := n.GetAttributes()
 				if err != nil {
 					return err
@@ -47,9 +48,7 @@ func (g *Network) readGraph(filename string) error {
 					}
 				}
 
-				tag := attrs["tag"].(string)
-
-				g.AddNode(NewDevice(id, inuse, tag))
+				g.AddNode(NewNodeDevice(id, inuse, descr))
 			}
 
 			for _, e := range gr.Edges {
@@ -91,7 +90,6 @@ func (g *Network) readGraph(filename string) error {
 func (g *Network) writeGraph(filename string) error {
 	gml := graphml.NewGraphML("meshmesh network")
 
-	gml.RegisterKey(graphml.KeyForNode, "tag", "tag of node", reflect.String, "")
 	gml.RegisterKey(graphml.KeyForNode, "inuse", "is node in use", reflect.Bool, true)
 	gml.RegisterKey(graphml.KeyForNode, "discover", "state variable for discovery", reflect.Bool, false)
 	gml.RegisterKey(graphml.KeyForNode, "buggy", "state variable fr functional status", reflect.Bool, false)
@@ -106,22 +104,21 @@ func (g *Network) writeGraph(filename string) error {
 
 	nodes := g.Nodes()
 	for nodes.Next() {
-		node := nodes.Node().(*Device)
+		node := nodes.Node().(NodeDevice)
 
 		attributes := map[string]interface{}{
-			"inuse":      node.InUse(),
-			"discovered": node.Discovered(),
+			"inuse":      node.Device().InUse(),
+			"discovered": node.Device().Discovered(),
 		}
 
-		description := fmt.Sprintf("node %s:[%s]", node.Tag(), utils.FmtNodeId(node.ID()))
-		gr.AddNode(attributes, utils.FmtNodeId(node.ID()), description)
+		gr.AddNode(attributes, utils.FmtNodeId(node.ID()), node.Device().Tag())
 	}
 
 	edges := g.WeightedEdges()
 	for edges.Next() {
 		edge := edges.WeightedEdge()
-		from := edge.From().(*Device)
-		to := edge.To().(*Device)
+		from := edge.From().(NodeDevice)
+		to := edge.To().(NodeDevice)
 
 		n1 := gr.GetNode(utils.FmtNodeId(from.ID()))
 		n2 := gr.GetNode(utils.FmtNodeId(to.ID()))
@@ -130,7 +127,7 @@ func (g *Network) writeGraph(filename string) error {
 			"weight": math.Floor(edge.Weight()*100) / 100,
 		}
 
-		description := fmt.Sprintf("from %s:[%s] to %s:[%s]", from.Tag(), utils.FmtNodeId(from.ID()), to.Tag(), utils.FmtNodeId(to.ID()))
+		description := fmt.Sprintf("from %s:[%s] to %s:[%s]", from.Device().Tag(), utils.FmtNodeId(from.ID()), to.Device().Tag(), utils.FmtNodeId(to.ID()))
 		gr.AddEdge(n1, n2, attributes, graphml.EdgeDirectionDefault, description)
 	}
 
