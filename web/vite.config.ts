@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => ({
     host: true,
   },
   build: {
+    outDir: "../mangerui",
     sourcemap: mode === "development",
   },
   base: "./",
