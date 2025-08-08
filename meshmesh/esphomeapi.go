@@ -43,16 +43,17 @@ type ApiConnection struct {
 
 func (client *ApiConnection) forward(lastbyte byte) {
 	client.inBuffer.WriteByte(lastbyte)
-	if client.inState == esphomeapiWaitPacketHead {
+	switch client.inState {
+	case esphomeapiWaitPacketHead:
 		if lastbyte == 0x00 {
 			client.inState = esphomeapiWaitPacketSize
 		} else {
 			client.inBuffer.Reset()
 		}
-	} else if client.inState == esphomeapiWaitPacketSize {
+	case esphomeapiWaitPacketSize:
 		client.inAwaitSize = int(lastbyte) + 3
 		client.inState = esphomeapiWaitPacketData
-	} else {
+	default:
 		if client.inBuffer.Len() == client.inAwaitSize {
 			client.inState = esphomeapiWaitPacketHead
 			logger.WithField("handle", client.connpath.handle).
@@ -143,13 +144,14 @@ func (client *ApiConnection) Read() {
 		client.Stats.ReceivedBytes(1)
 
 		if err == nil {
-			if client.connpath.connState == connPathConnectionStateHandshakeStarted {
+			switch client.connpath.connState {
+			case connPathConnectionStateHandshakeStarted:
 				// FIXME check for if buffer grown outside limits
 				client.tmpBuffer.WriteByte(buffer[0])
-			} else if client.connpath.connState == connPathConnectionStateActive {
+			case connPathConnectionStateActive:
 				// FIXME handle error
 				client.forward(buffer[0])
-			} else {
+			default:
 				logger.WithField("state", client.connpath.connState).
 					Error(fmt.Errorf("readed data while in wrong connection state %d", client.connpath.connState))
 			}

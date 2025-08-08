@@ -7,8 +7,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"leguru.net/m/v2/graph"
+	"leguru.net/m/v2/logger"
 	"leguru.net/m/v2/meshmesh"
 )
+
+func findFirstZeroChar(s []byte) int {
+	for i, c := range s {
+		if c == 0 {
+			return i
+		}
+	}
+	return len(s)
+}
 
 func (h Handler) nodeInfoGetCmd(m *MeshNode) error {
 	protocol := meshmesh.FindBestProtocol(meshmesh.MeshNodeId(m.ID), h.network)
@@ -25,6 +35,7 @@ func (h Handler) nodeInfoGetCmd(m *MeshNode) error {
 	cfg := rep.(meshmesh.NodeConfigApiReply)
 
 	m.Revision = rev.Revision
+	m.DevTag = string(cfg.Tag[:findFirstZeroChar(cfg.Tag)])
 	m.Channel = int8(cfg.Channel)
 	m.TxPower = int8(cfg.TxPower)
 	m.Groups = int(cfg.Groups)
@@ -144,6 +155,29 @@ func (h Handler) updateNode(c *gin.Context) {
 	h.network.NotifyNetworkChanged()
 
 	jsonNode := h.fillNodeStruct(dev, true)
+	errors := []error{}
+
+	if req.DevTag != jsonNode.DevTag {
+		protocol := meshmesh.FindBestProtocol(meshmesh.MeshNodeId(dev.ID()), h.network)
+		_, err := h.serialConn.SendReceiveApiProt(meshmesh.NodeSetTagApiRequest{Tag: req.DevTag}, protocol, meshmesh.MeshNodeId(dev.ID()), h.network)
+		if err != nil {
+			errors = append(errors, err)
+		} else {
+			jsonNode.DevTag = req.DevTag
+		}
+	}
+
+	if req.Channel != jsonNode.Channel {
+		protocol := meshmesh.FindBestProtocol(meshmesh.MeshNodeId(dev.ID()), h.network)
+		_, err := h.serialConn.SendReceiveApiProt(meshmesh.NodeSetChannelApiRequest{Channel: uint8(req.Channel)}, protocol, meshmesh.MeshNodeId(dev.ID()), h.network)
+		if err != nil {
+			errors = append(errors, err)
+		} else {
+			jsonNode.Channel = req.Channel
+		}
+	}
+
+	logger.Log().WithField("errors", errors).Info("Node update errors")
 	c.JSON(http.StatusOK, jsonNode)
 }
 

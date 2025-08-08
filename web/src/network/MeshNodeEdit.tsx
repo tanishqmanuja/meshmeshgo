@@ -17,12 +17,13 @@ export const MeshNodeEdit = () => {
             <TabbedForm.Tab label="Configuration" icon={<SettingsIcon />} iconPosition="start" sx={{ maxWidth: '40em', minHeight: 48 }}>
                 <TextInput source="error" format={v => v?.length > 0 ? v : "No error"} readOnly/>
                 <FormDataConsumer<{error: string}>>
-                    {({formData, ...rest}) => (
+                    {({formData}) => (
                         formData.error.length == 0 && 
                             <>
-                                <NumberInput source="channel" min={1} max={11} step={1} label="WIFI channel" {...rest} />
-                                <NumberInput source="tx_power" min={-1} max={20} step={1} label="TX power" {...rest} />
-                                <NumberInput source="groups" min={0} max={255} step={1} {...rest} />
+                                <TextInput source="dev_tag" label="Device tag" />
+                                <NumberInput source="channel" min={1} max={11} step={1} label="WIFI channel" />
+                                <NumberInput source="tx_power" min={-1} max={20} step={1} label="TX power" />
+                                <NumberInput source="groups" min={0} max={255} step={1} label="Groups" />
                             </>
                     )}
                 </FormDataConsumer>

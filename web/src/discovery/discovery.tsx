@@ -1,18 +1,17 @@
 import { Card, CardContent, Grid, Typography } from "@mui/material";
-import { Button, CreateButton, DataTable, List, Title, useCreate, useGetOne } from "react-admin";
+import { Button, DataTable, List, Title, useCreate, useGetOne } from "react-admin";
 
 
 export const Discovery = () => {
-    const { isPending, error, data: discovery } = useGetOne('neighbors/discovery', { id: 0, meta: { discovery: true }}, { refetchInterval: 2500 });
+    const { data: discovery } = useGetOne('neighbors/discovery', { id: 0}, { refetchInterval: 2500 });
     
-
     const StartDiscoveryButton = () => {
         const [create, { isPending }] = useCreate('neighbors/discovery', {data: {}});
         const startDiscoveryHandler = () => {
             console.log('Starting discovery');
             create();
         };
-        return <Button variant="contained" color="primary" disabled={isPending} label="Start discovery" onClick={startDiscoveryHandler} />
+        return <Button variant="contained" color="primary" disabled={isPending || discovery?.status === 'running'} label="Start discovery" onClick={startDiscoveryHandler} />
     };
 
     return (
@@ -27,7 +26,7 @@ export const Discovery = () => {
                         <Typography variant="h6">Discovery: {discovery?.status}, CurrentId: {"0x" + discovery?.current_id.toString(16).toUpperCase()} Repetitions: {discovery?.repeat}</Typography>
                     </Grid>
                 </Grid>
-                <List resource="neighbors" queryOptions={{ refetchInterval: 2500, meta:{discovery: true}}}>
+                <List resource="neighbors" queryOptions={{ refetchInterval: 2500}}>
                     <DataTable>
                         <DataTable.Col source="id" />
                         <DataTable.Col source="current" />

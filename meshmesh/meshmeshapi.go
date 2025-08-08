@@ -87,7 +87,8 @@ func (serialConn *SerialConnection) ReadFrame(buffer []byte) {
 	if buffer[0] != logEventApiReply {
 		logger.Log().WithFields(logrus.Fields{"len": len(frame.data), "data": hex.EncodeToString(frame.data[0:min(len(frame.data), 10)])}).Trace("From serial")
 	}
-	if buffer[0] == logEventApiReply {
+	switch buffer[0] {
+	case logEventApiReply:
 		// Handle LOG packets first
 		v, err := frame.Decode()
 		if err != nil {
@@ -99,7 +100,7 @@ func (serialConn *SerialConnection) ReadFrame(buffer []byte) {
 			}
 			logger.Log().WithFields(logrus.Fields{"from": lo.From}).Debug(lo.Line)
 		}
-	} else if buffer[0] == connectedPathApiReply {
+	case connectedPathApiReply:
 		// Handle ConnectedPath packets next
 		v, err := frame.Decode()
 		if err != nil {
@@ -113,7 +114,7 @@ func (serialConn *SerialConnection) ReadFrame(buffer []byte) {
 				serialConn.ConnPathFn(&c)
 			}
 		}
-	} else {
+	default:
 		// Handle session pacekts next
 		if serialConn.session != nil {
 			if serialConn.session.WaitReply1 > 0 {
@@ -171,27 +172,29 @@ func (serialConn *SerialConnection) Read() {
 			serialConn.checkSessionTimeout()
 		} else if n > 0 {
 			b := buffer[0]
-			if decodeState == waitStartByte {
+			switch decodeState {
+			case waitStartByte:
 				if b == startApiFrame {
 					inputBufferPos = 0
 					decodeState = waitEndByte
 				} else {
 					fmt.Println("unknow char", b)
 				}
-			} else if decodeState == escapeNextByte {
+			case escapeNextByte:
 				decodeState = waitEndByte
 				inputBuffer[inputBufferPos] = b
 				inputBufferPos += 1
-			} else {
-				if b == stopApiFrame {
+			default:
+				switch b {
+				case stopApiFrame:
 					decodeState = waitStartByte
 					destination := make([]byte, inputBufferPos)
 					copy(destination, inputBuffer)
 					serialConn.ReadFrame(destination)
 					inputBufferPos = 0
-				} else if b == escapeApiFrame {
+				case escapeApiFrame:
 					decodeState = escapeNextByte
-				} else {
+				default:
 					inputBuffer[inputBufferPos] = b
 					inputBufferPos += 1
 				}
@@ -313,7 +316,7 @@ func (serialConn *SerialConnection) sendReceiveApiProt(session *SerialSession) (
 	}
 }
 
-func (serialConn *SerialConnection) SendReceiveApiProt(cmd interface{}, protocol MeshProtocol, target MeshNodeId, network *graph.Network) (interface{}, error) {
+func (serialConn *SerialConnection) SendReceiveApiProt(cmd any, protocol MeshProtocol, target MeshNodeId, network *graph.Network) (interface{}, error) {
 	if target == 0 {
 		protocol = DirectProtocol
 	}

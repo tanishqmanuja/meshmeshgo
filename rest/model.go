@@ -15,8 +15,11 @@ type CreateNodeRequest struct {
 }
 
 type UpdateNodeRequest struct {
-	Tag   string `json:"tag"`
-	InUse bool   `json:"in_use"`
+	Tag     string `json:"tag"`
+	InUse   bool   `json:"in_use"`
+	DevTag  string `json:"dev_tag"`
+	Channel int8   `json:"channel"`
+	TxPower int8   `json:"tx_power"`
 }
 
 type MeshNode struct {
@@ -26,6 +29,7 @@ type MeshNode struct {
 	Path     string `json:"path"`
 	Revision string `json:"revision"`
 	Error    string `json:"error"`
+	DevTag   string `json:"dev_tag"`
 	Channel  int8   `json:"channel"`
 	TxPower  int8   `json:"tx_power"`
 	Groups   int    `json:"groups"`
