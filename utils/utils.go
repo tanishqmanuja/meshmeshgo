@@ -38,3 +38,16 @@ func EncodeToHexEllipsis(data []byte, maxlen int) string {
 	}
 	return str
 }
+
+func FindFirstZeroChar(s []byte) int {
+	for i, c := range s {
+		if c == 0 {
+			return i
+		}
+	}
+	return len(s)
+}
+
+func TruncateZeros(s []byte) string {
+	return string(s[:FindFirstZeroChar(s)])
+}

@@ -25,6 +25,10 @@ func (s *EspApiConnectionStats) GetLastHandle() uint16 {
 	return s.lastHandle
 }
 
+func (s *EspApiConnectionStats) IsActive() bool {
+	return s.active
+}
+
 func (s *EspApiConnectionStats) IsActiveAsText() string {
 	if s.active {
 		return "X"

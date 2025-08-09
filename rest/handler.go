@@ -8,9 +8,11 @@ import (
 )
 
 type Handler struct {
-	serialConn         *mm.SerialConnection
-	network            *graph.Network
-	discoveryProcedure *mm.DiscoveryProcedure
+	serialConn              *mm.SerialConnection
+	network                 *graph.Network
+	discoveryProcedure      *mm.DiscoveryProcedure
+	firmwareUploadProcedure *mm.FirmwareUploadProcedure
+	esphomeServers          *mm.MultiServerApi
 }
 
 func smartInteger(v any) int64 {
@@ -30,10 +32,12 @@ func smartInteger(v any) int64 {
 	return -1
 }
 
-func NewHandler(serialConn *mm.SerialConnection, network *graph.Network) Handler {
+func NewHandler(serialConn *mm.SerialConnection, network *graph.Network, esphomeServers *mm.MultiServerApi) Handler {
 	return Handler{
-		serialConn:         serialConn,
-		network:            network,
-		discoveryProcedure: mm.NewDiscoveryProcedure(serialConn, nil, network.LocalDeviceId()),
+		serialConn:              serialConn,
+		network:                 network,
+		discoveryProcedure:      mm.NewDiscoveryProcedure(serialConn, nil, network.LocalDeviceId()),
+		firmwareUploadProcedure: nil,
+		esphomeServers:          esphomeServers,
 	}
 }

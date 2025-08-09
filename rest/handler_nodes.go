@@ -3,22 +3,15 @@ package rest
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"leguru.net/m/v2/graph"
 	"leguru.net/m/v2/logger"
 	"leguru.net/m/v2/meshmesh"
+	"leguru.net/m/v2/utils"
 )
-
-func findFirstZeroChar(s []byte) int {
-	for i, c := range s {
-		if c == 0 {
-			return i
-		}
-	}
-	return len(s)
-}
 
 func (h Handler) nodeInfoGetCmd(m *MeshNode) error {
 	protocol := meshmesh.FindBestProtocol(meshmesh.MeshNodeId(m.ID), h.network)
@@ -35,7 +28,7 @@ func (h Handler) nodeInfoGetCmd(m *MeshNode) error {
 	cfg := rep.(meshmesh.NodeConfigApiReply)
 
 	m.Revision = rev.Revision
-	m.DevTag = string(cfg.Tag[:findFirstZeroChar(cfg.Tag)])
+	m.DevTag = utils.TruncateZeros(cfg.Tag)
 	m.Channel = int8(cfg.Channel)
 	m.TxPower = int8(cfg.TxPower)
 	m.Groups = int(cfg.Groups)
@@ -70,7 +63,8 @@ func (h Handler) getNodes(c *gin.Context) {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
-	//p := req.toGetListParams()
+
+	p := req.toGetListParams()
 
 	nodes := h.network.Nodes()
 	jsonNodes := make([]MeshNode, 0, nodes.Len())
@@ -83,6 +77,28 @@ func (h Handler) getNodes(c *gin.Context) {
 			Path:  graph.FmtNodePath(h.network, dev),
 		})
 	}
+
+	sort.Slice(jsonNodes, func(i, j int) bool {
+		switch p.SortType {
+		case sortTypeAsc:
+			switch p.SortBy {
+			case sortFieldTypeID:
+				return jsonNodes[i].ID < jsonNodes[j].ID
+			case sortFieldTypeHExId:
+				return jsonNodes[i].ID < jsonNodes[j].ID
+			}
+			return jsonNodes[i].ID < jsonNodes[j].ID
+		case sortTypeDesc:
+			switch p.SortBy {
+			case sortFieldTypeID:
+				return jsonNodes[i].ID > jsonNodes[j].ID
+			case sortFieldTypeHExId:
+				return jsonNodes[i].ID > jsonNodes[j].ID
+			}
+			return jsonNodes[i].ID > jsonNodes[j].ID
+		}
+		return false
+	})
 
 	c.Header("Content-Range", fmt.Sprintf("%d-%d/%d", 0, len(jsonNodes), len(jsonNodes)))
 	c.JSON(http.StatusOK, jsonNodes)
@@ -167,7 +183,7 @@ func (h Handler) updateNode(c *gin.Context) {
 		}
 	}
 
-	if req.Channel != jsonNode.Channel {
+	if req.Channel != (int8)(jsonNode.Channel) {
 		protocol := meshmesh.FindBestProtocol(meshmesh.MeshNodeId(dev.ID()), h.network)
 		_, err := h.serialConn.SendReceiveApiProt(meshmesh.NodeSetChannelApiRequest{Channel: uint8(req.Channel)}, protocol, meshmesh.MeshNodeId(dev.ID()), h.network)
 		if err != nil {

@@ -154,7 +154,7 @@ func main() {
 	defer rpcServer.Stop()
 
 	// Start rest server
-	restHandler := rest.NewHandler(serialPort, network)
+	restHandler := rest.NewHandler(serialPort, network, esphomeapi)
 	rest.StartRestServer(rest.NewRouter(restHandler))
 
 	var lastStatsTime time.Time

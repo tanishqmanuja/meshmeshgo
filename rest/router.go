@@ -56,4 +56,21 @@ func (s router) Register(g gin.IRouter) {
 		neighborsGroup.GET("/discovery/:id", h.getDiscoveryProcedureState)
 		neighborsGroup.POST("/discovery", h.ctrlDiscoveryProcedure)
 	}
+
+	firmwareGroup := r.Group("/firmware")
+	{
+		firmwareGroup.GET("/:id", h.getFirmware)
+		firmwareGroup.POST("/:id", h.updateFirmware)
+	}
+
+	esphomeServersGroup := r.Group("/esphomeServers")
+	{
+		esphomeServersGroup.GET("", h.getEsphomeServers)
+		esphomeServersGroup.GET("/clients", h.getEsphomeClients)
+	}
+
+	esphomeClientsGroup := r.Group("/esphomeClients")
+	{
+		esphomeClientsGroup.GET("", h.getEsphomeClients)
+	}
 }

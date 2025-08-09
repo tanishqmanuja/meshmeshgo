@@ -2,6 +2,24 @@ package rest
 
 import "encoding/json"
 
+type SortType int
+
+const (
+	sortTypeAsc SortType = iota
+	sortTypeDesc
+	sortTypeNone
+)
+
+type SortFieldType int
+
+const (
+	sortFieldTypeID SortFieldType = iota
+	sortFieldTypeHExId
+	sortFieldTypeFrom
+	sortFieldTypeTo
+	sortFieldTypeWeight
+)
+
 type GetListRequest struct {
 	Filter map[string]any `form:"filter"`
 	Range  string         `form:"range"`
@@ -64,16 +82,69 @@ type MeshDiscoveryState struct {
 	Repeat    int    `json:"repeat"`
 }
 
+type MeshFirmware struct {
+	ID       int64  `json:"id"`
+	Status   string `json:"status"`
+	Filename string `json:"filename"`
+	Size     int64  `json:"size"`
+	Progress int    `json:"progress"`
+}
+
 var acceptFilters = map[string]struct{}{
 	"from": {},
 	"to":   {},
 	"any":  {},
 }
 
+type EsphomeServer struct {
+	ID      uint   `json:"id"`
+	Address string `json:"address"`
+	Clients int    `json:"clients"`
+}
+
+type EsphomeClient struct {
+	ID       uint   `json:"id"`
+	Address  string `json:"address"`
+	Tag      string `json:"tag"`
+	Active   bool   `json:"active"`
+	Handle   int    `json:"handle"`
+	Sent     int    `json:"sent"`
+	Received int    `json:"received"`
+	Duration string `json:"duration"`
+	Started  string `json:"started"`
+}
+
 type GetListParams struct {
-	Filter           map[string]interface{}
-	Limit, Offset    int
-	SortBy, SortType string
+	Filter        map[string]interface{}
+	Limit, Offset int
+	SortBy        SortFieldType
+	SortType      SortType
+}
+
+func parseSortType(s string) SortType {
+	switch s {
+	case "ASC":
+		return sortTypeAsc
+	case "DESC":
+		return sortTypeDesc
+	}
+	return sortTypeAsc
+}
+
+func parseSortFieldType(s string) SortFieldType {
+	switch s {
+	case "id":
+		return sortFieldTypeID
+	case "hex_id":
+		return sortFieldTypeHExId
+	case "from":
+		return sortFieldTypeFrom
+	case "to":
+		return sortFieldTypeTo
+	case "weight":
+		return sortFieldTypeWeight
+	}
+	return sortFieldTypeID
 }
 
 func (r GetListRequest) toGetListParams() GetListParams {
@@ -88,8 +159,8 @@ func (r GetListRequest) toGetListParams() GetListParams {
 		Filter:   acceptFiltersParam,
 		Limit:    10,
 		Offset:   0,
-		SortBy:   "id",
-		SortType: "ASC",
+		SortBy:   sortFieldTypeID,
+		SortType: sortTypeAsc,
 	}
 
 	if r.Range != "" {
@@ -104,7 +175,7 @@ func (r GetListRequest) toGetListParams() GetListParams {
 		var querySort []string
 		_ = json.Unmarshal([]byte(r.Sort), &querySort)
 		if len(querySort) == 2 {
-			p.SortBy, p.SortType = querySort[0], querySort[1]
+			p.SortBy, p.SortType = parseSortFieldType(querySort[0]), parseSortType(querySort[1])
 		}
 	}
 

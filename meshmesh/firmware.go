@@ -213,6 +213,23 @@ func (f *FirmwareUploadProcedure) Percent() float64 {
 	return float64(f.firmwareIndex) / float64(len(f.firmware))
 }
 
+func (f *FirmwareUploadProcedure) Run() error {
+	err := f.Init(f.filename)
+	if err != nil {
+		return err
+	}
+
+	for {
+		complete, err, errFatal := f.Step()
+		if errFatal != nil {
+			return errFatal
+		}
+		if complete {
+			return err
+		}
+	}
+}
+
 func NewFirmwareUploadProcedure(serial *SerialConnection, network *gra.Network, nodeid MeshNodeId) *FirmwareUploadProcedure {
 	return &FirmwareUploadProcedure{serial: serial, network: network, nodeid: nodeid}
 }

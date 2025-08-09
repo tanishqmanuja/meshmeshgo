@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 	"leguru.net/m/v2/graph"
 	"leguru.net/m/v2/logger"
 	mm "leguru.net/m/v2/meshmesh"
@@ -55,6 +56,7 @@ func (s *RpcServer) Start(programName string, programVersion string, serialConn 
 	s.grpcServer = grpc.NewServer()
 	meshmesh.RegisterMeshmeshServer(s.grpcServer, NewServer(programName, programVersion, serialConn, network))
 	logger.WithField("port", s.port).Info("Starting gRPC server")
+	reflection.Register(s.grpcServer)
 	go s.serve()
 
 	return nil

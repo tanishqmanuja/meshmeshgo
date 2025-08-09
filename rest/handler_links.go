@@ -3,6 +3,7 @@ package rest
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -40,6 +41,40 @@ func (h Handler) getLinks(c *gin.Context) {
 			Weight: float32(edge.Weight()),
 		})
 	}
+
+	sort.Slice(jsonLinks, func(i, j int) bool {
+		switch p.SortType {
+		case sortTypeAsc:
+			switch p.SortBy {
+			case sortFieldTypeID:
+				return jsonLinks[i].ID < jsonLinks[j].ID
+			case sortFieldTypeHExId:
+				return jsonLinks[i].ID < jsonLinks[j].ID
+			case sortFieldTypeFrom:
+				return jsonLinks[i].From < jsonLinks[j].From
+			case sortFieldTypeTo:
+				return jsonLinks[i].To < jsonLinks[j].To
+			case sortFieldTypeWeight:
+				return jsonLinks[i].Weight < jsonLinks[j].Weight
+			}
+			return jsonLinks[i].ID < jsonLinks[j].ID
+		case sortTypeDesc:
+			switch p.SortBy {
+			case sortFieldTypeID:
+				return jsonLinks[i].ID > jsonLinks[j].ID
+			case sortFieldTypeHExId:
+				return jsonLinks[i].ID > jsonLinks[j].ID
+			case sortFieldTypeFrom:
+				return jsonLinks[i].From > jsonLinks[j].From
+			case sortFieldTypeTo:
+				return jsonLinks[i].To > jsonLinks[j].To
+			case sortFieldTypeWeight:
+				return jsonLinks[i].Weight > jsonLinks[j].Weight
+			}
+			return jsonLinks[i].ID > jsonLinks[j].ID
+		}
+		return false
+	})
 
 	c.Header("Content-Range", fmt.Sprintf("%d-%d/%d", 0, len(jsonLinks), len(jsonLinks)))
 	c.JSON(http.StatusOK, jsonLinks)

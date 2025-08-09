@@ -95,7 +95,7 @@ const nodeSetChannelApiRequest = 12
 
 type NodeSetChannelApiRequest struct {
 	Id      uint8 `struct:"uint8"`
-	Channel uint8 `struct:"uint8"`
+	Channel uint8 `struct:"int8"`
 }
 
 const nodeSetChannelApiReply = 13
@@ -441,9 +441,10 @@ func (frame *ApiFrame) awaitedReplyBytes(index uint16) (uint8, uint8, error) {
 	var wantType uint8 = frame.data[index]&0xFE + 1
 	var wantSubtype uint8 = 0
 
-	if wantType == discoveryApiReply {
+	switch wantType {
+	case discoveryApiReply:
 		wantSubtype = frame.data[index+1]&0xFE + 1
-	} else if wantType == flashOperationApiReply {
+	case flashOperationApiReply:
 		wantSubtype = frame.data[index+1]&0xFE + 1
 	}
 
