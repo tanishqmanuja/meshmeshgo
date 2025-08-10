@@ -8,7 +8,7 @@ export const MyMenu = () => (
       <Menu.ResourceItem name="nodes" />
       <Menu.ResourceItem name="links" />
       <Menu.ResourceItem name="esphomeServers" />
-      <Menu.ResourceItem name="esphomeClients" />
+      <Menu.ResourceItem name="esphomeConnections" />
       <Menu.Item to="/discoverylive" primaryText="Discovery" leftIcon={<SearchIcon />} />
       <Menu.Item to="" onClick={() => {window.location.href = "/swagger"; }} primaryText="Swagger" leftIcon={<SwaggerIcon />} />
   </Menu>

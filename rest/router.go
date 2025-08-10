@@ -80,11 +80,11 @@ func (s router) Register(g gin.IRouter) {
 	esphomeServersGroup := r.Group("/esphomeServers")
 	{
 		esphomeServersGroup.GET("", h.getEsphomeServers)
-		esphomeServersGroup.GET("/clients", h.getEsphomeClients)
+		esphomeServersGroup.GET("/connections", h.getEsphomeConnections)
 	}
 
-	esphomeClientsGroup := r.Group("/esphomeClients")
+	esphomeConnectionsGroup := r.Group("/esphomeConnections")
 	{
-		esphomeClientsGroup.GET("", h.getEsphomeClients)
+		esphomeConnectionsGroup.GET("", h.getEsphomeConnections)
 	}
 }

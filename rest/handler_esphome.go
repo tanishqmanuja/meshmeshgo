@@ -30,40 +30,41 @@ func (h Handler) getEsphomeServers(c *gin.Context) {
 	c.JSON(http.StatusOK, jsonServers)
 }
 
-// @Id getEsphomeClients
-// @Summary Get esphome clients
+// @Id getEsphomeConnections
+// @Summary Get esphome connections
 // @Tags    Esphome
 // @Accept  json
 // @Produce json
 // @Success 200 {array} EsphomeClient
 // @Failure 400 {object} string
-// @Router /api/esphome/clients [get]
-func (h Handler) getEsphomeClients(c *gin.Context) {
+// @Router /api/esphome/connections [get]
+func (h Handler) getEsphomeConnections(c *gin.Context) {
 	index := uint(1)
 
-	jsonClients := make([]EsphomeClient, 0)
-	for _, server := range h.esphomeServers.Servers {
+	stats := h.esphomeServers.Stats()
 
-		dev, err := h.network.GetNodeDevice(int64(server.Address))
+	jsonClients := make([]EsphomeClient, 0)
+	for nodeId, connection := range stats.Connections {
+
+		dev, err := h.network.GetNodeDevice(int64(nodeId))
 		if err != nil {
-			logger.WithField("id", server.Address).Error("Node not found for esphome client")
+			logger.WithField("id", nodeId).Error("Node not found for esphome connection")
 			continue
 		}
 
-		for _, client := range server.Clients {
-			jsonClients = append(jsonClients, EsphomeClient{
-				ID:       index,
-				Address:  utils.FmtNodeIdHass(int64(server.Address)),
-				Tag:      dev.Device().Tag(),
-				Active:   client.Stats.IsActive(),
-				Handle:   int(client.Stats.GetLastHandle()),
-				Sent:     client.Stats.BytesOut(),
-				Received: client.Stats.BytesIn(),
-				Duration: client.Stats.TimeSinceLastConnection().String(),
-				Started:  client.Stats.LastConnectionDuration().String(),
-			})
-		}
+		jsonClients = append(jsonClients, EsphomeClient{
+			ID:       index,
+			Address:  utils.FmtNodeIdHass(int64(nodeId)),
+			Tag:      dev.Device().Tag(),
+			Active:   connection.IsActive(),
+			Handle:   int(connection.GetLastHandle()),
+			Sent:     connection.BytesOut(),
+			Received: connection.BytesIn(),
+			Duration: connection.TimeSinceLastConnection().String(),
+			Started:  connection.LastConnectionDuration().String(),
+		})
 	}
+
 	c.Header("Content-Range", fmt.Sprintf("%d-%d/%d", 0, len(jsonClients), len(jsonClients)))
 	c.JSON(http.StatusOK, jsonClients)
 }
