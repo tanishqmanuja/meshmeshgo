@@ -12,4 +12,4 @@ export const myFakeDataProvider = fakeDataProvider({
     ],
 })
 
-export const dataProvider = simpleRestProvider('http://localhost:4002/api/v1');
+export const dataProvider = simpleRestProvider('/api/v1');
