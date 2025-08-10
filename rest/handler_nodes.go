@@ -109,9 +109,16 @@ func (h Handler) getNodes(c *gin.Context) {
 		return false
 	})
 
-	jsonNodesOut := jsonNodes[p.Offset : p.Offset+p.Limit]
+	jsonNodesOut := []MeshNode{}
 
-	c.Header("Content-Range", fmt.Sprintf("%d-%d/%d", p.Offset, p.Offset+p.Limit, len(jsonNodes)))
+	if p.Offset < len(jsonNodes) {
+		if p.Limit >= len(jsonNodes) {
+			p.Limit = len(jsonNodes) - 1
+		}
+		jsonNodesOut = jsonNodes[p.Offset : p.Limit+1]
+	}
+
+	c.Header("Content-Range", fmt.Sprintf("%d-%d/%d", p.Offset, p.Limit+1, len(jsonNodes)))
 	c.JSON(http.StatusOK, jsonNodesOut)
 }
 
