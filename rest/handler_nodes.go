@@ -56,6 +56,15 @@ func (h Handler) fillNodeStruct(dev graph.NodeDevice, withInfo bool) MeshNode {
 	return jsonNode
 }
 
+// @Id getNodes
+// @Summary Get nodes
+// @Tags    Nodes
+// @Accept  json
+// @Produce json
+// @Param   login body GetListRequest true "Get list request"
+// @Success 200 {array} MeshNode
+// @Failure 400 {object} string
+// @Router /api/nodes [get]
 func (h Handler) getNodes(c *gin.Context) {
 	var req GetListRequest
 	err := c.ShouldBindQuery(&req)
@@ -104,6 +113,15 @@ func (h Handler) getNodes(c *gin.Context) {
 	c.JSON(http.StatusOK, jsonNodes)
 }
 
+// @Id createNode
+// @Summary Create node
+// @Tags    Nodes
+// @Accept  json
+// @Produce json
+// @Param   node body CreateNodeRequest true "Create node request"
+// @Success 200 {object} MeshNode
+// @Failure 400 {object} string
+// @Router /api/nodes [post]
 func (h Handler) createNode(c *gin.Context) {
 	req := CreateNodeRequest{}
 	err := c.ShouldBindJSON(&req)
@@ -127,6 +145,15 @@ func (h Handler) createNode(c *gin.Context) {
 	c.JSON(http.StatusOK, jsonNode)
 }
 
+// @Id getOneNode
+// @Summary Get one node
+// @Tags    Nodes
+// @Accept  json
+// @Produce json
+// @Param   id path string true "Node ID"
+// @Success 200 {object} MeshNode
+// @Failure 400 {object} string
+// @Router /api/nodes/{id} [get]
 func (h Handler) getOneNode(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -145,6 +172,16 @@ func (h Handler) getOneNode(c *gin.Context) {
 	c.JSON(http.StatusOK, jsonNode)
 }
 
+// @Id updateNode
+// @Summary Update node
+// @Tags    Nodes
+// @Accept  json
+// @Produce json
+// @Param   id path string true "Node ID"
+// @Param   node body UpdateNodeRequest true "Update node request"
+// @Success 200 {object} MeshNode
+// @Failure 400 {object} string
+// @Router /api/nodes/{id} [put]
 func (h Handler) updateNode(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -197,6 +234,15 @@ func (h Handler) updateNode(c *gin.Context) {
 	c.JSON(http.StatusOK, jsonNode)
 }
 
+// @Id deleteNode
+// @Summary Delete node
+// @Tags    Nodes
+// @Accept  json
+// @Produce json
+// @Param   id path string true "Node ID"
+// @Success 200 {object} MeshNode
+// @Failure 400 {object} string
+// @Router /api/nodes/{id} [delete]
 func (h Handler) deleteNode(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)

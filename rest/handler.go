@@ -1,8 +1,10 @@
 package rest
 
 import (
+	"net/http"
 	"strconv"
 
+	"github.com/gin-gonic/gin"
 	"leguru.net/m/v2/graph"
 	mm "leguru.net/m/v2/meshmesh"
 )
@@ -30,6 +32,11 @@ func smartInteger(v any) int64 {
 	}
 
 	return -1
+}
+
+func routeFrontend(c *gin.Context) {
+	c.Status(http.StatusFound)
+	c.Writer.Header().Set("Location", "/manager")
 }
 
 func NewHandler(serialConn *mm.SerialConnection, network *graph.Network, esphomeServers *mm.MultiServerApi) Handler {

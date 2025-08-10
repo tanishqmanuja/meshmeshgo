@@ -90,6 +90,11 @@ type MeshFirmware struct {
 	Progress int    `json:"progress"`
 }
 
+type UpdateFirmwareRequest struct {
+	ID       int64  `json:"id"`
+	Filename string `json:"filename"`
+}
+
 var acceptFilters = map[string]struct{}{
 	"from": {},
 	"to":   {},

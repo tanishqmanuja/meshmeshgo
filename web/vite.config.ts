@@ -8,7 +8,8 @@ export default defineConfig(({ mode }) => ({
     host: true,
   },
   build: {
-    outDir: "../mangerui",
+    outDir: "../managerui",
+    emptyOutDir: true,
     sourcemap: mode === "development",
   },
   base: "./",

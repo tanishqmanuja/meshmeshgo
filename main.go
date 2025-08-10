@@ -81,6 +81,20 @@ func initConfig() *config.Config {
 	return c
 }
 
+// @title           Meshmesh API
+// @version         1.0.0
+// @description     Meshmesh API documents https://github.com/EspMeshMesh/meshmeshgo
+// @termsOfService  http://swagger.io/terms/
+
+// @license.name    Apache 2.0
+// @license.url     http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @contact.name    Meshmesh
+// @contact.url     https://github.com/EspMeshMesh
+
+// @BasePath        /api/v1
+// @schemes http
+
 func main() {
 	getBuildInfo()
 	go waitForTermination()

@@ -3,9 +3,8 @@ package rest
 import (
 	"net/http"
 
-	"leguru.net/m/v2/managerui"
-
 	"github.com/gin-gonic/gin"
+	"leguru.net/m/v2/managerui"
 )
 
 func serveStaticFiles(g *gin.Engine) {

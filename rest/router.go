@@ -1,10 +1,16 @@
 package rest
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	_ "leguru.net/m/v2/docs"
 )
 
 type Router interface {
@@ -30,6 +36,14 @@ func (s router) Register(g gin.IRouter) {
 		AllowCredentials: false,
 		MaxAge:           12 * time.Hour,
 	}))
+
+	g.GET("/", routeFrontend)
+
+	// use ginSwagger middleware to serve the API docs
+	g.GET("/swagger", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/swagger/index.html")
+	})
+	g.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	r := g.Group("/api/v1")
 	nodesGroup := r.Group("/nodes")

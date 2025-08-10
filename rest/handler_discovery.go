@@ -8,6 +8,14 @@ import (
 	"leguru.net/m/v2/meshmesh"
 )
 
+// @Id getDiscoveryProcedureState
+// @Summary Get discovery procedure state
+// @Tags    Discovery
+// @Accept  json
+// @Produce json
+// @Success 200 {object} MeshDiscoveryState
+// @Failure 400 {object} string
+// @Router /api/discovery/state [get]
 func (h Handler) getDiscoveryProcedureState(c *gin.Context) {
 	discoveryState := MeshDiscoveryState{
 		ID:        0,
@@ -31,6 +39,14 @@ func (h Handler) ctrlDiscoveryProcedure(c *gin.Context) {
 	h.getDiscoveryProcedureState(c)
 }
 
+// @Id getNeighbors
+// @Summary Get neighbors
+// @Tags    Discovery
+// @Accept  json
+// @Produce json
+// @Success 200 {array} MeshNeighbor
+// @Failure 400 {object} string
+// @Router /api/discovery/neighbors [get]
 func (h Handler) getNeighbors(c *gin.Context) {
 
 	if h.discoveryProcedure.Neighbors == nil {

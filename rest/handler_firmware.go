@@ -7,6 +7,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// @Id getFirmware
+// @Summary Get firmware
+// @Tags    Firmware
+// @Accept  json
+// @Produce json
+// @Param   id path string true "Firmware ID"
+// @Success 200 {object} MeshFirmware
+// @Failure 400 {object} string
+// @Router /api/firmware/{id} [get]
 func (h Handler) getFirmware(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -31,9 +40,26 @@ func (h Handler) getFirmware(c *gin.Context) {
 	c.JSON(http.StatusOK, jsonFirmware)
 }
 
+// @Id updateFirmware
+// @Summary Update firmware
+// @Tags    Firmware
+// @Accept  json
+// @Produce json
+// @Param   id path string true "Firmware ID"
+// @Param   firmware body UpdateFirmwareRequest true "Update firmware request"
+// @Success 200 {object} MeshFirmware
+// @Failure 400 {object} string
+// @Router /api/firmware/{id} [put]
 func (h Handler) updateFirmware(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	req := UpdateFirmwareRequest{}
+	err = c.ShouldBindJSON(&req)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
@@ -48,7 +74,7 @@ func (h Handler) updateFirmware(c *gin.Context) {
 	jsonFirmware := MeshFirmware{
 		ID:       dev.ID(),
 		Status:   "pending",
-		Filename: "firmware.bin",
+		Filename: req.Filename,
 		Size:     1024,
 		Progress: 50,
 	}

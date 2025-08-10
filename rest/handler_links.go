@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -9,6 +10,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// @Id getLinks
+// @Summary Get links
+// @Tags    Links
+// @Accept  json
+// @Produce json
+// @Param   login body GetListRequest true "Get list request"
+// @Success 200 {array} MeshLink
+// @Failure 400 {object} string
+// @Router /api/links [get]
 func (h Handler) getLinks(c *gin.Context) {
 	var req GetListRequest
 	err := c.ShouldBindQuery(&req)
@@ -80,6 +90,15 @@ func (h Handler) getLinks(c *gin.Context) {
 	c.JSON(http.StatusOK, jsonLinks)
 }
 
+// @Id getOneLink
+// @Summary Get one link
+// @Tags    Links
+// @Accept  json
+// @Produce json
+// @Param   id path string true "Link ID"
+// @Success 200 {object} MeshLink
+// @Failure 400 {object} string
+// @Router /api/links/{id} [get]
 func (h Handler) getOneLink(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -107,10 +126,29 @@ func (h Handler) getOneLink(c *gin.Context) {
 	c.JSON(http.StatusOK, jsonLink)
 }
 
+// @Id createLink
+// @Summary Create link
+// @Tags    Links
+// @Accept  json
+// @Produce json
+// @Param   link body bool true "Create link request"
+// @Success 200 {object} MeshLink
+// @Failure 400 {object} string
+// @Router /api/links [post]
 func (h Handler) createLink(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "Hello, World!"})
+	_ = c.AbortWithError(http.StatusBadRequest, errors.New("not implemented"))
 }
 
+// @Id updateLink
+// @Summary Update link
+// @Tags    Links
+// @Accept  json
+// @Produce json
+// @Param   id path string true "Link ID"
+// @Param   link body UpdateLinkRequest true "Update link request"
+// @Success 200 {object} MeshLink
+// @Failure 400 {object} string
+// @Router /api/links/{id} [put]
 func (h Handler) updateLink(c *gin.Context) {
 	idStr := c.Param("id")
 	fmt.Println(c.Param("data"))
@@ -151,5 +189,15 @@ func (h Handler) updateLink(c *gin.Context) {
 	c.JSON(http.StatusOK, jsonLink)
 }
 
+// @Id deleteLink
+// @Summary Delete link
+// @Tags    Links
+// @Accept  json
+// @Produce json
+// @Param   id path string true "Link ID"
+// @Success 200 {object} string
+// @Failure 400 {object} string
+// @Router /api/links/{id} [delete]
 func (h Handler) deleteLink(c *gin.Context) {
+	_ = c.AbortWithError(http.StatusBadRequest, errors.New("not implemented"))
 }

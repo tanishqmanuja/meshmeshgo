@@ -9,6 +9,14 @@ import (
 	"leguru.net/m/v2/utils"
 )
 
+// @Id getEsphomeServers
+// @Summary Get esphome servers
+// @Tags    Esphome
+// @Accept  json
+// @Produce json
+// @Success 200 {array} EsphomeServer
+// @Failure 400 {object} string
+// @Router /api/esphome/servers [get]
 func (h Handler) getEsphomeServers(c *gin.Context) {
 	jsonServers := make([]EsphomeServer, 0)
 	for _, server := range h.esphomeServers.Servers {
@@ -22,6 +30,14 @@ func (h Handler) getEsphomeServers(c *gin.Context) {
 	c.JSON(http.StatusOK, jsonServers)
 }
 
+// @Id getEsphomeClients
+// @Summary Get esphome clients
+// @Tags    Esphome
+// @Accept  json
+// @Produce json
+// @Success 200 {array} EsphomeClient
+// @Failure 400 {object} string
+// @Router /api/esphome/clients [get]
 func (h Handler) getEsphomeClients(c *gin.Context) {
 	index := uint(1)
 

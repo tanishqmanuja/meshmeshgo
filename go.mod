@@ -10,6 +10,9 @@ require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-restruct/restruct v1.2.0-alpha
 	github.com/sirupsen/logrus v1.9.3
+	github.com/swaggo/files v1.0.1
+	github.com/swaggo/gin-swagger v1.6.0
+	github.com/swaggo/swag v1.16.6
 	github.com/urfave/cli/v2 v2.27.5
 	go.bug.st/serial v1.6.2
 	golang.org/x/exp v0.0.0-20250103183323-7d7fa50e5329
@@ -20,8 +23,20 @@ require (
 )
 
 require (
+	github.com/KyleBanks/depth v1.2.1 // indirect
+	github.com/PuerkitoBio/purell v1.2.1 // indirect
+	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/charmbracelet/lipgloss v1.0.0 // indirect
-	github.com/kr/text v0.2.0 // indirect
+	github.com/go-openapi/jsonpointer v0.21.2 // indirect
+	github.com/go-openapi/jsonreference v0.21.0 // indirect
+	github.com/go-openapi/spec v0.21.0 // indirect
+	github.com/go-openapi/swag v0.23.1 // indirect
+	github.com/josharian/intern v1.0.0 // indirect
+	github.com/mailru/easyjson v0.9.0 // indirect
+	golang.org/x/mod v0.27.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/tools v0.36.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
 require (
@@ -56,10 +71,10 @@ require (
 	github.com/ugorji/go/codec v1.3.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	golang.org/x/arch v0.18.0 // indirect
-	golang.org/x/crypto v0.39.0 // indirect
-	golang.org/x/net v0.41.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/text v0.26.0 // indirect
+	golang.org/x/crypto v0.41.0 // indirect
+	golang.org/x/net v0.43.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/text v0.28.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250102185135-69823020774d // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -1,0 +1,569 @@
+basePath: /api/v1
+definitions:
+  rest.CreateNodeRequest:
+    properties:
+      id:
+        type: integer
+      in_use:
+        type: boolean
+      tag:
+        type: string
+    type: object
+  rest.EsphomeClient:
+    properties:
+      active:
+        type: boolean
+      address:
+        type: string
+      duration:
+        type: string
+      handle:
+        type: integer
+      id:
+        type: integer
+      received:
+        type: integer
+      sent:
+        type: integer
+      started:
+        type: string
+      tag:
+        type: string
+    type: object
+  rest.EsphomeServer:
+    properties:
+      address:
+        type: string
+      clients:
+        type: integer
+      id:
+        type: integer
+    type: object
+  rest.GetListRequest:
+    properties:
+      filter:
+        additionalProperties: {}
+        type: object
+      range:
+        type: string
+      sort:
+        type: string
+    type: object
+  rest.MeshDiscoveryState:
+    properties:
+      current_id:
+        type: integer
+      id:
+        type: integer
+      repeat:
+        type: integer
+      status:
+        type: string
+    type: object
+  rest.MeshFirmware:
+    properties:
+      filename:
+        type: string
+      id:
+        type: integer
+      progress:
+        type: integer
+      size:
+        type: integer
+      status:
+        type: string
+    type: object
+  rest.MeshLink:
+    properties:
+      from:
+        type: integer
+      id:
+        type: integer
+      to:
+        type: integer
+      weight:
+        type: number
+    type: object
+  rest.MeshNeighbor:
+    properties:
+      address:
+        type: string
+      current:
+        type: number
+      delta:
+        type: number
+      id:
+        type: integer
+      next:
+        type: number
+    type: object
+  rest.MeshNode:
+    properties:
+      binded:
+        type: integer
+      channel:
+        type: integer
+      dev_tag:
+        type: string
+      error:
+        type: string
+      flags:
+        type: integer
+      groups:
+        type: integer
+      id:
+        type: integer
+      in_use:
+        type: boolean
+      path:
+        type: string
+      revision:
+        type: string
+      tag:
+        type: string
+      tx_power:
+        type: integer
+    type: object
+  rest.UpdateFirmwareRequest:
+    properties:
+      filename:
+        type: string
+      id:
+        type: integer
+    type: object
+  rest.UpdateLinkRequest:
+    properties:
+      id:
+        type: integer
+      weight:
+        type: number
+    type: object
+  rest.UpdateNodeRequest:
+    properties:
+      channel:
+        type: integer
+      dev_tag:
+        type: string
+      in_use:
+        type: boolean
+      tag:
+        type: string
+      tx_power:
+        type: integer
+    type: object
+info:
+  contact:
+    name: Meshmesh
+    url: https://github.com/EspMeshMesh
+  description: Meshmesh API documents https://github.com/EspMeshMesh/meshmeshgo
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Meshmesh API
+  version: 1.0.0
+paths:
+  /api/discovery/neighbors:
+    get:
+      consumes:
+      - application/json
+      operationId: getNeighbors
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/rest.MeshNeighbor'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Get neighbors
+      tags:
+      - Discovery
+  /api/discovery/state:
+    get:
+      consumes:
+      - application/json
+      operationId: getDiscoveryProcedureState
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.MeshDiscoveryState'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Get discovery procedure state
+      tags:
+      - Discovery
+  /api/esphome/clients:
+    get:
+      consumes:
+      - application/json
+      operationId: getEsphomeClients
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/rest.EsphomeClient'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Get esphome clients
+      tags:
+      - Esphome
+  /api/esphome/servers:
+    get:
+      consumes:
+      - application/json
+      operationId: getEsphomeServers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/rest.EsphomeServer'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Get esphome servers
+      tags:
+      - Esphome
+  /api/firmware/{id}:
+    get:
+      consumes:
+      - application/json
+      operationId: getFirmware
+      parameters:
+      - description: Firmware ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.MeshFirmware'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Get firmware
+      tags:
+      - Firmware
+    put:
+      consumes:
+      - application/json
+      operationId: updateFirmware
+      parameters:
+      - description: Firmware ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update firmware request
+        in: body
+        name: firmware
+        required: true
+        schema:
+          $ref: '#/definitions/rest.UpdateFirmwareRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.MeshFirmware'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Update firmware
+      tags:
+      - Firmware
+  /api/links:
+    get:
+      consumes:
+      - application/json
+      operationId: getLinks
+      parameters:
+      - description: Get list request
+        in: body
+        name: login
+        required: true
+        schema:
+          $ref: '#/definitions/rest.GetListRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/rest.MeshLink'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Get links
+      tags:
+      - Links
+    post:
+      consumes:
+      - application/json
+      operationId: createLink
+      parameters:
+      - description: Create link request
+        in: body
+        name: link
+        required: true
+        schema:
+          type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.MeshLink'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Create link
+      tags:
+      - Links
+  /api/links/{id}:
+    delete:
+      consumes:
+      - application/json
+      operationId: deleteLink
+      parameters:
+      - description: Link ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Delete link
+      tags:
+      - Links
+    get:
+      consumes:
+      - application/json
+      operationId: getOneLink
+      parameters:
+      - description: Link ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.MeshLink'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Get one link
+      tags:
+      - Links
+    put:
+      consumes:
+      - application/json
+      operationId: updateLink
+      parameters:
+      - description: Link ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update link request
+        in: body
+        name: link
+        required: true
+        schema:
+          $ref: '#/definitions/rest.UpdateLinkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.MeshLink'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Update link
+      tags:
+      - Links
+  /api/nodes:
+    get:
+      consumes:
+      - application/json
+      operationId: getNodes
+      parameters:
+      - description: Get list request
+        in: body
+        name: login
+        required: true
+        schema:
+          $ref: '#/definitions/rest.GetListRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/rest.MeshNode'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Get nodes
+      tags:
+      - Nodes
+    post:
+      consumes:
+      - application/json
+      operationId: createNode
+      parameters:
+      - description: Create node request
+        in: body
+        name: node
+        required: true
+        schema:
+          $ref: '#/definitions/rest.CreateNodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.MeshNode'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Create node
+      tags:
+      - Nodes
+  /api/nodes/{id}:
+    delete:
+      consumes:
+      - application/json
+      operationId: deleteNode
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.MeshNode'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Delete node
+      tags:
+      - Nodes
+    get:
+      consumes:
+      - application/json
+      operationId: getOneNode
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.MeshNode'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Get one node
+      tags:
+      - Nodes
+    put:
+      consumes:
+      - application/json
+      operationId: updateNode
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update node request
+        in: body
+        name: node
+        required: true
+        schema:
+          $ref: '#/definitions/rest.UpdateNodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.MeshNode'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Update node
+      tags:
+      - Nodes
+schemes:
+- http
+swagger: "2.0"
