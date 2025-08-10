@@ -62,6 +62,8 @@ func NewNodeDevice(id int64, inuse bool, tag string) NodeDevice {
 	return NodeDevice{id: id, device: NewDevice(inuse, tag)}
 }
 
+// Network: is a weighted directed graph of NodeDevices
+
 type Network struct {
 	simple.WeightedDirectedGraph
 	localDeviceId    int64

@@ -17,7 +17,7 @@ import (
 // @Produce json
 // @Param   login body GetListRequest true "Get list request"
 // @Success 200 {array} MeshLink
-// @Failure 400 {object} string
+// @Failure 400 {string} string
 // @Router /api/links [get]
 func (h Handler) getLinks(c *gin.Context) {
 	var req GetListRequest
@@ -95,9 +95,9 @@ func (h Handler) getLinks(c *gin.Context) {
 // @Tags    Links
 // @Accept  json
 // @Produce json
-// @Param   id path string true "Link ID"
+// @Param   id path int true "Link ID"
 // @Success 200 {object} MeshLink
-// @Failure 400 {object} string
+// @Failure 400 {string} string
 // @Router /api/links/{id} [get]
 func (h Handler) getOneLink(c *gin.Context) {
 	idStr := c.Param("id")
@@ -144,7 +144,7 @@ func (h Handler) createLink(c *gin.Context) {
 // @Tags    Links
 // @Accept  json
 // @Produce json
-// @Param   id path string true "Link ID"
+// @Param   id path integer true "Mixed FromTo ID"
 // @Param   link body UpdateLinkRequest true "Update link request"
 // @Success 200 {object} MeshLink
 // @Failure 400 {object} string
@@ -194,10 +194,30 @@ func (h Handler) updateLink(c *gin.Context) {
 // @Tags    Links
 // @Accept  json
 // @Produce json
-// @Param   id path string true "Link ID"
-// @Success 200 {object} string
-// @Failure 400 {object} string
+// @Param   id path integer true "Mixed FromTo ID"
+// @Success 200 {object} MeshLink
+// @Failure 400 {string} string
 // @Router /api/links/{id} [delete]
 func (h Handler) deleteLink(c *gin.Context) {
-	_ = c.AbortWithError(http.StatusBadRequest, errors.New("not implemented"))
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	fromID := uint(id) & 0x00FFFFFF
+	toID := uint(id) >> 24
+
+	h.network.RemoveEdge(int64(fromID), int64(toID))
+	h.network.NotifyNetworkChanged()
+
+	jsonLink := MeshLink{
+		ID:     uint(fromID) + uint(toID)<<24,
+		From:   uint(fromID),
+		To:     uint(toID),
+		Weight: 0,
+	}
+
+	c.JSON(http.StatusOK, jsonLink)
 }

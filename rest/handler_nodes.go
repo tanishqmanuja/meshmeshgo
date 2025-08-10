@@ -109,8 +109,10 @@ func (h Handler) getNodes(c *gin.Context) {
 		return false
 	})
 
-	c.Header("Content-Range", fmt.Sprintf("%d-%d/%d", 0, len(jsonNodes), len(jsonNodes)))
-	c.JSON(http.StatusOK, jsonNodes)
+	jsonNodesOut := jsonNodes[p.Offset : p.Offset+p.Limit]
+
+	c.Header("Content-Range", fmt.Sprintf("%d-%d/%d", p.Offset, p.Offset+p.Limit, len(jsonNodes)))
+	c.JSON(http.StatusOK, jsonNodesOut)
 }
 
 // @Id createNode
@@ -145,15 +147,17 @@ func (h Handler) createNode(c *gin.Context) {
 	c.JSON(http.StatusOK, jsonNode)
 }
 
-// @Id getOneNode
+// @Id      getOneNode
 // @Summary Get one node
 // @Tags    Nodes
 // @Accept  json
 // @Produce json
-// @Param   id path string true "Node ID"
-// @Success 200 {object} MeshNode
-// @Failure 400 {object} string
-// @Router /api/nodes/{id} [get]
+// @Param   id    path     string   true "Node ID"
+// @Param   range query    string   true "Result range"
+// @Param   sort  query    string   true "Sort by and type"
+// @Success 200   {object} MeshNode
+// @Failure 400   {string} string
+// @Router  /api/nodes/{id} [get]
 func (h Handler) getOneNode(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)

@@ -327,7 +327,7 @@ const docTemplate = `{
                 "operationId": "getOneLink",
                 "parameters": [
                     {
-                        "type": "string",
+                        "type": "integer",
                         "description": "Link ID",
                         "name": "id",
                         "in": "path",
@@ -363,8 +363,8 @@ const docTemplate = `{
                 "operationId": "updateLink",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Link ID",
+                        "type": "integer",
+                        "description": "Mixed FromTo ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -408,8 +408,8 @@ const docTemplate = `{
                 "operationId": "deleteLink",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Link ID",
+                        "type": "integer",
+                        "description": "Mixed FromTo ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -419,7 +419,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/rest.MeshLink"
                         }
                     },
                     "400": {
@@ -531,6 +531,20 @@ const docTemplate = `{
                         "description": "Node ID",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Result range",
+                        "name": "range",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort by and type",
+                        "name": "sort",
+                        "in": "query",
                         "required": true
                     }
                 ],

@@ -359,18 +359,18 @@ paths:
       - application/json
       operationId: deleteLink
       parameters:
-      - description: Link ID
+      - description: Mixed FromTo ID
         in: path
         name: id
         required: true
-        type: string
+        type: integer
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            type: string
+            $ref: '#/definitions/rest.MeshLink'
         "400":
           description: Bad Request
           schema:
@@ -387,7 +387,7 @@ paths:
         in: path
         name: id
         required: true
-        type: string
+        type: integer
       produces:
       - application/json
       responses:
@@ -407,11 +407,11 @@ paths:
       - application/json
       operationId: updateLink
       parameters:
-      - description: Link ID
+      - description: Mixed FromTo ID
         in: path
         name: id
         required: true
-        type: string
+        type: integer
       - description: Update link request
         in: body
         name: link
@@ -518,6 +518,16 @@ paths:
       - description: Node ID
         in: path
         name: id
+        required: true
+        type: string
+      - description: Result range
+        in: query
+        name: range
+        required: true
+        type: string
+      - description: Sort by and type
+        in: query
+        name: sort
         required: true
         type: string
       produces:
