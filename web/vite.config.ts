@@ -6,6 +6,13 @@ export default defineConfig(({ mode }) => ({
   plugins: [react()],
   server: {
     host: true,
+    proxy: {
+      "/api/v1": {
+        target: "http://localhost:4002",
+        changeOrigin: true,
+        //rewrite: (path) => path.replace(/^\/api\/v1/, ""),
+      },
+    },
   },
   build: {
     outDir: "../managerui",
