@@ -81,6 +81,10 @@ func initConfig() *config.Config {
 	return c
 }
 
+func networkChangedCallback() {
+	gra.GetMainNetwork().SaveToFile(graphFilename)
+}
+
 func initNetwork(localNodeId int64) *gra.Network {
 	var network *gra.Network
 	if _, err := os.Stat(graphFilename); err == nil {
@@ -92,23 +96,18 @@ func initNetwork(localNodeId int64) *gra.Network {
 		network = gra.NewNetwork(localNodeId)
 		network.SaveToFile(graphFilename)
 	}
-	gra.AddMainNetworkChangedCallback(func() {
-		network := gra.GetMainNetwork()
-		network.SaveToFile(graphFilename)
-	})
-
 	return network
 }
 
 /* Initialize debug node TODO not implemented yet */
-func initDebugNode(config *config.Config, network *gra.Network) {
+func initDebugNode(config *config.Config) {
 	if len(config.DebugNodeAddr) > 0 {
 		_debugNodeId, err := gra.ParseDeviceId(config.DebugNodeAddr)
 		if err != nil {
 			logger.WithField("err", err).Fatal("Invalid debug node id")
 			return
 		}
-		debugNodeId, err = network.GetNodeDevice(_debugNodeId)
+		debugNodeId, err = gra.GetMainNetwork().GetNodeDevice(_debugNodeId)
 		if err != nil {
 			logger.WithField("id", _debugNodeId).Fatal("Debug node not found in graph")
 			return
@@ -162,17 +161,18 @@ func main() {
 	logger.Info(programDescription)
 
 	logger.WithFields(logger.Fields{"portName": config.SerialPortName, "baudRate": config.SerialPortBaudRate}).Debug("Opening serial port")
+	// First init serial connection with coordinator
 	serialPort, err := meshmesh.NewSerial(config.SerialPortName, config.SerialPortBaudRate, false)
 	if err != nil {
 		logger.Log().Fatal("Serial port error: ", err)
 	}
 	// Init network graph
-	network := initNetwork(int64(serialPort.LocalNode))
-	gra.SetMainNetwork(network)
+	gra.SetMainNetwork(initNetwork(int64(serialPort.LocalNode)))
+	gra.AddMainNetworkChangedCallback(networkChangedCallback)
 	// Init node for spcific debug
-	initDebugNode(config, network)
-	logger.Log().Info("Coordinator node is " + utils.FmtNodeId(network.LocalDeviceId()))
-	gra.PrintTable(network)
+	initDebugNode(config)
+	logger.Log().Info("Coordinator node is " + utils.FmtNodeId(gra.GetMainNetwork().LocalDeviceId()))
+	gra.PrintTable(gra.GetMainNetwork())
 	// Handle DiscAssociateReply received from other nodes
 	serialPort.DiscAssociateFn = handleDiscAssociateReply
 	// Initialize Esphome to HomeAssistant Server
@@ -182,7 +182,7 @@ func main() {
 	rpcServer.Start(fmt.Sprintf("%s - %s", programName, programDescription), fmt.Sprintf("%s - %s", vcsHash[:8], vcsTime.Format(time.RFC3339)), serialPort)
 	defer rpcServer.Stop()
 	// Start rest server
-	restHandler := rest.NewHandler(serialPort, network, esphomeapi)
+	restHandler := rest.NewHandler(serialPort, esphomeapi)
 	rest.StartRestServer(rest.NewRouter(restHandler))
 
 	var lastStatsTime time.Time

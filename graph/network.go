@@ -78,6 +78,8 @@ func GetMainNetwork() *Network {
 	return mainNetwork
 }
 
+// SetMainNetwork sets the current main network instance pointer and notify all callbacks.
+// It acquires a lock to ensure thread-safe access to the global mainNetwork variable.
 func SetMainNetwork(network *Network) {
 	mainNetworkLock.Lock()
 	mainNetwork = network
@@ -180,6 +182,7 @@ func (g *Network) GetPath(to NodeDevice) ([]int64, float64, error) {
 }
 
 func (g *Network) SaveToFile(filename string) error {
+	utils.BackupFile(filename, "backup")
 	return g.writeGraph(filename)
 }
 

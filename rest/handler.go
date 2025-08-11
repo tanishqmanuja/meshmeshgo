@@ -38,10 +38,10 @@ func routeFrontend(c *gin.Context) {
 	c.Writer.Header().Set("Location", "/manager")
 }
 
-func NewHandler(serialConn *mm.SerialConnection, network *graph.Network, esphomeServers *mm.MultiServerApi) Handler {
+func NewHandler(serialConn *mm.SerialConnection, esphomeServers *mm.MultiServerApi) Handler {
 	return Handler{
 		serialConn:              serialConn,
-		discoveryProcedure:      mm.NewDiscoveryProcedure(serialConn, nil, network.LocalDeviceId()),
+		discoveryProcedure:      mm.NewDiscoveryProcedure(serialConn, nil, graph.GetMainNetwork().LocalDeviceId()),
 		firmwareUploadProcedure: nil,
 		esphomeServers:          esphomeServers,
 	}

@@ -3,6 +3,10 @@ package utils
 import (
 	"encoding/hex"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -50,4 +54,16 @@ func FindFirstZeroChar(s []byte) int {
 
 func TruncateZeros(s []byte) string {
 	return string(s[:FindFirstZeroChar(s)])
+}
+
+func BackupFile(filename string, backupdir string) {
+	if _, err := os.Stat(backupdir); err != nil {
+		os.MkdirAll(backupdir, 0755)
+	}
+	ext := filepath.Ext(filename)
+	filenamenoext := strings.TrimSuffix(filename, ext)
+	backupfile := filenamenoext + "_" + time.Now().Format("20060102150405") + ext + ".bak"
+	if _, err := os.Stat(filename); err == nil {
+		os.Rename(filename, filepath.Join(backupdir, backupfile))
+	}
 }

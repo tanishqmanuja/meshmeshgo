@@ -248,7 +248,8 @@ func (d *DiscoveryProcedure) Save() error {
 	d.repeat++
 	node.Device().SetDiscovered(true)
 	neighborsToGraph(d.network, d.currentDeviceId, d.Neighbors)
-	d.network.SaveToFile("discovery.graphml")
+	gra.SetMainNetwork(d.network)
+	gra.NotifyMainNetworkChanged()
 	return nil
 }
 
