@@ -27,12 +27,19 @@ func (h Handler) getDiscoveryProcedureState(c *gin.Context) {
 }
 
 func (h Handler) ctrlDiscoveryProcedure(c *gin.Context) {
+	req := CtrlDiscoveryRequest{}
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
 
 	if h.discoveryProcedure.State() == meshmesh.DiscoveryProcedureStateDone || h.discoveryProcedure.State() == meshmesh.DiscoveryProcedureStateError {
 		h.discoveryProcedure.Clear()
 	}
 
 	if h.discoveryProcedure.State() != meshmesh.DiscoveryProcedureStateRun {
+		
 		go h.discoveryProcedure.Run()
 	}
 

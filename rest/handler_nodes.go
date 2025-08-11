@@ -14,14 +14,15 @@ import (
 )
 
 func (h Handler) nodeInfoGetCmd(m *MeshNode) error {
-	protocol := meshmesh.FindBestProtocol(meshmesh.MeshNodeId(m.ID), h.network)
-	rep, err := h.serialConn.SendReceiveApiProt(meshmesh.FirmRevApiRequest{}, protocol, meshmesh.MeshNodeId(m.ID), h.network)
+	network := graph.GetMainNetwork()
+	protocol := meshmesh.FindBestProtocol(meshmesh.MeshNodeId(m.ID), network)
+	rep, err := h.serialConn.SendReceiveApiProt(meshmesh.FirmRevApiRequest{}, protocol, meshmesh.MeshNodeId(m.ID), network)
 	if err != nil {
 		return err
 	}
 	rev := rep.(meshmesh.FirmRevApiReply)
 
-	rep, err = h.serialConn.SendReceiveApiProt(meshmesh.NodeConfigApiRequest{}, protocol, meshmesh.MeshNodeId(m.ID), h.network)
+	rep, err = h.serialConn.SendReceiveApiProt(meshmesh.NodeConfigApiRequest{}, protocol, meshmesh.MeshNodeId(m.ID), network)
 	if err != nil {
 		return err
 	}
@@ -38,12 +39,12 @@ func (h Handler) nodeInfoGetCmd(m *MeshNode) error {
 	return nil
 }
 
-func (h Handler) fillNodeStruct(dev graph.NodeDevice, withInfo bool) MeshNode {
+func (h Handler) fillNodeStruct(dev graph.NodeDevice, withInfo bool, network *graph.Network) MeshNode {
 	jsonNode := MeshNode{
 		ID:    uint(dev.ID()),
 		Tag:   string(dev.Device().Tag()),
 		InUse: dev.Device().InUse(),
-		Path:  graph.FmtNodePath(h.network, dev),
+		Path:  graph.FmtNodePath(network, dev),
 	}
 
 	if withInfo {
@@ -75,7 +76,8 @@ func (h Handler) getNodes(c *gin.Context) {
 
 	p := req.toGetListParams()
 
-	nodes := h.network.Nodes()
+	network := graph.GetMainNetwork()
+	nodes := network.Nodes()
 	jsonNodes := make([]MeshNode, 0, nodes.Len())
 	for nodes.Next() {
 		dev := nodes.Node().(graph.NodeDevice)
@@ -83,7 +85,7 @@ func (h Handler) getNodes(c *gin.Context) {
 			ID:    uint(dev.ID()),
 			Tag:   string(dev.Device().Tag()),
 			InUse: dev.Device().InUse(),
-			Path:  graph.FmtNodePath(h.network, dev),
+			Path:  graph.FmtNodePath(network, dev),
 		})
 	}
 
@@ -139,17 +141,18 @@ func (h Handler) createNode(c *gin.Context) {
 		return
 	}
 
-	_, err = h.network.GetNodeDevice(int64(req.ID))
+	network := graph.GetMainNetwork()
+	_, err = network.GetNodeDevice(int64(req.ID))
 	if err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Node already exists"})
 		return
 	}
 
 	dev := graph.NewNodeDevice(int64(req.ID), req.InUse, req.Tag)
-	h.network.AddNode(dev)
-	h.network.NotifyNetworkChanged()
+	network.AddNode(dev)
+	graph.NotifyMainNetworkChanged()
 
-	jsonNode := h.fillNodeStruct(dev, false)
+	jsonNode := h.fillNodeStruct(dev, false, network)
 
 	c.JSON(http.StatusOK, jsonNode)
 }
@@ -173,13 +176,14 @@ func (h Handler) getOneNode(c *gin.Context) {
 		return
 	}
 
-	dev, err := h.network.GetNodeDevice(int64(id))
+	network := graph.GetMainNetwork()
+	dev, err := network.GetNodeDevice(int64(id))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Node not found: " + err.Error()})
 		return
 	}
 
-	jsonNode := h.fillNodeStruct(dev, true)
+	jsonNode := h.fillNodeStruct(dev, true, network)
 	c.JSON(http.StatusOK, jsonNode)
 }
 
@@ -208,7 +212,8 @@ func (h Handler) updateNode(c *gin.Context) {
 		return
 	}
 
-	dev, err := h.network.GetNodeDevice(int64(id))
+	network := graph.GetMainNetwork()
+	dev, err := network.GetNodeDevice(int64(id))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Node not found: " + err.Error()})
 		return
@@ -216,14 +221,14 @@ func (h Handler) updateNode(c *gin.Context) {
 
 	dev.Device().SetTag(req.Tag)
 	dev.Device().SetInUse(req.InUse)
-	h.network.NotifyNetworkChanged()
+	graph.NotifyMainNetworkChanged()
 
-	jsonNode := h.fillNodeStruct(dev, true)
+	jsonNode := h.fillNodeStruct(dev, true, network)
 	errors := []error{}
 
 	if req.DevTag != jsonNode.DevTag {
-		protocol := meshmesh.FindBestProtocol(meshmesh.MeshNodeId(dev.ID()), h.network)
-		_, err := h.serialConn.SendReceiveApiProt(meshmesh.NodeSetTagApiRequest{Tag: req.DevTag}, protocol, meshmesh.MeshNodeId(dev.ID()), h.network)
+		protocol := meshmesh.FindBestProtocol(meshmesh.MeshNodeId(dev.ID()), network)
+		_, err := h.serialConn.SendReceiveApiProt(meshmesh.NodeSetTagApiRequest{Tag: req.DevTag}, protocol, meshmesh.MeshNodeId(dev.ID()), network)
 		if err != nil {
 			errors = append(errors, err)
 		} else {
@@ -232,8 +237,8 @@ func (h Handler) updateNode(c *gin.Context) {
 	}
 
 	if req.Channel != (int8)(jsonNode.Channel) {
-		protocol := meshmesh.FindBestProtocol(meshmesh.MeshNodeId(dev.ID()), h.network)
-		_, err := h.serialConn.SendReceiveApiProt(meshmesh.NodeSetChannelApiRequest{Channel: uint8(req.Channel)}, protocol, meshmesh.MeshNodeId(dev.ID()), h.network)
+		protocol := meshmesh.FindBestProtocol(meshmesh.MeshNodeId(dev.ID()), network)
+		_, err := h.serialConn.SendReceiveApiProt(meshmesh.NodeSetChannelApiRequest{Channel: uint8(req.Channel)}, protocol, meshmesh.MeshNodeId(dev.ID()), network)
 		if err != nil {
 			errors = append(errors, err)
 		} else {
@@ -262,16 +267,17 @@ func (h Handler) deleteNode(c *gin.Context) {
 		return
 	}
 
-	dev, err := h.network.GetNodeDevice(int64(id))
+	network := graph.GetMainNetwork()
+	dev, err := network.GetNodeDevice(int64(id))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Node not found: " + err.Error()})
 		return
 	}
 
-	jsonNode := h.fillNodeStruct(dev, false)
+	jsonNode := h.fillNodeStruct(dev, false, network)
 
-	h.network.RemoveNode(int64(id))
-	h.network.NotifyNetworkChanged()
+	network.RemoveNode(int64(id))
+	graph.NotifyMainNetworkChanged()
 
 	c.JSON(http.StatusOK, jsonNode)
 }

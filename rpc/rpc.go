@@ -6,7 +6,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	"leguru.net/m/v2/graph"
 	"leguru.net/m/v2/logger"
 	mm "leguru.net/m/v2/meshmesh"
 	"leguru.net/m/v2/rpc/meshmesh"
@@ -17,13 +16,12 @@ import (
 type Server struct {
 	meshmesh.UnimplementedMeshmeshServer
 	serialConn     *mm.SerialConnection
-	network        *graph.Network
 	programName    string
 	programVersion string
 }
 
-func NewServer(programName string, programVersion string, serialConn *mm.SerialConnection, network *graph.Network) *Server {
-	return &Server{programName: programName, programVersion: programVersion, serialConn: serialConn, network: network}
+func NewServer(programName string, programVersion string, serialConn *mm.SerialConnection) *Server {
+	return &Server{programName: programName, programVersion: programVersion, serialConn: serialConn}
 }
 
 func (s *Server) SayHello(_ context.Context, req *meshmesh.HelloRequest) (*meshmesh.HelloReply, error) {
@@ -46,7 +44,7 @@ func (s *RpcServer) serve() {
 	}
 }
 
-func (s *RpcServer) Start(programName string, programVersion string, serialConn *mm.SerialConnection, network *graph.Network) error {
+func (s *RpcServer) Start(programName string, programVersion string, serialConn *mm.SerialConnection) error {
 	var err error
 	s.lis, err = net.Listen("tcp", s.port)
 	if err != nil {
@@ -54,7 +52,7 @@ func (s *RpcServer) Start(programName string, programVersion string, serialConn 
 	}
 
 	s.grpcServer = grpc.NewServer()
-	meshmesh.RegisterMeshmeshServer(s.grpcServer, NewServer(programName, programVersion, serialConn, network))
+	meshmesh.RegisterMeshmeshServer(s.grpcServer, NewServer(programName, programVersion, serialConn))
 	logger.WithField("port", s.port).Info("Starting gRPC server")
 	reflection.Register(s.grpcServer)
 	go s.serve()

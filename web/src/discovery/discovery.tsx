@@ -8,10 +8,17 @@ export const Discovery = () => {
     const StartDiscoveryButton = () => {
         const [create, { isPending }] = useCreate('neighbors/discovery', {data: {}});
         const startDiscoveryHandler = () => {
-            console.log('Starting discovery');
             create();
         };
         return <Button variant="contained" color="primary" disabled={isPending || discovery?.status === 'running'} label="Start discovery" onClick={startDiscoveryHandler} />
+    };
+
+    const RefreshDiscoveryButton = () => {
+        const [create, { isPending }] = useCreate('neighbors/discovery', {data: {mode: 'refresh'}});
+        const refreshDiscoveryHandler = () => {
+            create();
+        };
+        return <Button variant="contained" color="primary" disabled={isPending} label="Refresh discovery" onClick={refreshDiscoveryHandler} />
     };
 
     return (
@@ -22,7 +29,10 @@ export const Discovery = () => {
                     <Grid size={2}>
                         <StartDiscoveryButton />
                     </Grid>
-                    <Grid size={10}>
+                    <Grid size={3}>
+                        <RefreshDiscoveryButton />
+                    </Grid>
+                    <Grid size={6}>
                         <Typography variant="h6">Discovery: {discovery?.status}, CurrentId: {"0x" + discovery?.current_id.toString(16).toUpperCase()} Repetitions: {discovery?.repeat}</Typography>
                     </Grid>
                 </Grid>

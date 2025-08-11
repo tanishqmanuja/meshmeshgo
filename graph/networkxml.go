@@ -40,6 +40,10 @@ func (g *Network) readGraph(filename string) error {
 					return err
 				}
 
+				if len(descr) == 0 {
+					descr, _ = attrs["tag"].(string)
+				}
+
 				inuse, ok := attrs["inuse"].(bool)
 				if !ok {
 					inuse, err = strconv.ParseBool(attrs["inuse"].(string))

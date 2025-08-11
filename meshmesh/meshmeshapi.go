@@ -59,7 +59,7 @@ type SerialConnection struct {
 	NextHandle      uint16
 	LocalNode       uint32
 	ConnPathFn      func(*ConnectedPathApiReply)
-	DiscAssociateFn func(*DiscAssociateApiReply)
+	DiscAssociateFn func(*DiscAssociateApiReply, *SerialConnection)
 }
 
 const (
@@ -131,7 +131,7 @@ func (serialConn *SerialConnection) ReadFrame(buffer []byte) {
 				vv := DiscAssociateApiReply{}
 				restruct.Unpack(frame.data, binary.LittleEndian, &vv)
 				if serialConn.DiscAssociateFn != nil {
-					serialConn.DiscAssociateFn(&vv)
+					serialConn.DiscAssociateFn(&vv, serialConn)
 				}
 			} else {
 				logger.Log().WithField("type", fmt.Sprintf("%02X", buffer[0])).Error("Unused packet received")

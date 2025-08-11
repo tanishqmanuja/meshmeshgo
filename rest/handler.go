@@ -11,7 +11,6 @@ import (
 
 type Handler struct {
 	serialConn              *mm.SerialConnection
-	network                 *graph.Network
 	discoveryProcedure      *mm.DiscoveryProcedure
 	firmwareUploadProcedure *mm.FirmwareUploadProcedure
 	esphomeServers          *mm.MultiServerApi
@@ -42,7 +41,6 @@ func routeFrontend(c *gin.Context) {
 func NewHandler(serialConn *mm.SerialConnection, network *graph.Network, esphomeServers *mm.MultiServerApi) Handler {
 	return Handler{
 		serialConn:              serialConn,
-		network:                 network,
 		discoveryProcedure:      mm.NewDiscoveryProcedure(serialConn, nil, network.LocalDeviceId()),
 		firmwareUploadProcedure: nil,
 		esphomeServers:          esphomeServers,

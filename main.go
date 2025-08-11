@@ -81,6 +81,64 @@ func initConfig() *config.Config {
 	return c
 }
 
+func initNetwork(localNodeId int64) *gra.Network {
+	var network *gra.Network
+	if _, err := os.Stat(graphFilename); err == nil {
+		network, err = gra.NewNeworkFromFile(graphFilename, localNodeId)
+		if err != nil {
+			logger.Log().Fatal("Graph read error: ", err)
+		}
+	} else {
+		network = gra.NewNetwork(localNodeId)
+		network.SaveToFile(graphFilename)
+	}
+	gra.AddMainNetworkChangedCallback(func() {
+		network := gra.GetMainNetwork()
+		network.SaveToFile(graphFilename)
+	})
+
+	return network
+}
+
+/* Initialize debug node TODO not implemented yet */
+func initDebugNode(config *config.Config, network *gra.Network) {
+	if len(config.DebugNodeAddr) > 0 {
+		_debugNodeId, err := gra.ParseDeviceId(config.DebugNodeAddr)
+		if err != nil {
+			logger.WithField("err", err).Fatal("Invalid debug node id")
+			return
+		}
+		debugNodeId, err = network.GetNodeDevice(_debugNodeId)
+		if err != nil {
+			logger.WithField("id", _debugNodeId).Fatal("Debug node not found in graph")
+			return
+		}
+		logger.WithFields(logger.Fields{"id": debugNodeId}).Info("Enabling debug of node")
+	}
+}
+
+func handleDiscAssociateReply(v *meshmesh.DiscAssociateApiReply, serialPort *meshmesh.SerialConnection) {
+	network := gra.GetMainNetwork()
+	logger.WithFields(logger.Fields{"server": utils.FmtNodeId(int64(v.Server)), "source": utils.FmtNodeId(int64(v.Source))}).Debug("DiscAssociateReply received")
+	source, err := network.GetNodeDevice(int64(v.Source))
+	if err != nil {
+		source = gra.NewNodeDevice(int64(v.Source), true, "")
+		network.AddNode(source)
+	}
+	for i := range 3 {
+		if v.NodeId[i] > 0 {
+			node, err := network.GetNodeDevice(int64(v.NodeId[i]))
+			if err != nil {
+				network.ChangeEdgeWeight(node.ID(), source.ID(), meshmesh.Rssi2weight(v.Rssi[i]), meshmesh.Rssi2weight(v.Rssi[i]))
+				logger.WithFields(logger.Fields{"id": utils.FmtNodeId(int64(v.NodeId[i])), "rssi": v.Rssi[i]}).Debug("DiscAssociateReply received")
+			}
+		}
+	}
+	network.SaveToFile(graphFilename)
+	serialPort.SendReceiveApiProt(meshmesh.NodeIdApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(source.ID()), nil)
+	// ***** TODO: Update network graph with new node
+}
+
 // @title           Meshmesh API
 // @version         1.0.0
 // @description     Meshmesh API documents https://github.com/EspMeshMesh/meshmeshgo
@@ -108,65 +166,21 @@ func main() {
 	if err != nil {
 		logger.Log().Fatal("Serial port error: ", err)
 	}
-
-	var network *gra.Network
-	if _, err := os.Stat(graphFilename); err == nil {
-		network, err = gra.NewNeworkFromFile(graphFilename, int64(serialPort.LocalNode))
-		if err != nil {
-			logger.Log().Fatal("Graph read error: ", err)
-		}
-	} else {
-		network = gra.NewNetwork(int64(serialPort.LocalNode))
-		network.SaveToFile(graphFilename)
-	}
-	network.SetNetworkChangedCb(func() {
-		network.SaveToFile(graphFilename)
-	})
-
-	if len(config.DebugNodeAddr) > 0 {
-		_debugNodeId, err := gra.ParseDeviceId(config.DebugNodeAddr)
-		if err != nil {
-			logger.WithField("err", err).Fatal("Invalid debug node id")
-		}
-		debugNodeId, err = network.GetNodeDevice(int64(_debugNodeId))
-		if err != nil {
-			logger.WithField("id", _debugNodeId).Fatal("Debug node not found in graph")
-		}
-		logger.WithFields(logger.Fields{"id": debugNodeId}).Info("Enabling debug of node")
-	}
-
+	// Init network graph
+	network := initNetwork(int64(serialPort.LocalNode))
+	gra.SetMainNetwork(network)
+	// Init node for spcific debug
+	initDebugNode(config, network)
 	logger.Log().Info("Coordinator node is " + utils.FmtNodeId(network.LocalDeviceId()))
 	gra.PrintTable(network)
-
 	// Handle DiscAssociateReply received from other nodes
-	serialPort.DiscAssociateFn = func(v *meshmesh.DiscAssociateApiReply) {
-		logger.WithFields(logger.Fields{"server": utils.FmtNodeId(int64(v.Server)), "source": utils.FmtNodeId(int64(v.Source))}).Debug("DiscAssociateReply received")
-		source, err := network.GetNodeDevice(int64(v.Source))
-		if err != nil {
-			source = gra.NewNodeDevice(int64(v.Source), true, "")
-			network.AddNode(source)
-		}
-		for i := range 3 {
-			if v.NodeId[i] > 0 {
-				node, err := network.GetNodeDevice(int64(v.NodeId[i]))
-				if err != nil {
-					network.ChangeEdgeWeight(node.ID(), source.ID(), meshmesh.Rssi2weight(v.Rssi[i]), meshmesh.Rssi2weight(v.Rssi[i]))
-					logger.WithFields(logger.Fields{"id": utils.FmtNodeId(int64(v.NodeId[i])), "rssi": v.Rssi[i]}).Debug("DiscAssociateReply received")
-				}
-			}
-		}
-		network.SaveToFile(graphFilename)
-		serialPort.SendReceiveApiProt(meshmesh.NodeIdApiRequest{}, meshmesh.UnicastProtocol, meshmesh.MeshNodeId(source.ID()), nil)
-		// ***** TODO: Update network graph with new node
-	}
-
+	serialPort.DiscAssociateFn = handleDiscAssociateReply
 	// Initialize Esphome to HomeAssistant Server
-	esphomeapi := meshmesh.NewMultiServerApi(serialPort, network)
+	esphomeapi := meshmesh.NewMultiServerApi(serialPort)
 	// Start RPC Server
 	rpcServer := rpc.NewRpcServer(":50051")
-	rpcServer.Start(fmt.Sprintf("%s - %s", programName, programDescription), fmt.Sprintf("%s - %s", vcsHash[:8], vcsTime.Format(time.RFC3339)), serialPort, network)
+	rpcServer.Start(fmt.Sprintf("%s - %s", programName, programDescription), fmt.Sprintf("%s - %s", vcsHash[:8], vcsTime.Format(time.RFC3339)), serialPort)
 	defer rpcServer.Stop()
-
 	// Start rest server
 	restHandler := rest.NewHandler(serialPort, network, esphomeapi)
 	rest.StartRestServer(rest.NewRouter(restHandler))

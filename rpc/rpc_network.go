@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Server) NetworkNodes(_ context.Context, req *meshmesh.NetworkNodesRequest) (*meshmesh.NetworkNodesReply, error) {
-	nodes := s.network.Nodes()
+	nodes := graph.GetMainNetwork().Nodes()
 	device := make([]*meshmesh.NetworkNode, nodes.Len())
 	i := 0
 	for nodes.Next() {
@@ -26,7 +26,7 @@ func (s *Server) NetworkNodes(_ context.Context, req *meshmesh.NetworkNodesReque
 }
 
 func (s *Server) NetworkEdges(_ context.Context, req *meshmesh.NetworkEdgesRequest) (*meshmesh.NetworkEdgesReply, error) {
-	edges := s.network.WeightedEdges()
+	edges := graph.GetMainNetwork().WeightedEdges()
 	_edges := make([]*meshmesh.NetworkEdge, edges.Len())
 	i := 0
 	for edges.Next() {
@@ -42,24 +42,26 @@ func (s *Server) NetworkEdges(_ context.Context, req *meshmesh.NetworkEdgesReque
 }
 
 func (s *Server) NetworkNodeConfigure(_ context.Context, req *meshmesh.NetworkNodeConfigureRequest) (*meshmesh.NetworkNodeConfigureReply, error) {
-	node := s.network.Node(int64(req.Id))
+	network := graph.GetMainNetwork()
+	node := network.Node(int64(req.Id))
 	if node == nil {
 		return nil, status.Errorf(codes.NotFound, "Node not found")
 	}
 	dev := node.(graph.NodeDevice)
 	dev.Device().SetTag(req.Tag)
 	dev.Device().SetInUse(req.Inuse)
-	s.network.NotifyNetworkChanged()
+	graph.NotifyMainNetworkChanged()
 	return &meshmesh.NetworkNodeConfigureReply{Success: true}, nil
 }
 
 func (s *Server) NetworkNodeDelete(_ context.Context, req *meshmesh.NetworkNodeDeleteRequest) (*meshmesh.NetworkNodeDeleteReply, error) {
-	node := s.network.Node(int64(req.Id))
+	network := graph.GetMainNetwork()
+	node := network.Node(int64(req.Id))
 	if node == nil {
 		return nil, status.Errorf(codes.NotFound, "Node not found")
 	}
 
-	s.network.RemoveNode(int64(req.Id))
-	s.network.NotifyNetworkChanged()
+	network.RemoveNode(int64(req.Id))
+	graph.NotifyMainNetworkChanged()
 	return &meshmesh.NetworkNodeDeleteReply{Success: true}, nil
 }

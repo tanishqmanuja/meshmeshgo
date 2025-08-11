@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"leguru.net/m/v2/graph"
 	"leguru.net/m/v2/logger"
 	"leguru.net/m/v2/utils"
 )
@@ -46,7 +47,8 @@ func (h Handler) getEsphomeConnections(c *gin.Context) {
 	jsonClients := make([]EsphomeClient, 0)
 	for nodeId, connection := range stats.Connections {
 
-		dev, err := h.network.GetNodeDevice(int64(nodeId))
+		network := graph.GetMainNetwork()
+		dev, err := network.GetNodeDevice(int64(nodeId))
 		if err != nil {
 			logger.WithField("id", nodeId).Error("Node not found for esphome connection")
 			continue

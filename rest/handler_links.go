@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"leguru.net/m/v2/graph"
 )
 
 // @Id getLinks
@@ -33,7 +34,8 @@ func (h Handler) getLinks(c *gin.Context) {
 	filter_from := smartInteger(p.Filter["from"])
 	filter_any := smartInteger(p.Filter["any"])
 
-	links := h.network.WeightedEdges()
+	network := graph.GetMainNetwork()
+	links := network.WeightedEdges()
 	jsonLinks := make([]MeshLink, 0, links.Len())
 	for links.Next() {
 		edge := links.WeightedEdge()
@@ -110,7 +112,8 @@ func (h Handler) getOneLink(c *gin.Context) {
 	fromID := uint(id) & 0x00FFFFFF
 	toID := uint(id) >> 24
 
-	edge := h.network.WeightedEdge(int64(fromID), int64(toID))
+	network := graph.GetMainNetwork()
+	edge := network.WeightedEdge(int64(fromID), int64(toID))
 	if edge == nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Link not found"})
 		return
@@ -170,14 +173,15 @@ func (h Handler) updateLink(c *gin.Context) {
 	fromID := uint(id) & 0x00FFFFFF
 	toID := uint(id) >> 24
 
-	edge := h.network.WeightedEdge(int64(fromID), int64(toID))
+	network := graph.GetMainNetwork()
+	edge := network.WeightedEdge(int64(fromID), int64(toID))
 	if edge == nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Link not found"})
 		return
 	}
 
-	h.network.ChangeEdgeWeight(int64(fromID), int64(toID), float64(req.Weight), float64(req.Weight))
-	h.network.NotifyNetworkChanged()
+	network.ChangeEdgeWeight(int64(fromID), int64(toID), float64(req.Weight), float64(req.Weight))
+	graph.NotifyMainNetworkChanged()
 
 	jsonLink := MeshLink{
 		ID:     uint(fromID) + uint(toID)<<24,
@@ -209,8 +213,9 @@ func (h Handler) deleteLink(c *gin.Context) {
 	fromID := uint(id) & 0x00FFFFFF
 	toID := uint(id) >> 24
 
-	h.network.RemoveEdge(int64(fromID), int64(toID))
-	h.network.NotifyNetworkChanged()
+	network := graph.GetMainNetwork()
+	network.RemoveEdge(int64(fromID), int64(toID))
+	graph.NotifyMainNetworkChanged()
 
 	jsonLink := MeshLink{
 		ID:     uint(fromID) + uint(toID)<<24,

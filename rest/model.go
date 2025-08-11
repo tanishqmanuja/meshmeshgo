@@ -67,6 +67,10 @@ type MeshLink struct {
 	Weight float32 `json:"weight"`
 }
 
+type CtrlDiscoveryRequest struct {
+	Mode string `json:"mode"`
+}
+
 type MeshNeighbor struct {
 	ID      uint    `json:"id"`
 	Address string  `json:"address"`

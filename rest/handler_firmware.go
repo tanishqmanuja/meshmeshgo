@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"leguru.net/m/v2/graph"
 )
 
 // @Id getFirmware
@@ -24,7 +25,8 @@ func (h Handler) getFirmware(c *gin.Context) {
 		return
 	}
 
-	dev, err := h.network.GetNodeDevice(int64(id))
+	network := graph.GetMainNetwork()
+	dev, err := network.GetNodeDevice(int64(id))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Node not found: " + err.Error()})
 		return
@@ -65,7 +67,8 @@ func (h Handler) updateFirmware(c *gin.Context) {
 		return
 	}
 
-	dev, err := h.network.GetNodeDevice(int64(id))
+	network := graph.GetMainNetwork()
+	dev, err := network.GetNodeDevice(int64(id))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Node not found: " + err.Error()})
 		return

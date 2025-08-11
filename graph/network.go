@@ -3,6 +3,7 @@ package graph
 import (
 	"fmt"
 	"math"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 	"gonum.org/v1/gonum/graph/path"
@@ -58,16 +59,45 @@ func (n NodeDevice) Device() *Device {
 	return n.device
 }
 
+func (n NodeDevice) CopyDevice() NodeDevice {
+	return NodeDevice{id: n.id, device: n.device}
+}
+
 func NewNodeDevice(id int64, inuse bool, tag string) NodeDevice {
 	return NodeDevice{id: id, device: NewDevice(inuse, tag)}
 }
 
 // Network: is a weighted directed graph of NodeDevices
+var mainNetwork *Network
+var mainNetworkChancgedCallbacks []func()
+var mainNetworkLock sync.Mutex
+
+func GetMainNetwork() *Network {
+	mainNetworkLock.Lock()
+	defer mainNetworkLock.Unlock()
+	return mainNetwork
+}
+
+func SetMainNetwork(network *Network) {
+	mainNetworkLock.Lock()
+	mainNetwork = network
+	mainNetworkLock.Unlock()
+	NotifyMainNetworkChanged()
+}
+
+func AddMainNetworkChangedCallback(cb func()) {
+	mainNetworkChancgedCallbacks = append(mainNetworkChancgedCallbacks, cb)
+}
+
+func NotifyMainNetworkChanged() {
+	for _, cb := range mainNetworkChancgedCallbacks {
+		cb()
+	}
+}
 
 type Network struct {
 	simple.WeightedDirectedGraph
-	localDeviceId    int64
-	networkChangedCb func()
+	localDeviceId int64
 }
 
 func (g *Network) LocalDeviceId() int64 {
@@ -153,14 +183,24 @@ func (g *Network) SaveToFile(filename string) error {
 	return g.writeGraph(filename)
 }
 
-func (g *Network) SetNetworkChangedCb(cb func()) {
-	g.networkChangedCb = cb
-}
+func (g *Network) CopyNetwork() *Network {
+	network := Network{}
+	network.WeightedDirectedGraph = *simple.NewWeightedDirectedGraph(0, math.Inf(1))
+	network.localDeviceId = g.localDeviceId
 
-func (g *Network) NotifyNetworkChanged() {
-	if g.networkChangedCb != nil {
-		g.networkChangedCb()
+	nodes := g.Nodes()
+	for nodes.Next() {
+		dev := nodes.Node().(NodeDevice)
+		network.AddNode(dev.CopyDevice())
 	}
+
+	edges := g.Edges()
+	for edges.Next() {
+		edge := edges.Edge().(simple.WeightedEdge)
+		network.SetWeightedEdge(g.NewWeightedEdge(edge.From(), edge.To(), edge.Weight()))
+	}
+
+	return &network
 }
 
 func NewNetwork(localDeviceId int64) *Network {
