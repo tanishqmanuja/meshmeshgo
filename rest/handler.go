@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"leguru.net/m/v2/graph"
 	mm "leguru.net/m/v2/meshmesh"
 )
 
@@ -38,10 +37,10 @@ func routeFrontend(c *gin.Context) {
 	c.Writer.Header().Set("Location", "/manager")
 }
 
-func NewHandler(serialConn *mm.SerialConnection, esphomeServers *mm.MultiServerApi) Handler {
-	return Handler{
+func NewHandler(serialConn *mm.SerialConnection, esphomeServers *mm.MultiServerApi) *Handler {
+	return &Handler{
 		serialConn:              serialConn,
-		discoveryProcedure:      mm.NewDiscoveryProcedure(serialConn, nil, graph.GetMainNetwork().LocalDeviceId()),
+		discoveryProcedure:      nil,
 		firmwareUploadProcedure: nil,
 		esphomeServers:          esphomeServers,
 	}

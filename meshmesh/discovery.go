@@ -141,12 +141,13 @@ func _findNextNode(g *gra.Network) gra.NodeDevice {
 	return found_node
 }
 
-func (d *DiscoveryProcedure) Init(forever bool) error {
+func (d *DiscoveryProcedure) InitStep() error {
 	d.state = DiscoveryProcedureStateRun
 
 	if d.network == nil {
 		d.network = gra.NewNetwork(int64(d.serial.LocalNode))
 	}
+
 	if d.currentDeviceId != 0 {
 		if d.repeat < maxRepetitions {
 			// Repeat same node
@@ -155,17 +156,16 @@ func (d *DiscoveryProcedure) Init(forever bool) error {
 			d.currentDeviceId = 0
 		}
 	}
+
 	if d.currentDeviceId == 0 {
 		d.currentDeviceId = _findNextNode(d.network).ID()
 	}
-	if d.currentDeviceId == 0 && forever {
-		d.Clear()
-		d.currentDeviceId = _findNextNode(d.network).ID()
-	}
+
 	if d.currentDeviceId == 0 {
 		d.state = DiscoveryProcedureStateDone
 		return errors.New("no nodes to discover")
 	}
+
 	d.Neighbors = make(map[int64]discWeights)
 
 	node, err := d.network.GetNodeDevice(d.currentDeviceId)
@@ -248,17 +248,13 @@ func (d *DiscoveryProcedure) Save() error {
 	d.repeat++
 	node.Device().SetDiscovered(true)
 	neighborsToGraph(d.network, d.currentDeviceId, d.Neighbors)
-	gra.SetMainNetwork(d.network)
-	gra.NotifyMainNetworkChanged()
 	return nil
 }
 
 func (d *DiscoveryProcedure) Run() {
-	first := true
+	d.Clear()
 	for d.state != DiscoveryProcedureStateDone && d.state != DiscoveryProcedureStateError {
-		d.Init(first)
-		first = false
-
+		d.InitStep()
 		if d.state == DiscoveryProcedureStateRun {
 			err := d.Step()
 			if err != nil {
@@ -269,6 +265,9 @@ func (d *DiscoveryProcedure) Run() {
 			}
 		}
 	}
+
+	gra.SetMainNetwork(d.network)
+	gra.NotifyMainNetworkChanged()
 }
 
 func NewDiscoveryProcedure(serial *SerialConnection, network *gra.Network, nodeid int64) *DiscoveryProcedure {

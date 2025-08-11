@@ -20,7 +20,7 @@ import (
 // @Success 200 {array} MeshLink
 // @Failure 400 {string} string
 // @Router /api/links [get]
-func (h Handler) getLinks(c *gin.Context) {
+func (h *Handler) getLinks(c *gin.Context) {
 	var req GetListRequest
 	err := c.ShouldBindQuery(&req)
 	if err != nil {
@@ -101,7 +101,7 @@ func (h Handler) getLinks(c *gin.Context) {
 // @Success 200 {object} MeshLink
 // @Failure 400 {string} string
 // @Router /api/links/{id} [get]
-func (h Handler) getOneLink(c *gin.Context) {
+func (h *Handler) getOneLink(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
@@ -138,7 +138,7 @@ func (h Handler) getOneLink(c *gin.Context) {
 // @Success 200 {object} MeshLink
 // @Failure 400 {object} string
 // @Router /api/links [post]
-func (h Handler) createLink(c *gin.Context) {
+func (h *Handler) createLink(c *gin.Context) {
 	_ = c.AbortWithError(http.StatusBadRequest, errors.New("not implemented"))
 }
 
@@ -152,7 +152,7 @@ func (h Handler) createLink(c *gin.Context) {
 // @Success 200 {object} MeshLink
 // @Failure 400 {object} string
 // @Router /api/links/{id} [put]
-func (h Handler) updateLink(c *gin.Context) {
+func (h *Handler) updateLink(c *gin.Context) {
 	idStr := c.Param("id")
 	fmt.Println(c.Param("data"))
 	fmt.Println(c.Param("previousData"))
@@ -202,7 +202,7 @@ func (h Handler) updateLink(c *gin.Context) {
 // @Success 200 {object} MeshLink
 // @Failure 400 {string} string
 // @Router /api/links/{id} [delete]
-func (h Handler) deleteLink(c *gin.Context) {
+func (h *Handler) deleteLink(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {

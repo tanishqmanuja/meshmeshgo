@@ -13,7 +13,7 @@ import (
 	"leguru.net/m/v2/utils"
 )
 
-func (h Handler) nodeInfoGetCmd(m *MeshNode) error {
+func (h *Handler) nodeInfoGetCmd(m *MeshNode) error {
 	network := graph.GetMainNetwork()
 	protocol := meshmesh.FindBestProtocol(meshmesh.MeshNodeId(m.ID), network)
 	rep, err := h.serialConn.SendReceiveApiProt(meshmesh.FirmRevApiRequest{}, protocol, meshmesh.MeshNodeId(m.ID), network)
@@ -39,7 +39,7 @@ func (h Handler) nodeInfoGetCmd(m *MeshNode) error {
 	return nil
 }
 
-func (h Handler) fillNodeStruct(dev graph.NodeDevice, withInfo bool, network *graph.Network) MeshNode {
+func (h *Handler) fillNodeStruct(dev graph.NodeDevice, withInfo bool, network *graph.Network) MeshNode {
 	jsonNode := MeshNode{
 		ID:    uint(dev.ID()),
 		Tag:   string(dev.Device().Tag()),
@@ -66,7 +66,7 @@ func (h Handler) fillNodeStruct(dev graph.NodeDevice, withInfo bool, network *gr
 // @Success 200 {array} MeshNode
 // @Failure 400 {object} string
 // @Router /api/nodes [get]
-func (h Handler) getNodes(c *gin.Context) {
+func (h *Handler) getNodes(c *gin.Context) {
 	var req GetListRequest
 	err := c.ShouldBindQuery(&req)
 	if err != nil {
@@ -133,7 +133,7 @@ func (h Handler) getNodes(c *gin.Context) {
 // @Success 200 {object} MeshNode
 // @Failure 400 {object} string
 // @Router /api/nodes [post]
-func (h Handler) createNode(c *gin.Context) {
+func (h *Handler) createNode(c *gin.Context) {
 	req := CreateNodeRequest{}
 	err := c.ShouldBindJSON(&req)
 	if err != nil {
@@ -168,7 +168,7 @@ func (h Handler) createNode(c *gin.Context) {
 // @Success 200   {object} MeshNode
 // @Failure 400   {string} string
 // @Router  /api/nodes/{id} [get]
-func (h Handler) getOneNode(c *gin.Context) {
+func (h *Handler) getOneNode(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
@@ -197,7 +197,7 @@ func (h Handler) getOneNode(c *gin.Context) {
 // @Success 200 {object} MeshNode
 // @Failure 400 {object} string
 // @Router /api/nodes/{id} [put]
-func (h Handler) updateNode(c *gin.Context) {
+func (h *Handler) updateNode(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
@@ -259,7 +259,7 @@ func (h Handler) updateNode(c *gin.Context) {
 // @Success 200 {object} MeshNode
 // @Failure 400 {object} string
 // @Router /api/nodes/{id} [delete]
-func (h Handler) deleteNode(c *gin.Context) {
+func (h *Handler) deleteNode(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {

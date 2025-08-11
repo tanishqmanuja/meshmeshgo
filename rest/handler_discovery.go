@@ -5,7 +5,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"leguru.net/m/v2/meshmesh"
+	"leguru.net/m/v2/graph"
+
+	mm "leguru.net/m/v2/meshmesh"
 )
 
 // @Id getDiscoveryProcedureState
@@ -16,17 +18,27 @@ import (
 // @Success 200 {object} MeshDiscoveryState
 // @Failure 400 {object} string
 // @Router /api/discovery/state [get]
-func (h Handler) getDiscoveryProcedureState(c *gin.Context) {
-	discoveryState := MeshDiscoveryState{
-		ID:        0,
-		Status:    h.discoveryProcedure.StateString(),
-		CurrentId: h.discoveryProcedure.CurrentDeviceId(),
-		Repeat:    h.discoveryProcedure.CurrentRepeat(),
+func (h *Handler) getDiscoveryProcedureState(c *gin.Context) {
+	if h.discoveryProcedure == nil {
+		discoveryState := MeshDiscoveryState{
+			ID:        0,
+			Status:    "idle",
+			CurrentId: 0,
+			Repeat:    0,
+		}
+		c.JSON(http.StatusOK, discoveryState)
+	} else {
+		discoveryState := MeshDiscoveryState{
+			ID:        0,
+			Status:    h.discoveryProcedure.StateString(),
+			CurrentId: h.discoveryProcedure.CurrentDeviceId(),
+			Repeat:    h.discoveryProcedure.CurrentRepeat(),
+		}
+		c.JSON(http.StatusOK, discoveryState)
 	}
-	c.JSON(http.StatusOK, discoveryState)
 }
 
-func (h Handler) ctrlDiscoveryProcedure(c *gin.Context) {
+func (h *Handler) ctrlDiscoveryProcedure(c *gin.Context) {
 	req := CtrlDiscoveryRequest{}
 	err := c.ShouldBindJSON(&req)
 	if err != nil {
@@ -34,12 +46,20 @@ func (h Handler) ctrlDiscoveryProcedure(c *gin.Context) {
 		return
 	}
 
-	if h.discoveryProcedure.State() == meshmesh.DiscoveryProcedureStateDone || h.discoveryProcedure.State() == meshmesh.DiscoveryProcedureStateError {
-		h.discoveryProcedure.Clear()
+	var network *graph.Network = nil
+	if req.Mode == "refresh" {
+		network = graph.GetMainNetwork().CopyNetwork()
 	}
 
-	if h.discoveryProcedure.State() != meshmesh.DiscoveryProcedureStateRun {
-		
+	if h.discoveryProcedure == nil {
+		h.discoveryProcedure = mm.NewDiscoveryProcedure(h.serialConn, network, graph.GetMainNetwork().LocalDeviceId())
+	} else {
+		if h.discoveryProcedure.State() == mm.DiscoveryProcedureStateDone || h.discoveryProcedure.State() == mm.DiscoveryProcedureStateError {
+			h.discoveryProcedure = mm.NewDiscoveryProcedure(h.serialConn, network, graph.GetMainNetwork().LocalDeviceId())
+		}
+	}
+
+	if h.discoveryProcedure.State() != mm.DiscoveryProcedureStateRun {
 		go h.discoveryProcedure.Run()
 	}
 
@@ -54,9 +74,8 @@ func (h Handler) ctrlDiscoveryProcedure(c *gin.Context) {
 // @Success 200 {array} MeshNeighbor
 // @Failure 400 {object} string
 // @Router /api/discovery/neighbors [get]
-func (h Handler) getNeighbors(c *gin.Context) {
-
-	if h.discoveryProcedure.Neighbors == nil {
+func (h *Handler) getNeighbors(c *gin.Context) {
+	if h.discoveryProcedure == nil || h.discoveryProcedure.Neighbors == nil {
 		c.Header("Content-Range", "0-0/0")
 		c.JSON(http.StatusOK, []MeshNeighbor{})
 		return

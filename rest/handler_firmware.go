@@ -17,7 +17,7 @@ import (
 // @Success 200 {object} MeshFirmware
 // @Failure 400 {object} string
 // @Router /api/firmware/{id} [get]
-func (h Handler) getFirmware(c *gin.Context) {
+func (h *Handler) getFirmware(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
@@ -52,7 +52,7 @@ func (h Handler) getFirmware(c *gin.Context) {
 // @Success 200 {object} MeshFirmware
 // @Failure 400 {object} string
 // @Router /api/firmware/{id} [put]
-func (h Handler) updateFirmware(c *gin.Context) {
+func (h *Handler) updateFirmware(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {

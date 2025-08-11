@@ -18,10 +18,10 @@ type Router interface {
 }
 
 type router struct {
-	handler Handler
+	handler *Handler
 }
 
-func NewRouter(handler Handler) Router {
+func NewRouter(handler *Handler) Router {
 	return &router{handler: handler}
 }
 

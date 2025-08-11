@@ -18,7 +18,7 @@ import (
 // @Success 200 {array} EsphomeServer
 // @Failure 400 {object} string
 // @Router /api/esphome/servers [get]
-func (h Handler) getEsphomeServers(c *gin.Context) {
+func (h *Handler) getEsphomeServers(c *gin.Context) {
 	jsonServers := make([]EsphomeServer, 0)
 	for _, server := range h.esphomeServers.Servers {
 		jsonServers = append(jsonServers, EsphomeServer{
@@ -39,7 +39,7 @@ func (h Handler) getEsphomeServers(c *gin.Context) {
 // @Success 200 {array} EsphomeClient
 // @Failure 400 {object} string
 // @Router /api/esphome/connections [get]
-func (h Handler) getEsphomeConnections(c *gin.Context) {
+func (h *Handler) getEsphomeConnections(c *gin.Context) {
 	index := uint(1)
 
 	stats := h.esphomeServers.Stats()
