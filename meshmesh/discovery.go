@@ -87,9 +87,8 @@ func neighborsFromGraph(g *gra.Network, n gra.NodeDevice, w map[int64]discWeight
 		if !ok {
 			weightFrom = weightTo
 			logger.WithFields(logger.Fields{"from": gra.FmtDeviceId(n), "to": gra.FmtDeviceId(neighbor), "weightTo": weightTo, "weightFrom": weightFrom}).Warn("Missing return edge")
-			//return errors.New("corrupted graph")
 		}
-		w[neighbor.ID()] = discWeights{Current: math.Min(weightTo, weightFrom), Next: 1.0}
+		w[neighbor.ID()] = discWeights{Next: math.Min(weightTo, weightFrom), Current: 1.0}
 	}
 	return nil
 }

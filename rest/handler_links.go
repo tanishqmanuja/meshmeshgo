@@ -9,7 +9,28 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"leguru.net/m/v2/graph"
+
+	gr "gonum.org/v1/gonum/graph"
 )
+
+func parseFromToId(id uint) (from, to uint) {
+	from = uint(id) & 0x00FFFFFF
+	to = uint(id) >> 24
+	return from, to
+}
+
+func fillLinkStruct(edge gr.WeightedEdge) MeshLink {
+	from := edge.From().(graph.NodeDevice)
+	to := edge.To().(graph.NodeDevice)
+
+	return MeshLink{
+		ID:          uint(from.ID()) + uint(to.ID())<<24,
+		From:        uint(from.ID()),
+		To:          uint(to.ID()),
+		Weight:      float32(edge.Weight()),
+		Description: fmt.Sprintf("from: %s to: %s", from.Device().Tag(), to.Device().Tag()),
+	}
+}
 
 // @Id getLinks
 // @Summary Get links
@@ -46,46 +67,12 @@ func (h *Handler) getLinks(c *gin.Context) {
 			continue
 		}
 
-		jsonLinks = append(jsonLinks, MeshLink{
-			ID:     uint(fromID) + uint(toID)<<24,
-			From:   uint(fromID),
-			To:     uint(toID),
-			Weight: float32(edge.Weight()),
-		})
+		jsonLinks = append(jsonLinks, fillLinkStruct(edge))
 	}
 
+	// Sort array base on request fields
 	sort.Slice(jsonLinks, func(i, j int) bool {
-		switch p.SortType {
-		case sortTypeAsc:
-			switch p.SortBy {
-			case sortFieldTypeID:
-				return jsonLinks[i].ID < jsonLinks[j].ID
-			case sortFieldTypeHExId:
-				return jsonLinks[i].ID < jsonLinks[j].ID
-			case sortFieldTypeFrom:
-				return jsonLinks[i].From < jsonLinks[j].From
-			case sortFieldTypeTo:
-				return jsonLinks[i].To < jsonLinks[j].To
-			case sortFieldTypeWeight:
-				return jsonLinks[i].Weight < jsonLinks[j].Weight
-			}
-			return jsonLinks[i].ID < jsonLinks[j].ID
-		case sortTypeDesc:
-			switch p.SortBy {
-			case sortFieldTypeID:
-				return jsonLinks[i].ID > jsonLinks[j].ID
-			case sortFieldTypeHExId:
-				return jsonLinks[i].ID > jsonLinks[j].ID
-			case sortFieldTypeFrom:
-				return jsonLinks[i].From > jsonLinks[j].From
-			case sortFieldTypeTo:
-				return jsonLinks[i].To > jsonLinks[j].To
-			case sortFieldTypeWeight:
-				return jsonLinks[i].Weight > jsonLinks[j].Weight
-			}
-			return jsonLinks[i].ID > jsonLinks[j].ID
-		}
-		return false
+		return jsonLinks[i].Sort(jsonLinks[j], p.SortType, p.SortBy)
 	})
 
 	c.Header("Content-Range", fmt.Sprintf("%d-%d/%d", 0, len(jsonLinks), len(jsonLinks)))
@@ -102,16 +89,14 @@ func (h *Handler) getLinks(c *gin.Context) {
 // @Failure 400 {string} string
 // @Router /api/links/{id} [get]
 func (h *Handler) getOneLink(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
+	fromToIdStr := c.Param("id")
+	fromToId, err := strconv.ParseUint(fromToIdStr, 10, 64)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
-	fromID := uint(id) & 0x00FFFFFF
-	toID := uint(id) >> 24
-
+	fromID, toID := parseFromToId(uint(fromToId))
 	network := graph.GetMainNetwork()
 	edge := network.WeightedEdge(int64(fromID), int64(toID))
 	if edge == nil {
@@ -119,13 +104,7 @@ func (h *Handler) getOneLink(c *gin.Context) {
 		return
 	}
 
-	jsonLink := MeshLink{
-		ID:     uint(fromID) + uint(toID)<<24,
-		From:   uint(fromID),
-		To:     uint(toID),
-		Weight: float32(edge.Weight()),
-	}
-
+	jsonLink := fillLinkStruct(edge)
 	c.JSON(http.StatusOK, jsonLink)
 }
 
@@ -153,11 +132,8 @@ func (h *Handler) createLink(c *gin.Context) {
 // @Failure 400 {object} string
 // @Router /api/links/{id} [put]
 func (h *Handler) updateLink(c *gin.Context) {
-	idStr := c.Param("id")
-	fmt.Println(c.Param("data"))
-	fmt.Println(c.Param("previousData"))
-
-	id, err := strconv.ParseUint(idStr, 10, 64)
+	fromToIdStr := c.Param("id")
+	fromToId, err := strconv.ParseUint(fromToIdStr, 10, 64)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
@@ -170,9 +146,7 @@ func (h *Handler) updateLink(c *gin.Context) {
 		return
 	}
 
-	fromID := uint(id) & 0x00FFFFFF
-	toID := uint(id) >> 24
-
+	fromID, toID := parseFromToId(uint(fromToId))
 	network := graph.GetMainNetwork()
 	edge := network.WeightedEdge(int64(fromID), int64(toID))
 	if edge == nil {
@@ -183,13 +157,7 @@ func (h *Handler) updateLink(c *gin.Context) {
 	network.ChangeEdgeWeight(int64(fromID), int64(toID), float64(req.Weight), float64(req.Weight))
 	graph.NotifyMainNetworkChanged()
 
-	jsonLink := MeshLink{
-		ID:     uint(fromID) + uint(toID)<<24,
-		From:   uint(fromID),
-		To:     uint(toID),
-		Weight: float32(req.Weight),
-	}
-
+	jsonLink := fillLinkStruct(edge)
 	c.JSON(http.StatusOK, jsonLink)
 }
 
@@ -203,26 +171,24 @@ func (h *Handler) updateLink(c *gin.Context) {
 // @Failure 400 {string} string
 // @Router /api/links/{id} [delete]
 func (h *Handler) deleteLink(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
+	fromToIdStr := c.Param("id")
+	fromToId, err := strconv.ParseUint(fromToIdStr, 10, 64)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
-	fromID := uint(id) & 0x00FFFFFF
-	toID := uint(id) >> 24
-
+	fromID, toID := parseFromToId(uint(fromToId))
 	network := graph.GetMainNetwork()
+	edge := network.WeightedEdge(int64(fromID), int64(toID))
+	if edge == nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Link not found"})
+		return
+	}
+
 	network.RemoveEdge(int64(fromID), int64(toID))
 	graph.NotifyMainNetworkChanged()
 
-	jsonLink := MeshLink{
-		ID:     uint(fromID) + uint(toID)<<24,
-		From:   uint(fromID),
-		To:     uint(toID),
-		Weight: 0,
-	}
-
+	jsonLink := fillLinkStruct(edge)
 	c.JSON(http.StatusOK, jsonLink)
 }

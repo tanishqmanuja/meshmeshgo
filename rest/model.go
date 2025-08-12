@@ -18,6 +18,7 @@ const (
 	sortFieldTypeFrom
 	sortFieldTypeTo
 	sortFieldTypeWeight
+	sortFieldTypeDescription
 )
 
 type GetListRequest struct {
@@ -61,10 +62,49 @@ type UpdateLinkRequest struct {
 }
 
 type MeshLink struct {
-	ID     uint    `json:"id"`
-	From   uint    `json:"from"`
-	To     uint    `json:"to"`
-	Weight float32 `json:"weight"`
+	ID          uint    `json:"id"`
+	From        uint    `json:"from"`
+	To          uint    `json:"to"`
+	Weight      float32 `json:"weight"`
+	Description string  `json:"description"`
+}
+
+func (l MeshLink) Sort(other MeshLink, sortType SortType, sortBy SortFieldType) bool {
+	switch sortType {
+	case sortTypeAsc:
+		switch sortBy {
+		case sortFieldTypeID:
+			return l.ID < other.ID
+		case sortFieldTypeHExId:
+			return l.ID < other.ID
+		case sortFieldTypeFrom:
+			return l.From < other.From
+		case sortFieldTypeTo:
+			return l.To < other.To
+		case sortFieldTypeWeight:
+			return l.Weight < other.Weight
+		case sortFieldTypeDescription:
+			return l.Description < other.Description
+		}
+		return l.ID < other.ID
+	case sortTypeDesc:
+		switch sortBy {
+		case sortFieldTypeID:
+			return l.ID > other.ID
+		case sortFieldTypeHExId:
+			return l.ID > other.ID
+		case sortFieldTypeFrom:
+			return l.From > other.From
+		case sortFieldTypeTo:
+			return l.To > other.To
+		case sortFieldTypeWeight:
+			return l.Weight > other.Weight
+		case sortFieldTypeDescription:
+			return l.Description > other.Description
+		}
+		return l.ID > other.ID
+	}
+	return false
 }
 
 type CtrlDiscoveryRequest struct {

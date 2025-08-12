@@ -18,7 +18,7 @@ export const Discovery = () => {
         const refreshDiscoveryHandler = () => {
             create();
         };
-        return <Button variant="contained" color="primary" disabled={isPending} label="Refresh discovery" onClick={refreshDiscoveryHandler} />
+        return <Button variant="contained" color="primary" disabled={isPending || discovery?.status === 'running'} label="Refresh discovery" onClick={refreshDiscoveryHandler} />
     };
 
     return (
