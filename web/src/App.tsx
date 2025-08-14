@@ -13,8 +13,6 @@ import { MeshNodeEdit } from "./network/MeshNodeEdit";
 import { MeshNodeCreate } from "./network/MeshNodeCreate";
 import { MeshLinkCreate } from "./network/MeshLinkCreate";
 import { Discovery } from "./discovery/discovery";
-import { FirmwareShow } from "./firmware/FirmwareShow";
-import { FirmwareEdit } from "./firmware/FirmwareEdit";
 import { EspHomeServerList } from "./esphome/EspHomeServerList";
 import { EsphomeClientsList } from "./esphome/EsphomeClientsList";
 
@@ -24,7 +22,6 @@ export const App = () => (
         <Resource name="links" list={MeshLinksList} edit={MeshLinkEdit} create={MeshLinkCreate} icon={LinkIcon} />
         <Resource name="esphomeServers" list={EspHomeServerList} options={{ label: "EspHome Servers" }} />
         <Resource name="esphomeConnections" list={EsphomeClientsList} options={{ label: "EspHome Clients" }} />
-        <Resource name="firmware" edit={FirmwareEdit} show={FirmwareShow} icon={HubIcon} />
         <Resource name="neighbors" />
         <CustomRoutes>
             <Route path="/discoverylive" element={<Discovery />} />

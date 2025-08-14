@@ -34,26 +34,34 @@ type CreateNodeRequest struct {
 }
 
 type UpdateNodeRequest struct {
-	Tag     string `json:"tag"`
-	InUse   bool   `json:"in_use"`
-	DevTag  string `json:"dev_tag"`
-	Channel int8   `json:"channel"`
-	TxPower int8   `json:"tx_power"`
-}
-
-type MeshNode struct {
-	ID       uint   `json:"id"`
 	Tag      string `json:"tag"`
 	InUse    bool   `json:"in_use"`
-	Path     string `json:"path"`
-	Revision string `json:"revision"`
-	Error    string `json:"error"`
+	Firmware string `json:"firmware"`
 	DevTag   string `json:"dev_tag"`
 	Channel  int8   `json:"channel"`
 	TxPower  int8   `json:"tx_power"`
-	Groups   int    `json:"groups"`
-	Binded   int    `json:"binded"`
-	Flags    int    `json:"flags"`
+}
+
+type MeshNodeFirmware struct {
+	Title string `json:"title"`
+	Src   string `json:"src"`
+}
+
+type MeshNode struct {
+	ID       uint               `json:"id"`
+	Tag      string             `json:"tag"`
+	InUse    bool               `json:"in_use"`
+	Firmware []MeshNodeFirmware `json:"firmware"`
+	Progress int                `json:"progress"`
+	Path     string             `json:"path"`
+	Revision string             `json:"revision"`
+	Error    string             `json:"error"`
+	DevTag   string             `json:"dev_tag"`
+	Channel  int8               `json:"channel"`
+	TxPower  int8               `json:"tx_power"`
+	Groups   int                `json:"groups"`
+	Binded   int                `json:"binded"`
+	Flags    int                `json:"flags"`
 }
 
 type UpdateLinkRequest struct {

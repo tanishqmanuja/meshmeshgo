@@ -1,10 +1,13 @@
 package rest
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"leguru.net/m/v2/graph"
+	"leguru.net/m/v2/meshmesh"
 	mm "leguru.net/m/v2/meshmesh"
 )
 
@@ -30,6 +33,17 @@ func smartInteger(v any) int64 {
 	}
 
 	return -1
+}
+
+func (h *Handler) uploadFirmware(nodeId int64, firmware []byte) error {
+	if h.firmwareUploadProcedure != nil && h.firmwareUploadProcedure.IsComplete() {
+		return errors.New("firmware upload procedure already running")
+	}
+
+	h.firmwareUploadProcedure = mm.NewFirmwareUploadProcedure(h.serialConn, graph.GetMainNetwork(), meshmesh.MeshNodeId(nodeId))
+	go h.firmwareUploadProcedure.Run(firmware)
+
+	return nil
 }
 
 func routeFrontend(c *gin.Context) {

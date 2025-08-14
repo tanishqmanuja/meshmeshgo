@@ -7,6 +7,8 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/vincent-petithory/dataurl"
+
 	"leguru.net/m/v2/graph"
 	"leguru.net/m/v2/logger"
 	"leguru.net/m/v2/meshmesh"
@@ -41,10 +43,11 @@ func (h *Handler) nodeInfoGetCmd(m *MeshNode) error {
 
 func (h *Handler) fillNodeStruct(dev graph.NodeDevice, withInfo bool, network *graph.Network) MeshNode {
 	jsonNode := MeshNode{
-		ID:    uint(dev.ID()),
-		Tag:   string(dev.Device().Tag()),
-		InUse: dev.Device().InUse(),
-		Path:  graph.FmtNodePath(network, dev),
+		ID:       uint(dev.ID()),
+		Tag:      string(dev.Device().Tag()),
+		InUse:    dev.Device().InUse(),
+		Path:     graph.FmtNodePath(network, dev),
+		Firmware: []MeshNodeFirmware{},
 	}
 
 	if withInfo {
@@ -222,6 +225,23 @@ func (h *Handler) updateNode(c *gin.Context) {
 	dev.Device().SetTag(req.Tag)
 	dev.Device().SetInUse(req.InUse)
 	graph.NotifyMainNetworkChanged()
+
+	if req.Firmware != "" {
+		firmware, err := dataurl.DecodeString(req.Firmware)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid firmware: " + err.Error()})
+			return
+		}
+
+		if len(firmware.Data) > 0 {
+			logger.Log().WithField("firmware", firmware.MediaType).Info("Firmware")
+			err = h.uploadFirmware(int64(dev.ID()), firmware.Data)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"message": "Failed to upload firmware: " + err.Error()})
+				return
+			}
+		}
+	}
 
 	jsonNode := h.fillNodeStruct(dev, true, network)
 	errors := []error{}

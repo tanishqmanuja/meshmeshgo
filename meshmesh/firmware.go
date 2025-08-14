@@ -60,6 +60,16 @@ func (f *FirmwareUploadProcedure) checkMd5(data []byte, memoryAddress uint32, le
 	return equal, erased, nil
 }
 
+func (f *FirmwareUploadProcedure) InitFromBytes(firmware []byte) error {
+	f.firmware = firmware
+	f.firmwareIndex = 0
+	f.memoryAddress = StartAddress
+	f.errFatal = nil
+	f.errWarn = nil
+	f.complete = false
+	return nil
+}
+
 func (f *FirmwareUploadProcedure) Init(filename string) error {
 
 	finfo, err := os.Stat(filename)
@@ -78,22 +88,16 @@ func (f *FirmwareUploadProcedure) Init(filename string) error {
 	}
 	defer firmware.Close()
 
-	f.firmware = make([]byte, finfo.Size())
-	readed, err := firmware.Read(f.firmware)
+	firmwareBytes := make([]byte, finfo.Size())
+	readed, err := firmware.Read(firmwareBytes)
 	if err != nil {
 		return err
 	}
-	if readed != len(f.firmware) {
+	if readed != len(firmwareBytes) {
 		return errors.New("failed to read firmware file")
 	}
 
-	f.firmwareIndex = 0
-	f.memoryAddress = StartAddress
-	f.errFatal = nil
-	f.errWarn = nil
-	f.complete = false
-
-	return nil
+	return f.InitFromBytes(firmwareBytes)
 }
 
 /*
@@ -121,8 +125,7 @@ func (f *FirmwareUploadProcedure) Step() (bool, error, error) {
 			f.errFatal = errors.Join(errors.New("flash eboot failed"), err)
 			return false, nil, f.errFatal
 		}
-		f.complete = true
-		return f.complete, nil, nil
+		return true, nil, nil
 	}
 
 	sector := f.firmware[f.firmwareIndex:min(f.firmwareIndex+SectorSize, uint32(len(f.firmware)))]
@@ -213,19 +216,23 @@ func (f *FirmwareUploadProcedure) Percent() float64 {
 	return float64(f.firmwareIndex) / float64(len(f.firmware))
 }
 
-func (f *FirmwareUploadProcedure) Run() error {
-	err := f.Init(f.filename)
-	if err != nil {
-		return err
+func (f *FirmwareUploadProcedure) IsComplete() bool {
+	return f.complete
+}
+
+func (f *FirmwareUploadProcedure) Run(firmware []byte) {
+	f.errFatal = f.InitFromBytes(firmware)
+	if f.errFatal != nil {
+		return
 	}
 
 	for {
-		complete, err, errFatal := f.Step()
-		if errFatal != nil {
-			return errFatal
+		f.complete, f.errWarn, f.errFatal = f.Step()
+		if f.errFatal != nil {
+			return
 		}
-		if complete {
-			return err
+		if f.complete {
+			return
 		}
 	}
 }

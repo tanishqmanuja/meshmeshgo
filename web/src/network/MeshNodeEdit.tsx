@@ -1,4 +1,4 @@
-import { Edit, TextInput, BooleanInput, TabbedForm, List, DataTable, useGetRecordId, NumberInput, FormDataConsumer, Toolbar, Button, SaveButton, DeleteButton, Link, useRecordContext } from "react-admin";
+import { Edit, TextInput, BooleanInput, TabbedForm, List, DataTable, useGetRecordId, NumberInput, FormDataConsumer, Toolbar, Button, SaveButton, DeleteButton, Link, useRecordContext, FileField, FileInput } from "react-admin";
 import SecurityUpdateIcon from '@mui/icons-material/SecurityUpdate';
 import SettingsIcon from '@mui/icons-material/Settings';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -39,7 +39,9 @@ export const MeshNodeEdit = () => {
                 <TextInput format={v => "0x" + (v ?? 0).toString(16).toUpperCase()} parse={v => parseInt(v, 16)} source="id" disabled />
                 <TextInput source="tag" />
                 <BooleanInput source="in_use" />
-                <TextInput source="path" disabled />
+                <FileInput source="firmware" accept={{'application/octet-stream': ['.bin']}} multiple={false}>
+                    <FileField source="url" label="Firmware" />
+                </FileInput>
             </TabbedForm.Tab>
             <TabbedForm.Tab label="Configuration" icon={<SettingsIcon />} iconPosition="start" sx={{ maxWidth: '40em', minHeight: 48 }}>
                 <TextInput source="error" format={v => v?.length > 0 ? v : "No error"} readOnly/>
