@@ -1,30 +1,14 @@
 import { Edit, TextInput, BooleanInput, TabbedForm, List, DataTable, useGetRecordId, NumberInput, FormDataConsumer, Toolbar, Button, SaveButton, DeleteButton, Link, useRecordContext, FileField, FileInput } from "react-admin";
-import SecurityUpdateIcon from '@mui/icons-material/SecurityUpdate';
 import SettingsIcon from '@mui/icons-material/Settings';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import { Typography } from "@mui/material";
-
-const FirmwareButton = () => {
-    const record = useRecordContext();
-    return (
-        <Button 
-            component={Link} 
-            to={`/firmware/${record?.id}`} 
-            color="primary" 
-            variant="contained" 
-            label="Firmware">
-            <SecurityUpdateIcon/>
-        </Button>
-    );
-}
 
 const CreateToolbar = () => {
     return (
         <Toolbar>
             <SaveButton label="Save changes" color="primary" variant="contained" icon={<EditNoteIcon />} />
             <Typography variant="h6" sx={{ flexGrow: 1 }}></Typography>
-            <FirmwareButton />
             <DeleteButton label="Delete" color="error" variant="contained" icon={<DeleteIcon />} />
         </Toolbar>
     );

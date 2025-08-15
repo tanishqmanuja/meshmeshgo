@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	gra "leguru.net/m/v2/graph"
 	"leguru.net/m/v2/logger"
@@ -220,11 +221,24 @@ func (f *FirmwareUploadProcedure) IsComplete() bool {
 	return f.complete
 }
 
+func (f *FirmwareUploadProcedure) PrintStats() {
+	for !f.IsComplete() {
+		time.Sleep(100 * time.Millisecond)
+		logger.WithFields(logger.Fields{
+			"firmwareIndex": fmt.Sprintf("%08X", f.firmwareIndex),
+			"memoryAddress": fmt.Sprintf("%08X", f.memoryAddress-StartAddress),
+			"percent":       fmt.Sprintf("%d%%", int(f.Percent()*100)),
+		}).Info("firmware upload progress")
+	}
+}
+
 func (f *FirmwareUploadProcedure) Run(firmware []byte) {
 	f.errFatal = f.InitFromBytes(firmware)
 	if f.errFatal != nil {
 		return
 	}
+
+	go f.PrintStats()
 
 	for {
 		f.complete, f.errWarn, f.errFatal = f.Step()

@@ -50,10 +50,12 @@ func (h *Handler) fillNodeStruct(dev graph.NodeDevice, withInfo bool, network *g
 		Firmware: []MeshNodeFirmware{},
 	}
 
-	if withInfo {
-		err := h.nodeInfoGetCmd(&jsonNode)
-		if err != nil {
-			jsonNode.Error = err.Error()
+	if h.firmwareUploadProcedure == nil || h.firmwareUploadProcedure.IsComplete() {
+		if withInfo {
+			err := h.nodeInfoGetCmd(&jsonNode)
+			if err != nil {
+				jsonNode.Error = err.Error()
+			}
 		}
 	}
 
