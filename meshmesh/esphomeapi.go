@@ -333,6 +333,51 @@ func (m *MultiServerApi) CloseConnection(addr MeshNodeId) {
 	}
 }
 
+func (m *MultiServerApi) MainNetworkChanged() {
+	nodes := graph.GetMainNetwork().Nodes()
+	for nodes.Next() {
+		node := nodes.Node().(graph.NodeDevice)
+		if node.Device().InUse() {
+			found := false
+			for _, server := range m.Servers {
+				if server.Address == MeshNodeId(node.ID()) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				logger.WithFields(logger.Fields{"node": utils.FmtNodeId(int64(node.ID()))}).Debug("MainNetworkChanged adding esphome connection to new node")
+				server, err := NewServerApi(m.serial, MeshNodeId(node.ID()))
+				if err != nil {
+					log.Error(err)
+				} else {
+					m.Servers = append(m.Servers, server)
+				}
+			}
+		}
+	}
+
+	newServers := make([]*ServerApi, 0)
+	for _, server := range m.Servers {
+		found := false
+		nodes = graph.GetMainNetwork().Nodes()
+		for nodes.Next() {
+			node := nodes.Node().(graph.NodeDevice)
+			if server.Address == MeshNodeId(node.ID()) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			logger.WithFields(logger.Fields{"server": server.Address}).Debug("MainNetworkChanged deleting esphome connection to non existing node")
+			server.CloseConnections()
+		} else {
+			newServers = append(newServers, server)
+		}
+	}
+	m.Servers = newServers
+}
+
 type MultiServerApi struct {
 	espApiStats *EspApiStats
 	serial      *SerialConnection
@@ -346,6 +391,8 @@ func NewMultiServerApi(serial *SerialConnection) *MultiServerApi {
 	multisrv.serial.ConnPathFn = multisrv.HandleConnectedPathReply
 
 	nodes := graph.GetMainNetwork().Nodes()
+	graph.AddMainNetworkChangedCallback(multisrv.MainNetworkChanged)
+
 	for nodes.Next() {
 		node := nodes.Node().(graph.NodeDevice)
 		if node.Device().InUse() {
