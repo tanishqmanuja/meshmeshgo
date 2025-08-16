@@ -96,6 +96,38 @@ mdns:
 
 Next, upload the compiled firmware to the two modules. Leave the coordinator module attached to the PC using USB and power the node module with any USB power supply.
 
+
+## Execute the HUB (meshmeshgo) Instance
+These are all the options available in the meshmeshgo HUB:
+
+```bash
+./meshmeshgo --help
+NAME:
+   meshmeshgo - meshmesh hub written in go!
+
+USAGE:
+   meshmeshgo [global options] command [command options]
+
+COMMANDS:
+   help, h  Shows a list of commands or help for one command
+
+GLOBAL OPTIONS:
+   --port value                        Serial port name (default: "/dev/ttyUSB0")
+   --baud value                        (default: 460800)
+   --verbose, -v                       (default: false)
+   --target value, -t value            (default: 0)
+   --node_to_debug value, --dbg value  Debug a single node connection
+   --bind_address value                Bind address for the esphome servers. Use 'dynamic' to auto-assign a port based on the node id (default: "dynamic")
+   --bind_port value                   Bind port for the esphome servers. Use 0 to auto-assign a port based on the bind address (default: 6053)
+   --base_port_offset value            Base port offset for the esphome servers (default: 20000)
+   --size_of_ports_pool value          Size of ports pool for the server (default: 10000)
+   --help, -h                          show help
+```
+
+The most important thing to start is to specify the correct serial port name associated with your coordinator device. In Linux, this might be `/dev/ttyUSB0` or `/dev/ttyACM0` or something similar.
+
+If the serial device name is `/dev/ttyUSB0`, you can launch meshmeshgo without arguments. Otherwise, you have to specify the correct serial port name.
+
 ## Discover the Network
 
 Create an empty folder called `meshmesh` (or any other name) and inside this folder run the **meshmeshgo** executable.
@@ -203,40 +235,16 @@ If this procedure is successful, you will have the new device configured in Home
 
 ### Second Method
 
-It is possbile to bind all esphome servers on the same global address and use a different port for each server. This method will allow to run the meshmeshgo insance in a different machine respesct the Home Assistant instance.
+It is possible to bind all esphome servers on the same global address and use a different port for each server. This method will allow you to run the meshmeshgo instance on a different machine than the Home Assistant instance.
 
 ```bash
 ./meshmeshgo --bind_address 0.0.0.0 --bind_port 0
 ```
 
-You can also specifiy which public IP do yuo want to bind
+You can also specify which public IP you want to bind:
 
 ```bash
 ./meshmeshgo --bind_address 192.168.1.1 --bind_port 0
 ```
 
-This al all options available in the meshmeshgo HUB
 
-```bash
-./meshmeshgo --help
-NAME:
-   meshmeshgo - meshmesh hub written in go!
-
-USAGE:
-   meshmeshgo [global options] command [command options]
-
-COMMANDS:
-   help, h  Shows a list of commands or help for one command
-
-GLOBAL OPTIONS:
-   --port value                        Serial port name (default: "/dev/ttyUSB0")
-   --baud value                        (default: 460800)
-   --verbose, -v                       (default: false)
-   --target value, -t value            (default: 0)
-   --node_to_debug value, --dbg value  Debug a single node connection
-   --bind_address value                Bind address for the esphome servers. Use 'dynamic' to auto-assign a port based on the node id (default: "dynamic")
-   --bind_port value                   Bind port for the esphome servers. Use 0 to auto-assign a port based on the bind address (default: 6053)
-   --base_port_offset value            Base port offset for the esphome servers (default: 20000)
-   --size_of_ports_pool value          Size of ports pool for the server (default: 10000)
-   --help, -h                          show help
-```
