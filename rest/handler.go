@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"leguru.net/m/v2/graph"
-	"leguru.net/m/v2/meshmesh"
 	mm "leguru.net/m/v2/meshmesh"
 )
 
@@ -40,7 +39,7 @@ func (h *Handler) uploadFirmware(nodeId int64, firmware []byte) error {
 		return errors.New("firmware upload procedure already running")
 	}
 
-	h.firmwareUploadProcedure = mm.NewFirmwareUploadProcedure(h.serialConn, graph.GetMainNetwork(), meshmesh.MeshNodeId(nodeId))
+	h.firmwareUploadProcedure = mm.NewFirmwareUploadProcedure(h.serialConn, graph.GetMainNetwork(), mm.MeshNodeId(nodeId))
 	go h.firmwareUploadProcedure.Run(firmware)
 
 	return nil
