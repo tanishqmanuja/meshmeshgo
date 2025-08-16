@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"hash/fnv"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -41,6 +43,14 @@ func EncodeToHexEllipsis(data []byte, maxlen int) string {
 		str += "..."
 	}
 	return str
+}
+
+func HashString(s string, mod int) int {
+	hash := fnv.New32()
+	hash.Write([]byte(s))
+	hashValue := hash.Sum32()
+	hashValue = hashValue % uint32(mod)
+	return int(hashValue)
 }
 
 func FindFirstZeroChar(s []byte) int {

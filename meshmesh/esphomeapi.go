@@ -211,9 +211,14 @@ func NewApiConnection(connection net.Conn, serial *SerialConnection, addr MeshNo
 }
 
 type ServerApi struct {
-	Address  MeshNodeId
-	Clients  []*ApiConnection
-	listener net.Listener
+	Address       MeshNodeId
+	Clients       []*ApiConnection
+	listener      net.Listener
+	listenAddress string
+}
+
+func (s *ServerApi) GetListenAddress() string {
+	return s.listenAddress
 }
 
 func (m *ServerApi) HandleConnectedPathReply(v *ConnectedPathApiReply) bool {
@@ -285,15 +290,26 @@ func (s *ServerApi) ShutDown() {
 	s.listener.Close()
 }
 
-func NewServerApi(serial *SerialConnection, address MeshNodeId) (*ServerApi, error) {
+func NewServerApi(serial *SerialConnection, address MeshNodeId, config *ServerApiConfig) (*ServerApi, error) {
+	var bindAddress string = config.BindAddress
+	if config.BindAddress == "" || config.BindAddress == "dynamic" {
+		bindAddress = utils.FmtNodeIdHass(int64(address))
+	}
+
+	bindPort := config.BindPort
+	if config.BindPort <= 0 {
+		bindPort = utils.HashString(utils.FmtNodeId(int64(address)), config.SizeOfPortsPool) + config.BasePortOffset
+	}
+
 	server := ServerApi{Address: address}
-	listener, err := net.Listen("tcp4", fmt.Sprintf("%s:%d", utils.FmtNodeIdHass(int64(address)), 6053))
-	logger.WithField("addr", address).Debug("Start listening on port for node connection")
+	server.listenAddress = fmt.Sprintf("%s:%d", bindAddress, bindPort)
+	listener, err := net.Listen("tcp4", server.listenAddress)
 	if err != nil {
 		logger.Error(err)
 		return nil, err
 	}
 
+	logger.WithFields(logger.Fields{"node": utils.FmtNodeId(int64(address)), "bind": server.listenAddress}).Debug("Start listening on port for node connection")
 	server.listener = listener
 	go server.ListenAndServe(serial)
 	return &server, nil
@@ -347,7 +363,7 @@ func (m *MultiServerApi) MainNetworkChanged() {
 			}
 			if !found {
 				logger.WithFields(logger.Fields{"node": utils.FmtNodeId(int64(node.ID()))}).Debug("MainNetworkChanged adding esphome connection to new node")
-				server, err := NewServerApi(m.serial, MeshNodeId(node.ID()))
+				server, err := NewServerApi(m.serial, MeshNodeId(node.ID()), &m.config)
 				if err != nil {
 					log.Error(err)
 				} else {
@@ -378,15 +394,23 @@ func (m *MultiServerApi) MainNetworkChanged() {
 	m.Servers = newServers
 }
 
+type ServerApiConfig struct {
+	BindAddress     string
+	BindPort        int
+	BasePortOffset  int
+	SizeOfPortsPool int
+}
+
 type MultiServerApi struct {
 	espApiStats *EspApiStats
 	serial      *SerialConnection
+	config      ServerApiConfig
 	Servers     []*ServerApi
 }
 
-func NewMultiServerApi(serial *SerialConnection) *MultiServerApi {
+func NewMultiServerApi(serial *SerialConnection, config ServerApiConfig) *MultiServerApi {
 	_allStats = NewEspApiStats()
-	multisrv := MultiServerApi{serial: serial, espApiStats: _allStats}
+	multisrv := MultiServerApi{serial: serial, espApiStats: _allStats, config: config}
 	SendClearConnections(serial)
 	multisrv.serial.ConnPathFn = multisrv.HandleConnectedPathReply
 
@@ -396,7 +420,7 @@ func NewMultiServerApi(serial *SerialConnection) *MultiServerApi {
 	for nodes.Next() {
 		node := nodes.Node().(graph.NodeDevice)
 		if node.Device().InUse() {
-			server, err := NewServerApi(serial, MeshNodeId(node.ID()))
+			server, err := NewServerApi(serial, MeshNodeId(node.ID()), &config)
 			if err != nil {
 				log.Error(err)
 			} else {

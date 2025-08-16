@@ -16,6 +16,10 @@ type Config struct {
 	VerboseLevel       int
 	TargetNode         int
 	DebugNodeAddr      string
+	BindAddress        string
+	BindPort           int
+	BasePortOffset     int
+	SizeOfPortsPool    int
 }
 
 var iniConfig *ini.File
@@ -39,7 +43,7 @@ func SetINIValue(section string, key string, value string) {
 
 func NewConfig() (*Config, error) {
 	var err error
-	config := Config{WantHelp: true, VerboseLevel: 0}
+	config := Config{WantHelp: true, VerboseLevel: 0, BindAddress: "dynamic", BindPort: 6053, BasePortOffset: 20000, SizeOfPortsPool: 10000}
 
 	app := &cli.App{
 		Name:  "meshmeshgo",
@@ -72,6 +76,30 @@ func NewConfig() (*Config, error) {
 				Aliases:     []string{"dbg"},
 				Usage:       "Debug a single node connection",
 				Destination: &config.DebugNodeAddr,
+			},
+			&cli.StringFlag{
+				Name:        "bind_address",
+				Value:       "dynamic",
+				Usage:       "Bind address for the esphome servers. Use 'dynamic' to auto-assign a port based on the node id",
+				Destination: &config.BindAddress,
+			},
+			&cli.IntFlag{
+				Name:        "bind_port",
+				Value:       6053,
+				Usage:       "Bind port for the esphome servers. Use 0 to auto-assign a port based on the bind address",
+				Destination: &config.BindPort,
+			},
+			&cli.IntFlag{
+				Name:        "base_port_offset",
+				Value:       20000,
+				Usage:       "Base port offset for the esphome servers",
+				Destination: &config.BasePortOffset,
+			},
+			&cli.IntFlag{
+				Name:        "size_of_ports_pool",
+				Value:       10000,
+				Usage:       "Size of ports pool for the server",
+				Destination: &config.SizeOfPortsPool,
 			},
 		},
 		Action: func(cCtx *cli.Context) error {

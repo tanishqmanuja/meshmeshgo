@@ -176,7 +176,12 @@ func main() {
 	// Handle DiscAssociateReply received from other nodes
 	serialPort.DiscAssociateFn = handleDiscAssociateReply
 	// Initialize Esphome to HomeAssistant Server
-	esphomeapi := meshmesh.NewMultiServerApi(serialPort)
+	esphomeapi := meshmesh.NewMultiServerApi(serialPort, meshmesh.ServerApiConfig{
+		BindAddress:     config.BindAddress,
+		BindPort:        config.BindPort,
+		BasePortOffset:  config.BasePortOffset,
+		SizeOfPortsPool: config.SizeOfPortsPool,
+	})
 	// Start RPC Server
 	rpcServer := rpc.NewRpcServer(":50051")
 	rpcServer.Start(fmt.Sprintf("%s - %s", programName, programDescription), fmt.Sprintf("%s - %s", vcsHash[:8], vcsTime.Format(time.RFC3339)), serialPort)

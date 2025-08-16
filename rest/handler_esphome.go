@@ -23,7 +23,7 @@ func (h *Handler) getEsphomeServers(c *gin.Context) {
 	for _, server := range h.esphomeServers.Servers {
 		jsonServers = append(jsonServers, EsphomeServer{
 			ID:      uint(server.Address),
-			Address: utils.FmtNodeIdHass(int64(server.Address)) + ":6053",
+			Address: server.GetListenAddress(),
 			Clients: len(server.Clients),
 		})
 	}
