@@ -183,12 +183,12 @@ func main() {
 		SizeOfPortsPool: config.SizeOfPortsPool,
 	})
 	// Start RPC Server
-	rpcServer := rpc.NewRpcServer(":50051")
+	rpcServer := rpc.NewRpcServer(config.RpcBindAddress)
 	rpcServer.Start(fmt.Sprintf("%s - %s", programName, programDescription), fmt.Sprintf("%s - %s", vcsHash[:8], vcsTime.Format(time.RFC3339)), serialPort)
 	defer rpcServer.Stop()
 	// Start rest server
 	restHandler := rest.NewHandler(serialPort, esphomeapi)
-	rest.StartRestServer(rest.NewRouter(restHandler))
+	rest.StartRestServer(rest.NewRouter(restHandler), config.RestBindAddress)
 
 	var lastStatsTime time.Time
 	for {

@@ -16,6 +16,8 @@ type Config struct {
 	VerboseLevel       int
 	TargetNode         int
 	DebugNodeAddr      string
+	RestBindAddress    string
+	RpcBindAddress     string
 	BindAddress        string
 	BindPort           int
 	BasePortOffset     int
@@ -43,7 +45,15 @@ func SetINIValue(section string, key string, value string) {
 
 func NewConfig() (*Config, error) {
 	var err error
-	config := Config{WantHelp: true, VerboseLevel: 0, BindAddress: "dynamic", BindPort: 6053, BasePortOffset: 20000, SizeOfPortsPool: 10000}
+	config := Config{
+		WantHelp:        true,
+		VerboseLevel:    0,
+		RestBindAddress: ":4000",
+		BindAddress:     "dynamic",
+		BindPort:        6053,
+		BasePortOffset:  20000,
+		SizeOfPortsPool: 10000,
+	}
 
 	app := &cli.App{
 		Name:  "meshmeshgo",
@@ -76,6 +86,18 @@ func NewConfig() (*Config, error) {
 				Aliases:     []string{"dbg"},
 				Usage:       "Debug a single node connection",
 				Destination: &config.DebugNodeAddr,
+			},
+			&cli.StringFlag{
+				Name:        "rest_bind_address",
+				Value:       ":4040",
+				Usage:       "Bind address for the rest server",
+				Destination: &config.RestBindAddress,
+			},
+			&cli.StringFlag{
+				Name:        "rpc_bind_address",
+				Value:       ":50051",
+				Usage:       "Bind address for the rpc server",
+				Destination: &config.RpcBindAddress,
 			},
 			&cli.StringFlag{
 				Name:        "bind_address",

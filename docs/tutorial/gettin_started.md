@@ -101,7 +101,7 @@ Next, upload the compiled firmware to the two modules. Leave the coordinator mod
 These are all the options available in the meshmeshgo HUB:
 
 ```bash
-./meshmeshgo --help
+./meshmeshgo  --help
 NAME:
    meshmeshgo - meshmesh hub written in go!
 
@@ -117,6 +117,8 @@ GLOBAL OPTIONS:
    --verbose, -v                       (default: false)
    --target value, -t value            (default: 0)
    --node_to_debug value, --dbg value  Debug a single node connection
+   --rest_bind_address value           Bind address for the rest server (default: ":4040")
+   --rpc_bind_address value            Bind address for the rpc server (default: ":50051")
    --bind_address value                Bind address for the esphome servers. Use 'dynamic' to auto-assign a port based on the node id (default: "dynamic")
    --bind_port value                   Bind port for the esphome servers. Use 0 to auto-assign a port based on the bind address (default: 6053)
    --base_port_offset value            Base port offset for the esphome servers (default: 20000)
@@ -132,7 +134,7 @@ If the serial device name is `/dev/ttyUSB0`, you can launch meshmeshgo without a
 
 Create an empty folder called `meshmesh` (or any other name) and inside this folder run the **meshmeshgo** executable.
 
-Connect to [http://localhost:4002](http://localhost:4002). If all goes well, you should see the following page indicating that the coordinator node has been identified and its ID is 1869640 or 0x1C8747 (the last three bytes of the module MAC address).
+Connect to [http://localhost:4040](http://localhost:4040). If all goes well, you should see the following page indicating that the coordinator node has been identified and its ID is 1869640 or 0x1C8747 (the last three bytes of the module MAC address).
 
  ![image-20250815130536218](media/onlycoord.png)
 
@@ -176,7 +178,7 @@ If you check your current working folder, you can see that a single file has bee
   </graphml>
 ```
 
-Next, go to the discovery page of the admin GUI: [http://localhost:4002/manager/#/discoverylive](http://localhost:4002/manager/#/discoverylive)
+Next, go to the discovery page of the admin GUI: [http://localhost:4040/manager/#/discoverylive](http://localhost:4040/manager/#/discoverylive)
 
 ![First discovery](media/firstdiscovery.png)
 
@@ -223,7 +225,7 @@ You can check the file `meshmesh.graphml` and now you can see that your network 
 
 Now let's connect the test node to our Home Assistant instance in order to be able to control the blue LED on the board using the esphome API.
 
-First, you have to find the virtual address of the discovered node. This can be found on the meshmeshgo admin site on the servers page: [http://localhost:4002/manager/#/esphomeServers](http://localhost:4002/manager/#/esphomeServers)
+First, you have to find the virtual address of the discovered node. This can be found on the meshmeshgo admin site on the servers page: [http://localhost:4040/manager/#/esphomeServers](http://localhost:4040/manager/#/esphomeServers)
 
 ![HA Virtual address](media/havirtaddress.png)
 

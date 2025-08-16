@@ -12,9 +12,9 @@ func serveStaticFiles(g *gin.Engine) {
 	g.StaticFS("/manager", http.FS(managerui.Assets))
 }
 
-func StartRestServer(router Router) {
+func StartRestServer(router Router, bindAddress string) {
 	g := gin.Default()
 	serveStaticFiles(g)
 	router.Register(g)
-	go g.Run(":4002")
+	go g.Run(bindAddress)
 }
