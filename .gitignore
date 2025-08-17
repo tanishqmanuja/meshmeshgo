@@ -1,5 +1,4 @@
 *.graphml
-go.sum
 build/
 .ssh/
 .vscode/
