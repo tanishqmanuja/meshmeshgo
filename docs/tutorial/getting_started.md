@@ -249,4 +249,52 @@ You can also specify which public IP you want to bind:
 ./meshmeshgo --bind_address 192.168.1.1 --bind_port 0
 ```
 
+## Add a third node
 
+Now is possible to add a third node to out network.
+
+You can upload a the firmware on new node, the firmware can be based on the follwing config file.
+
+```yaml
+preferences:
+    flash_write_interval: 30sec
+
+esphome:
+  name: testmesh2
+
+esp8266:
+  board: d1_mini_lite
+  restore_from_flash : True
+  framework:
+    version: 3.1.2
+
+logger:
+  level: VERY_VERBOSE
+  baud_rate: 115200
+
+api:
+  reboot_timeout: 0s
+
+socket:
+  implementation: meshmesh_esp8266
+
+meshmesh:
+  baud_rate: 0
+  rx_buffer_size: 0
+  tx_buffer_size: 0
+  password: !secret meshmesh_password
+  channel: 3
+
+switch:
+  - platform: gpio
+    pin: D4
+    name: "Blue LEDS"
+
+mdns:
+  disabled: True
+```
+
+Power up the new node and go to the discovery page of the admin GUI: [http://localhost:4040/manager/#/discoverylive](http://localhost:4040/manager/#/discoverylive)
+than you can ise the refresh discovery action to start from currnt grpah a discover new nodes.
+
+![Add a third device](media/seconddiscovery.png)
