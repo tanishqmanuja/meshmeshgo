@@ -65,13 +65,25 @@ type discWeights struct {
 	Next    float64
 }
 
+const esp32RssiMax = -40
+const esp32RssiMin = -80
+
 func Rssi2weight(rssi int16) float64 {
+	percent := 0.0
 	if rssi <= 0 {
-		rssi *= -2
+		percent = float64(esp32RssiMin-rssi) / float64(esp32RssiMin-esp32RssiMax)
 	} else if rssi > 44 {
+		percent = float64(rssi) / 45.0
 		rssi = 44
 	}
-	cost := 1.0 - float64(rssi)/45.0
+
+	cost := 1.0 - percent
+	if cost < 0.0 {
+		cost = 0.0
+	} else if cost > 1.0 {
+		cost = 1.0
+	}
+
 	return math.Round(cost*100) / 100
 }
 
