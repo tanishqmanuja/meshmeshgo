@@ -5,5 +5,6 @@ implmenting the EspHomeApi standard.
 
 ## Gettin started tutorial
 
-1) [Gettin Started](docs/tutorial/gettin_started.md)
-2) [No HUB communication](docs/tutorial/no_hub_commuication.md)
+1) [Firmware upload](docs/tutorial/firmware_build_upload.md)
+2) [Gettin Started](docs/tutorial/gettin_started.md)
+3) [No HUB communication](docs/tutorial/no_hub_commuication.md)

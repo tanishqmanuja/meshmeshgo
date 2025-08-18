@@ -11,6 +11,10 @@ In this tutorial, we will set up communication between two nodes without using t
 First, we have to use the following config file and upload the firmware to the controlled node.
 
 ```yaml
+external_components:
+  - source: github://persuader72/esphome@mm_dev
+    components: [ meshmesh, network, socket ]
+
 preferences:
     flash_write_interval: 30sec
 
@@ -67,6 +71,10 @@ In case we can't make a discovery on the network, we can keep note of the MAC ad
 We have to keep note of those two values and put them in the corresponding fields of the substitutions section of the following configuration file.
 
 ```yaml
+external_components:
+  - source: github://persuader72/esphome@mm_dev
+    components: [ meshmesh, network, socket ]
+
 preferences:
     flash_write_interval: 30sec
 

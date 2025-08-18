@@ -18,6 +18,10 @@ First, compile the following config files using the esphome version patched with
 ### Coordinator:
 
 ```yaml
+external_components:
+  - source: github://persuader72/esphome@mm_dev
+    components: [ meshmesh, network, socket ]
+
 esphome:
   name: coordinator
 
@@ -56,6 +60,10 @@ mdns:
 Test node #1
 
 ```yaml
+external_components:
+  - source: github://persuader72/esphome@mm_dev
+    components: [ meshmesh, network, socket ]
+
 preferences:
     flash_write_interval: 30sec
 
@@ -256,6 +264,10 @@ Now is possible to add a third node to out network.
 You can upload a the firmware on new node, the firmware can be based on the follwing config file.
 
 ```yaml
+external_components:
+  - source: github://persuader72/esphome@mm_dev
+    components: [ meshmesh, network, socket ]
+
 preferences:
     flash_write_interval: 30sec
 
@@ -273,7 +285,7 @@ logger:
   baud_rate: 115200
 
 api:
-  reboot_timeout: 0s
+  reboot_timeout: 900s
 
 socket:
   implementation: meshmesh_esp8266
