@@ -241,7 +241,7 @@ func (serialConn *SerialConnection) Write() {
 						b := session.Request.Output()
 						level := logger.Log().GetLevel()
 						if level >= logrus.TraceLevel {
-							logger.Log().WithFields(logrus.Fields{"len": len(b), "data": hex.EncodeToString(b[0:min(len(b), 10)])}).Trace("To serial")
+							logger.Log().WithFields(logrus.Fields{"len": len(b), "data": hex.EncodeToString(b[0:min(len(b), 32)])}).Trace("To serial")
 						}
 
 						writed, err := serialConn.port.Write(b)
