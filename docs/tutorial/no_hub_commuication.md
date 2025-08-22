@@ -13,7 +13,7 @@ First, we have to use the following config file and upload the firmware to the c
 ```yaml
 external_components:
   - source: github://persuader72/esphome@mm_dev
-    components: [ meshmesh, network, socket, ota ]
+    components: [ meshmesh, network, socket ]
 
 preferences:
     flash_write_interval: 30sec
@@ -76,7 +76,7 @@ We have to keep note of those two values and put them in the corresponding field
 ```yaml
 external_components:
   - source: github://persuader72/esphome@mm_dev
-    components: [ meshmesh, network, socket, ota ]
+    components: [ meshmesh, network, socket ]
 
 preferences:
     flash_write_interval: 30sec

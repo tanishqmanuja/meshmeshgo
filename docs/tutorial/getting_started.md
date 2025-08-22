@@ -20,7 +20,7 @@ First, compile the following config files using the esphome version patched with
 ```yaml
 external_components:
   - source: github://persuader72/esphome@mm_dev
-    components: [ meshmesh, network, socket, ota ]
+    components: [ meshmesh, network, socket ]
 
 esphome:
   name: coordinator
@@ -65,7 +65,7 @@ Test node #1
 ```yaml
 external_components:
   - source: github://persuader72/esphome@mm_dev
-    components: [ meshmesh, network, socket, ota ]
+    components: [ meshmesh, network, socket ]
 
 preferences:
     flash_write_interval: 30sec
@@ -272,7 +272,7 @@ You can upload a the firmware on new node, the firmware can be based on the foll
 ```yaml
 external_components:
   - source: github://persuader72/esphome@mm_dev
-    components: [ meshmesh, network, socket, ota ]
+    components: [ meshmesh, network, socket ]
 
 preferences:
     flash_write_interval: 30sec
