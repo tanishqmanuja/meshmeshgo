@@ -20,7 +20,7 @@ First, compile the following config files using the esphome version patched with
 ```yaml
 external_components:
   - source: github://persuader72/esphome@mm_dev
-    components: [ meshmesh, network, socket ]
+    components: [ meshmesh, network, socket, ota ]
 
 esphome:
   name: coordinator
@@ -37,6 +37,9 @@ logger:
 
 api:
   reboot_timeout: 0s
+
+ota:
+  platform: esphome
 
 socket:
   implementation: meshmesh_esp8266
@@ -62,7 +65,7 @@ Test node #1
 ```yaml
 external_components:
   - source: github://persuader72/esphome@mm_dev
-    components: [ meshmesh, network, socket ]
+    components: [ meshmesh, network, socket, ota ]
 
 preferences:
     flash_write_interval: 30sec
@@ -82,6 +85,9 @@ logger:
 
 api:
   reboot_timeout: 0s
+
+ota:
+  platform: esphome
 
 socket:
   implementation: meshmesh_esp8266
@@ -266,7 +272,7 @@ You can upload a the firmware on new node, the firmware can be based on the foll
 ```yaml
 external_components:
   - source: github://persuader72/esphome@mm_dev
-    components: [ meshmesh, network, socket ]
+    components: [ meshmesh, network, socket, ota ]
 
 preferences:
     flash_write_interval: 30sec
@@ -284,8 +290,12 @@ logger:
   level: VERY_VERBOSE
   baud_rate: 115200
 
+
 api:
   reboot_timeout: 900s
+
+ota:
+  platform: esphome
 
 socket:
   implementation: meshmesh_esp8266

@@ -13,7 +13,7 @@ First, we have to use the following config file and upload the firmware to the c
 ```yaml
 external_components:
   - source: github://persuader72/esphome@mm_dev
-    components: [ meshmesh, network, socket ]
+    components: [ meshmesh, network, socket, ota ]
 
 preferences:
     flash_write_interval: 30sec
@@ -33,6 +33,9 @@ logger:
 
 api:
   reboot_timeout: 0s
+
+ota:
+  platform: esphome
 
 socket:
   implementation: meshmesh_esp8266
@@ -73,7 +76,7 @@ We have to keep note of those two values and put them in the corresponding field
 ```yaml
 external_components:
   - source: github://persuader72/esphome@mm_dev
-    components: [ meshmesh, network, socket ]
+    components: [ meshmesh, network, socket, ota ]
 
 preferences:
     flash_write_interval: 30sec
@@ -98,6 +101,9 @@ logger:
 api:
   reboot_timeout: 0s
 
+ota:
+  platform: esphome
+  
 socket:
   implementation: meshmesh_esp8266
 

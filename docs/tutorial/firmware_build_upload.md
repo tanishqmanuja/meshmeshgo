@@ -17,7 +17,7 @@ secrets.yaml file to store your passowords
 ```yaml
 external_components:
   - source: github://persuader72/esphome@mm_dev
-    components: [ meshmesh, network, socket ]
+    components: [ meshmesh, network, socket, ota ]
 
 esphome:
   name: wroom32s3
@@ -34,6 +34,9 @@ logger:
 
 api:
   reboot_timeout: 900s
+
+ota:
+  platform: esphome
 
 meshmesh:
   channel: 3
