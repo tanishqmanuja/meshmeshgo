@@ -35,7 +35,7 @@ api:
   reboot_timeout: 0s
 
 ota:
-  platform: esphome
+  platform: meshmesh
 
 socket:
   implementation: meshmesh_esp8266
@@ -102,7 +102,7 @@ api:
   reboot_timeout: 0s
 
 ota:
-  platform: esphome
+  platform: meshmesh
   
 socket:
   implementation: meshmesh_esp8266
