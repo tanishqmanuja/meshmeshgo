@@ -49,7 +49,7 @@ func (client *OtaConnection) flushBuffer(buffer *bytes.Buffer) {
 		logger.WithFields(logger.Fields{"handle": client.meshprotocol.handle, "len": buffer.Len()}).
 			Trace(fmt.Sprintf("flushBuffer: HA-->SE: %s", utils.EncodeToHexEllipsis(buffer.Bytes(), 32)))
 
-		chunks := buffer.Len()/512 + 1
+		chunks := (buffer.Len()-1)/512 + 1
 
 		for i := 0; i < chunks; i++ {
 			chunk := buffer.Next(512)
@@ -57,8 +57,13 @@ func (client *OtaConnection) flushBuffer(buffer *bytes.Buffer) {
 			if err != nil {
 				logger.Log().Error(fmt.Sprintf("Error writing on socket: %s", err.Error()))
 			}
-			//time.Sleep(50 * time.Millisecond)
+			if client.meshprotocol.serial.isEsp8266 {
+				sleepTime := client.meshprotocol.serial.txOneByteMs * (len(chunk) * 25)
+				time.Sleep(time.Duration(sleepTime) * time.Microsecond)
+			}
 		}
+
+		//client.meshprotocol.SendData([]byte{})
 
 		client.Stats.SentBytes(buffer.Len())
 		buffer.Reset()

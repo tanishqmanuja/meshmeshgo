@@ -13,6 +13,7 @@ type Config struct {
 	WantHelp           bool
 	SerialPortName     string
 	SerialPortBaudRate int
+	SerialIsEsp8266    bool
 	VerboseLevel       int
 	TargetNode         int
 	DebugNodeAddr      string
@@ -69,6 +70,12 @@ func NewConfig() (*Config, error) {
 				Name:        "baud",
 				Value:       460800,
 				Destination: &config.SerialPortBaudRate,
+			},
+			&cli.BoolFlag{
+				Name:        "esp8266",
+				Value:       false,
+				Usage:       "Set if the coordinator is an esp8266",
+				Destination: &config.SerialIsEsp8266,
 			},
 			&cli.BoolFlag{
 				Name:    "verbose",

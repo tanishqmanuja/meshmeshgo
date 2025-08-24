@@ -51,6 +51,8 @@ func NewSerialSession(request *ApiFrame) (*SerialSession, error) {
 type SerialConnection struct {
 	connected       bool
 	port            serial.Port
+	isEsp8266       bool
+	txOneByteMs     int
 	debug           bool
 	incoming        chan []byte
 	session         *SerialSession
@@ -355,7 +357,7 @@ func (serialConn *SerialConnection) SendReceiveApi(cmd interface{}) (interface{}
 	return serialConn.SendReceiveApiProt(cmd, DirectProtocol, 0, nil)
 }
 
-func NewSerial(portName string, baudRate int, debug bool) (*SerialConnection, error) {
+func NewSerial(portName string, baudRate int, isEsp8266 bool, debug bool) (*SerialConnection, error) {
 	mode := &serial.Mode{BaudRate: baudRate}
 	p, err := serial.Open(portName, mode)
 	if err != nil {
@@ -363,12 +365,14 @@ func NewSerial(portName string, baudRate int, debug bool) (*SerialConnection, er
 	}
 
 	serial := &SerialConnection{
-		connected:  true,
-		port:       p,
-		debug:      debug,
-		incoming:   make(chan []byte),
-		Sessions:   list.New(),
-		NextHandle: 1,
+		connected:   true,
+		port:        p,
+		isEsp8266:   isEsp8266,
+		txOneByteMs: int(float32(8) / float32(baudRate) * 1000000.0),
+		debug:       debug,
+		incoming:    make(chan []byte),
+		Sessions:    list.New(),
+		NextHandle:  1,
 	}
 
 	go serial.Write()
