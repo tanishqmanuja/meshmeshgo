@@ -36,7 +36,7 @@ api:
   reboot_timeout: 900s
 
 ota:
-  platform: esphome
+  platform: meshmesh
 
 meshmesh:
   channel: 3

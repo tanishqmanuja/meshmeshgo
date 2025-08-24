@@ -39,7 +39,7 @@ api:
   reboot_timeout: 0s
 
 ota:
-  platform: esphome
+  platform: meshmesh
 
 socket:
   implementation: meshmesh_esp8266
@@ -87,7 +87,7 @@ api:
   reboot_timeout: 0s
 
 ota:
-  platform: esphome
+  platform: meshmesh
 
 socket:
   implementation: meshmesh_esp8266
@@ -112,6 +112,10 @@ Next, upload the compiled firmware to the two modules. Leave the coordinator mod
 
 
 ## Execute the HUB (meshmeshgo) Instance
+
+> Note: If you use an esp8266 as base node connected to the HUB (or coordinator) add the --esp8266 option when you launch all.
+  otherwise the OTA will not works.
+
 These are all the options available in the meshmeshgo HUB:
 
 ```bash
@@ -128,6 +132,7 @@ COMMANDS:
 GLOBAL OPTIONS:
    --port value                        Serial port name (default: "/dev/ttyUSB0")
    --baud value                        (default: 460800)
+   --esp8266                           Set if the coordinator is an esp8266 (default: false)
    --verbose, -v                       (default: false)
    --target value, -t value            (default: 0)
    --node_to_debug value, --dbg value  Debug a single node connection
@@ -295,7 +300,7 @@ api:
   reboot_timeout: 900s
 
 ota:
-  platform: esphome
+  platform: meshmesh
 
 socket:
   implementation: meshmesh_esp8266
