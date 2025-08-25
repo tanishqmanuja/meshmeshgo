@@ -42,7 +42,7 @@ The constructed graph is a directed graph in which every edge is associated with
 
 A Dijkstra algorithm is used to find the best path from one node of the network to another. This path will minimize the cost and will maximize the probability to use the best signal level to transmit packets.
 
-The HUB will provide an interface between the IP world (Home Assistant) and the Mesh world (ESPHome)
+The HUB will provide an interface between the IP world (Home Assistant) and the Mesh world (ESPHome). THe full graph netowrk is stored in a single xml file that can be hand edited.
 
 ## Getting started tutorial
 
