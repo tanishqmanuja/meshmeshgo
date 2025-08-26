@@ -1,5 +1,6 @@
 import { Card, CardContent, Grid, Typography } from "@mui/material";
 import { Button, DataTable, List, Title, useCreate, useGetOne } from "react-admin";
+import { NetworkGraph } from "./networkgraph";
 
 
 export const Discovery = () => {
@@ -34,6 +35,13 @@ export const Discovery = () => {
                     </Grid>
                     <Grid size={6}>
                         <Typography variant="h6">Discovery: {discovery?.status}, CurrentId: {"0x" + discovery?.current_id.toString(16).toUpperCase()} Repetitions: {discovery?.repeat}</Typography>
+                    </Grid>
+                </Grid>
+                <Grid>
+                    <Grid size={12}>
+                        <div style={{ position: 'relative', width: '100%', height: '450px', border: '1px solid #ccc' }}>
+                            <NetworkGraph />
+                        </div>
                     </Grid>
                 </Grid>
                 <List resource="neighbors" queryOptions={{ refetchInterval: 2500}}>

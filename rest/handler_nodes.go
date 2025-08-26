@@ -87,10 +87,11 @@ func (h *Handler) getNodes(c *gin.Context) {
 	for nodes.Next() {
 		dev := nodes.Node().(graph.NodeDevice)
 		jsonNodes = append(jsonNodes, MeshNode{
-			ID:    uint(dev.ID()),
-			Tag:   string(dev.Device().Tag()),
-			InUse: dev.Device().InUse(),
-			Path:  graph.FmtNodePath(network, dev),
+			ID:      uint(dev.ID()),
+			Tag:     string(dev.Device().Tag()),
+			InUse:   dev.Device().InUse(),
+			Path:    graph.FmtNodePath(network, dev),
+			IsLocal: dev.ID() == network.LocalDeviceId(),
 		})
 	}
 

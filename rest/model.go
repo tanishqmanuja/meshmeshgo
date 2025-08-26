@@ -51,6 +51,7 @@ type MeshNode struct {
 	ID       uint               `json:"id"`
 	Tag      string             `json:"tag"`
 	InUse    bool               `json:"in_use"`
+	IsLocal  bool               `json:"is_local"`
 	Firmware []MeshNodeFirmware `json:"firmware"`
 	Progress int                `json:"progress"`
 	Path     string             `json:"path"`
