@@ -13,13 +13,16 @@ First, we have to use the following config file and upload the firmware to the c
 ```yaml
 external_components:
   - source: github://persuader72/esphome@mm_dev
-    components: [ meshmesh, network, socket ]
+    components: [ meshmesh, meshmesh_direct, network, socket, ota ]
 
 preferences:
     flash_write_interval: 30sec
 
 esphome:
   name: controlled
+
+ota:
+  platform: esphome
 
 esp8266:
   board: d1_mini_lite
@@ -35,7 +38,7 @@ api:
   reboot_timeout: 0s
 
 ota:
-  platform: meshmesh
+  platform: esphome
 
 socket:
   implementation: meshmesh_esp8266
@@ -46,6 +49,8 @@ meshmesh:
   tx_buffer_size: 0
   password: !secret meshmesh_password
   channel: 3
+
+meshmesh_direct:
 
 switch:
   - platform: gpio
@@ -76,7 +81,7 @@ We have to keep note of those two values and put them in the corresponding field
 ```yaml
 external_components:
   - source: github://persuader72/esphome@mm_dev
-    components: [ meshmesh, network, socket ]
+    components: [ meshmesh, meshmesh_direct, network, socket, ota ]
 
 preferences:
     flash_write_interval: 30sec
@@ -87,6 +92,9 @@ substitutions:
 
 esphome:
   name: testmesh2
+
+ota:
+  platform: esphome
 
 esp8266:
   board: d1_mini_lite
@@ -102,7 +110,7 @@ api:
   reboot_timeout: 0s
 
 ota:
-  platform: meshmesh
+  platform: esphome
   
 socket:
   implementation: meshmesh_esp8266
@@ -113,6 +121,8 @@ meshmesh:
   tx_buffer_size: 0
   password: !secret meshmesh_password
   channel: 3
+
+meshmesh_direct:
 
 switch:
   - platform: gpio
