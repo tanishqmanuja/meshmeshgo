@@ -3,7 +3,7 @@
 The main task of this software is to make a bridge between the MeshMesh network and Home Assistant software 
 implementing the ESPHome API standard.
 
-The firmware for ESPHome nodes can be found on this [repository](https://github.com/persuader72/esphome)
+The firmware for ESPHome nodes can be found on this [repository](https://github.com/EspMeshMesh/esphome-meshmesh)
 
 ## Mesh network description
 
