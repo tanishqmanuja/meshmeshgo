@@ -184,7 +184,7 @@ func main() {
 	})
 	// Start RPC Server
 	rpcServer := rpc.NewRpcServer(config.RpcBindAddress)
-	rpcServer.Start(fmt.Sprintf("%s - %s", programName, programDescription), fmt.Sprintf("%s - %s", vcsHash[:8], vcsTime.Format(time.RFC3339)), serialPort)
+	rpcServer.Start(fmt.Sprintf("%s - %s", programName, programDescription), fmt.Sprintf("%s - %s", vcsHash, vcsTime.Format(time.RFC3339)), serialPort)
 	defer rpcServer.Stop()
 	// Start rest server
 	restHandler := rest.NewHandler(serialPort, esphomeapi)
