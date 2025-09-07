@@ -200,7 +200,7 @@ func (serialConn *SerialConnection) Read() {
 					computedCrc16 = 0
 					decodeState = waitEndByte
 				default:
-					fmt.Println("serial received a character outside a frame", b)
+					logger.Log().WithField("b", fmt.Sprintf("0x%02X", b)).Error("serial error: received a character outside a frame")
 				}
 			case escapeNextByte:
 				decodeState = waitEndByte
@@ -218,7 +218,9 @@ func (serialConn *SerialConnection) Read() {
 					serialConn.processSerialBuffer(inputBuffer, inputBufferPos)
 					inputBufferPos = 0
 				} else {
-					fmt.Println("crc16 mismatch", receivedCrc16, computedCrc16)
+					decodeState = waitStartByte
+					logger.Log().WithFields(logrus.Fields{"receivedCrc16": receivedCrc16, "computedCrc16": computedCrc16}).Error("serial error: crc16 mismatch")
+					inputBufferPos = 0
 				}
 			default:
 				switch b {
