@@ -2,6 +2,7 @@ package logger
 
 import (
 	"os"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -10,7 +11,12 @@ type Fields logrus.Fields
 
 var log = &logrus.Logger{
 	Out:       os.Stderr,
-	Formatter: &logrus.TextFormatter{DisableTimestamp: false, FullTimestamp: true, DisableColors: false},
+	Formatter: &logrus.TextFormatter{
+		DisableTimestamp: false,
+		FullTimestamp: true,
+		ForceColors: true,
+		TimestampFormat: time.TimeOnly,
+		DisableColors: false},
 	Hooks:     make(logrus.LevelHooks),
 	Level:     logrus.WarnLevel,
 }
