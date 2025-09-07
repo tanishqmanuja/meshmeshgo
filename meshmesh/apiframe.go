@@ -22,9 +22,12 @@ const (
 	MultipathProtocol
 )
 
-const startApiFrame byte = 0xFE
-const escapeApiFrame byte = 0xEA
-const stopApiFrame byte = 0xEF
+const (
+	startApiFrameCrc16 byte = 0xFD
+	startApiFrame      byte = 0xFE
+	escapeApiFrame     byte = 0xEA
+	stopApiFrame       byte = 0xEF
+)
 
 const echoApiRequest uint8 = 0
 
@@ -507,9 +510,11 @@ func (frame *ApiFrame) Output() []byte {
 		frame.Escape()
 	}
 
-	var out []byte = []byte{startApiFrame}
+	crc16hash := crc16Calc(0, frame.data, len(frame.data))
+
+	var out []byte = []byte{startApiFrameCrc16}
 	out = append(out, frame.data...)
-	out = append(out, stopApiFrame)
+	out = append(out, stopApiFrame, byte(crc16hash>>8), byte(crc16hash))
 	return out
 }
 

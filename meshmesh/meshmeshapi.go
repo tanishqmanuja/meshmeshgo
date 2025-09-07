@@ -17,6 +17,7 @@ import (
 )
 
 const defaultSessionMaxTimeoutMs = 500
+const maxSerialInputBuffer = 8192
 
 type SerialSession struct {
 	Request      *ApiFrame
@@ -65,9 +66,11 @@ type SerialConnection struct {
 }
 
 const (
-	waitStartByte  = iota
-	escapeNextByte = iota
-	waitEndByte    = iota
+	waitStartByte = iota
+	escapeNextByte
+	waitEndByte
+	waitCrc16Byte1
+	waitCrc16Byte2
 )
 
 func (serialConn *SerialConnection) IsConnected() bool {
@@ -154,9 +157,18 @@ func (conn *SerialConnection) checkSessionTimeout() {
 	}
 }
 
+func (serialConn *SerialConnection) processSerialBuffer(buffer []byte, bufferPos int) {
+	destination := make([]byte, bufferPos)
+	copy(destination, buffer)
+	serialConn.ReadFrame(destination)
+}
+
 func (serialConn *SerialConnection) Read() {
+	var lastStartByte uint8
+	var computedCrc16 uint16
+	var receivedCrc16 uint16
 	var inputBufferPos int
-	inputBuffer := make([]byte, 1500)
+	inputBuffer := make([]byte, maxSerialInputBuffer)
 	var decodeState int = waitStartByte
 	serialConn.port.ResetInputBuffer()
 
@@ -176,29 +188,57 @@ func (serialConn *SerialConnection) Read() {
 			b := buffer[0]
 			switch decodeState {
 			case waitStartByte:
-				if b == startApiFrame {
+				switch b {
+				case startApiFrame:
+					lastStartByte = b
 					inputBufferPos = 0
+					computedCrc16 = 0
 					decodeState = waitEndByte
-				} else {
-					fmt.Println("unknow char", b)
+				case startApiFrameCrc16:
+					lastStartByte = b
+					inputBufferPos = 0
+					computedCrc16 = 0
+					decodeState = waitEndByte
+				default:
+					fmt.Println("serial received a character outside a frame", b)
 				}
 			case escapeNextByte:
 				decodeState = waitEndByte
+				// And escaped byte is take as is not used for commands.
 				inputBuffer[inputBufferPos] = b
+				computedCrc16 = crc16Byte(computedCrc16, b)
 				inputBufferPos += 1
+			case waitCrc16Byte1:
+				receivedCrc16 = uint16(b) << 8
+				decodeState = waitCrc16Byte2
+			case waitCrc16Byte2:
+				receivedCrc16 = receivedCrc16 | uint16(b)
+				if receivedCrc16 == computedCrc16 {
+					decodeState = waitStartByte
+					serialConn.processSerialBuffer(inputBuffer, inputBufferPos)
+					inputBufferPos = 0
+				} else {
+					fmt.Println("crc16 mismatch", receivedCrc16, computedCrc16)
+				}
 			default:
 				switch b {
 				case stopApiFrame:
-					decodeState = waitStartByte
-					destination := make([]byte, inputBufferPos)
-					copy(destination, inputBuffer)
-					serialConn.ReadFrame(destination)
-					inputBufferPos = 0
+					if lastStartByte == startApiFrameCrc16 {
+						// Wait for two more bytes to complete the crc16
+						decodeState = waitCrc16Byte1
+					} else {
+						// No crc16, just process the buffer
+						serialConn.processSerialBuffer(inputBuffer, inputBufferPos)
+						inputBufferPos = 0
+						decodeState = waitStartByte
+					}
 				case escapeApiFrame:
 					decodeState = escapeNextByte
+					computedCrc16 = crc16Byte(computedCrc16, b)
 				default:
 					inputBuffer[inputBufferPos] = b
 					inputBufferPos += 1
+					computedCrc16 = crc16Byte(computedCrc16, b)
 				}
 			}
 
