@@ -35,7 +35,7 @@ func PrintTable(network *Network) {
 	fmt.Printf("| Coordinator node is: %-94s|\n", utils.FmtNodeId(network.localDeviceId))
 
 	fmt.Printf("|%s|\n", strings.Repeat("-", 116))
-	fmt.Println("| Node Id  | Node Address    | Node Tag           | Port | Path                                             | Wei. |")
+	fmt.Println("| Node Id  | Node Address    | Node Tag           |   Port | Path                                             | Wei. |")
 	fmt.Printf("|%s|\n", strings.Repeat("-", 116))
 
 	devices := network.Nodes()
