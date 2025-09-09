@@ -60,7 +60,6 @@ func getBuildInfo() {
 }
 
 func initConfig() *config.Config {
-	config.InitINIConfig()
 	c, err := config.NewConfig()
 	if err != nil {
 		logger.Fatal("Invalid config options: ", err)
