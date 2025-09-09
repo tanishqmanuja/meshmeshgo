@@ -61,6 +61,10 @@ func WithFields(fields Fields) *logrus.Entry {
 	return log.WithFields(logrus.Fields(fields))
 }
 
+func  WithError(err error) *logrus.Entry {
+	return log.WithError(err)
+}
+
 
 func IsInfo() bool {
 	return log.Level == logrus.InfoLevel || IsDebug()
