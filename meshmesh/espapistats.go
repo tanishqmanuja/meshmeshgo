@@ -111,20 +111,22 @@ func (as *EspApiStats) Stats(address MeshNodeId) *EspApiConnectionStats {
 }
 
 func (as *EspApiStats) PrintStats() {
-	fmt.Println("|----------------------------------------------------")
-	fmt.Printf("| Active connections: %d\n", len(as.Connections))
-	fmt.Println("|----------------------------------------------------")
-	fmt.Printf("| ID | A | Address  | Hndl | Duration | Start since\n")
+	if (len(as.Connections)> 0) {
+		fmt.Println("|----------------------------------------------------")
+		fmt.Printf("| Active connections: %d\n", len(as.Connections))
+		fmt.Println("|----------------------------------------------------")
+		fmt.Printf("| ID | A | Address  | Hndl | Duration | Start since\n")
 
-	var num = 0
-	for id, s := range as.Connections {
-		num += 1
-		fmt.Printf("| %02d | %s | %s | %04d | %s | %s\n", num, s.IsActiveAsText(), utils.FmtNodeId(int64(id)), s.lastHandle,
-			s.LastConnectionDuration().Round(time.Second), s.TimeSinceLastConnection().Round(time.Second))
+		var num = 0
+		for id, s := range as.Connections {
+			num += 1
+			fmt.Printf("| %02d | %s | %s | %04d | %s | %s\n", num, s.IsActiveAsText(), utils.FmtNodeId(int64(id)), s.lastHandle,
+				s.LastConnectionDuration().Round(time.Second), s.TimeSinceLastConnection().Round(time.Second))
+		}
+
+		fmt.Println("|----------------------------------------------------")
+		fmt.Println("")
 	}
-
-	fmt.Println("|----------------------------------------------------")
-	fmt.Println("")
 }
 
 func NewEspApiStats() *EspApiStats {

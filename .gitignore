@@ -11,3 +11,4 @@ __debug_bin*
 backup/
 # Added by goreleaser init:
 dist/
+meshmeshgo.json

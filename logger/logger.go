@@ -33,16 +33,20 @@ func Error(args ...interface{}) {
 	log.Error(args...)
 }
 
-func Info(args ...interface{}) {
-	log.Info(args...)
+func Errorf(format string, args ...interface{}) {
+	log.Errorf(format, args...)
 }
 
-func Debug(args ...interface{}) {
-	log.Debug(args...)
+func Info(format string, args ...interface{}) {
+	log.Infof(format, args...)
 }
 
-func Fatal(args ...interface{}) {
-	log.Fatal(args...)
+func Debug(format string, args ...interface{}) {
+	log.Debugf(format, args...)
+}
+
+func Fatal(format string, args ...interface{}) {
+	log.Fatalf(format, args...)
 }
 
 func Printf(format string, args ...interface{}) {
@@ -58,14 +62,14 @@ func WithFields(fields Fields) *logrus.Entry {
 }
 
 
-func IsInfo() (bool) {
+func IsInfo() bool {
 	return log.Level == logrus.InfoLevel || IsDebug()
 }
 
-func IsDebug() (bool) {
+func IsDebug() bool {
 	return log.Level == logrus.DebugLevel || IsTrace()
 }
 
-func IsTrace() (bool) {
+func IsTrace() bool {
 	return log.Level == logrus.TraceLevel
 }

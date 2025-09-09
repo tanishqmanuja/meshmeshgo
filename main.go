@@ -110,7 +110,7 @@ func initNetwork(localNodeId int64) *gra.Network {
 /* Initialize debug node TODO not implemented yet */
 func initDebugNode(config *config.Config) {
 	if len(config.DebugNodeAddr) > 0 {
-		_debugNodeId, err := gra.ParseDeviceId(config.DebugNodeAddr)
+		_debugNodeId, err := utils.ParseDeviceId(config.DebugNodeAddr)
 		if err != nil {
 			logger.WithField("err", err).Fatal("Invalid debug node id")
 			return
