@@ -19,7 +19,6 @@ require (
 	gonum.org/v1/gonum v0.15.1
 	google.golang.org/grpc v1.69.2
 	google.golang.org/protobuf v1.36.6
-	gopkg.in/ini.v1 v1.67.0
 )
 
 require (
@@ -73,5 +72,6 @@ require (
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250102185135-69823020774d // indirect
+	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

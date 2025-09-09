@@ -35,7 +35,7 @@ func (g *Network) readGraph(filename string) error {
 					return err
 				}
 
-				id, err := strconv.ParseInt(n.ID, 0, 32)
+				id, err := utils.ParseDeviceId(n.ID)
 				if err != nil {
 					return err
 				}
@@ -61,11 +61,11 @@ func (g *Network) readGraph(filename string) error {
 					return err
 				}
 
-				src, err := strconv.ParseInt(e.Source, 0, 32)
+				src, err := utils.ParseDeviceId(e.Source)
 				if err != nil {
 					return err
 				}
-				dst, err := strconv.ParseInt(e.Target, 0, 32)
+				dst, err := utils.ParseDeviceId(e.Target)
 				if err != nil {
 					return err
 				}
