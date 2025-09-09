@@ -60,7 +60,6 @@ func getBuildInfo() {
 }
 
 func initConfig() *config.Config {
-	config.InitINIConfig()
 	c, err := config.NewConfig()
 	if err != nil {
 		logger.Fatal("Invalid config options: ", err)
@@ -70,12 +69,21 @@ func initConfig() *config.Config {
 		os.Exit(0)
 	}
 
-	if c.VerboseLevel > 3 {
+	switch c.VerboseLevel {
+	case 3:
 		logger.SetLevel(logrus.TraceLevel)
-	} else if c.VerboseLevel > 2 {
+		fmt.Println("Setting loglevel for Tracing")
+	case 2:
 		logger.SetLevel(logrus.DebugLevel)
-	} else if c.VerboseLevel > 1 {
+		fmt.Println("Setting loglevel for Debuging")
+	case 1:
 		logger.SetLevel(logrus.InfoLevel)
+		fmt.Println("Setting loglevel for Info")
+	case 0:
+		logger.SetLevel(logrus.WarnLevel)
+		fmt.Println("Setting loglevel for Errors and Warning Only.")
+	default:
+		fmt.Printf("Setting loglevel: Unknown (%d)\n", c.VerboseLevel)
 	}
 
 	return c
@@ -109,7 +117,7 @@ func initDebugNode(config *config.Config) {
 		}
 		debugNodeId, err = gra.GetMainNetwork().GetNodeDevice(_debugNodeId)
 		if err != nil {
-			logger.WithField("id", _debugNodeId).Fatal("Debug node not found in graph")
+			logger.WithField("id", utils.FmtNodeId(_debugNodeId)).Fatal("Debug node not found in graph")
 			return
 		}
 		logger.WithFields(logger.Fields{"id": debugNodeId}).Info("Enabling debug of node")
@@ -155,13 +163,18 @@ func handleDiscAssociateReply(v *meshmesh.DiscAssociateApiReply, serialPort *mes
 func main() {
 	getBuildInfo()
 	go waitForTermination()
-	config := initConfig()
 
-	logger.WithFields(logger.Fields{"programName": programName, "vcsHash": vcsHash, "vcsTime": vcsTime, "vcsDirty": vcsDirty}).Info("Starting program")
-	logger.Info(programDescription)
+	fmt.Printf("Starting program: %s\n", programName)
+	fmt.Println(programDescription)
+	logger.WithFields(logger.Fields{"vcsHash": vcsHash,
+		"vcsTime":  vcsTime,
+		"vcsDirty": vcsDirty}).Info("Startup information")
+
+	config := initConfig()
 
 	logger.WithFields(logger.Fields{"portName": config.SerialPortName, "baudRate": config.SerialPortBaudRate}).Debug("Opening serial port")
 	// First init serial connection with coordinator
+
 	serialPort, err := meshmesh.NewSerial(config.SerialPortName, config.SerialPortBaudRate, config.SerialIsEsp8266, false)
 	if err != nil {
 		logger.Log().Fatal("Serial port error: ", err)
@@ -171,7 +184,6 @@ func main() {
 	gra.AddMainNetworkChangedCallback(networkChangedCallback)
 	// Init node for spcific debug
 	initDebugNode(config)
-	logger.Log().Info("Coordinator node is " + utils.FmtNodeId(gra.GetMainNetwork().LocalDeviceId()))
 	gra.PrintTable(gra.GetMainNetwork())
 	// Handle DiscAssociateReply received from other nodes
 	serialPort.DiscAssociateFn = handleDiscAssociateReply
@@ -201,7 +213,9 @@ func main() {
 		}
 		if time.Since(lastStatsTime) > 1*time.Minute {
 			lastStatsTime = time.Now()
+			//if (len(as.Connections)> 0 ) {  //
 			esphomeapi.PrintStats()
+			//}
 		}
 	}
 }

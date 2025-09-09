@@ -56,3 +56,16 @@ func WithField(key string, value interface{}) *logrus.Entry {
 func WithFields(fields Fields) *logrus.Entry {
 	return log.WithFields(logrus.Fields(fields))
 }
+
+
+func IsInfo() (bool) {
+	return log.Level == logrus.InfoLevel || IsDebug()
+}
+
+func IsDebug() (bool) {
+	return log.Level == logrus.DebugLevel || IsTrace()
+}
+
+func IsTrace() (bool) {
+	return log.Level == logrus.TraceLevel
+}
