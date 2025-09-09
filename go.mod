@@ -6,7 +6,6 @@ toolchain go1.24.5
 
 require (
 	github.com/charmbracelet/log v0.4.0
-	github.com/gin-gonic/contrib v0.0.0-20241229022435-d12709533de6
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-restruct/restruct v1.2.0-alpha
 	github.com/sirupsen/logrus v1.9.3
@@ -20,7 +19,6 @@ require (
 	gonum.org/v1/gonum v0.15.1
 	google.golang.org/grpc v1.69.2
 	google.golang.org/protobuf v1.36.6
-	gopkg.in/ini.v1 v1.67.0
 )
 
 require (
