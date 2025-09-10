@@ -27,6 +27,8 @@ const (
 	startApiFrame      byte = 0xFE
 	escapeApiFrame     byte = 0xEA
 	stopApiFrame       byte = 0xEF
+	startLogMsg		   byte = 0x1B
+	stopLogMsg		   byte = 0x0A
 )
 
 const echoApiRequest uint8 = 0
