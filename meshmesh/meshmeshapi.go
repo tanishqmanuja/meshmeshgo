@@ -71,6 +71,7 @@ const (
 	waitEndByte
 	waitCrc16Byte1
 	waitCrc16Byte2
+	waitEndOfLine
 )
 
 func (serialConn *SerialConnection) IsConnected() bool {
@@ -199,8 +200,16 @@ func (serialConn *SerialConnection) Read() {
 					inputBufferPos = 0
 					computedCrc16 = 0
 					decodeState = waitEndByte
+				case startLogMsg:
+					lastStartByte = b
+					inputBufferPos = 0
+					computedCrc16 = 0
+					decodeState = waitEndOfLine
+					inputBuffer[inputBufferPos] = b
+					inputBufferPos += 1
+
 				default:
-					logger.Log().WithField("b", fmt.Sprintf("0x%02X", b)).Error("serial error: received a character outside a frame")
+					logger.Log().WithField("b", fmt.Sprintf("0x%02X ", b)).Error("serial error: received a character outside a frame")
 				}
 			case escapeNextByte:
 				decodeState = waitEndByte
@@ -222,6 +231,37 @@ func (serialConn *SerialConnection) Read() {
 					logger.Log().WithFields(logrus.Fields{"receivedCrc16": receivedCrc16, "computedCrc16": computedCrc16}).Error("serial error: crc16 mismatch")
 					inputBufferPos = 0
 				}
+			case waitEndByte:
+				switch b {
+				case stopApiFrame:
+					if lastStartByte == startApiFrameCrc16 {
+						// Wait for two more bytes to complete the crc16
+						decodeState = waitCrc16Byte1
+					} else {
+						// No crc16, just process the buffer
+						serialConn.processSerialBuffer(inputBuffer, inputBufferPos)
+						inputBufferPos = 0
+						decodeState = waitStartByte
+					}
+				case escapeApiFrame:
+					decodeState = escapeNextByte
+					computedCrc16 = crc16Byte(computedCrc16, b)
+				default:
+					inputBuffer[inputBufferPos] = b
+					inputBufferPos += 1
+					computedCrc16 = crc16Byte(computedCrc16, b)
+				}
+			case waitEndOfLine:
+				if b == stopLogMsg {
+					destination := make([]byte, inputBufferPos)
+					copy(destination, inputBuffer)
+					fmt.Println("==> "+string(destination))
+					decodeState = waitStartByte
+				} else {
+					inputBuffer[inputBufferPos] = b
+					inputBufferPos += 1
+				}
+
 			default:
 				switch b {
 				case stopApiFrame:
