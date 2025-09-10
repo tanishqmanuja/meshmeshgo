@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"leguru.net/m/v2/graph"
+	"leguru.net/m/v2/utils"
 
 	mm "leguru.net/m/v2/meshmesh"
 )
@@ -23,7 +24,7 @@ func (h *Handler) getDiscoveryProcedureState(c *gin.Context) {
 		discoveryState := MeshDiscoveryState{
 			ID:        0,
 			Status:    "idle",
-			CurrentId: 0,
+			CurrentId: "",
 			Repeat:    0,
 		}
 		c.JSON(http.StatusOK, discoveryState)
@@ -31,7 +32,7 @@ func (h *Handler) getDiscoveryProcedureState(c *gin.Context) {
 		discoveryState := MeshDiscoveryState{
 			ID:        0,
 			Status:    h.discoveryProcedure.StateString(),
-			CurrentId: h.discoveryProcedure.CurrentDeviceId(),
+			CurrentId: utils.FmtNodeId(h.discoveryProcedure.CurrentDeviceId()),
 			Repeat:    h.discoveryProcedure.CurrentRepeat(),
 		}
 		c.JSON(http.StatusOK, discoveryState)
@@ -85,6 +86,7 @@ func (h *Handler) getNeighbors(c *gin.Context) {
 	for k, neighbor := range h.discoveryProcedure.Neighbors {
 		jsonNeighbors = append(jsonNeighbors, MeshNeighbor{
 			ID:      uint(k),
+			Node:    utils.FmtNodeId(k),
 			Current: float32(neighbor.Current),
 			Next:    float32(neighbor.Next),
 			Delta:   float32(neighbor.Next - neighbor.Current),

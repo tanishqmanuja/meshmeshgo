@@ -16,23 +16,29 @@ import (
 )
 
 func FmtNodeId(nodeid int64) string {
+	if nodeid == 0 {
+		return ""
+	}
+
 	return fmt.Sprintf("N%06X", nodeid)
 }
 
-func ParseDeviceId(id string) (int64, error) {
-	if len(id) < 1 {
+func ParseNodeId(id any) (int64, error) {
+	switch id := id.(type) {
+	case string:
+		if len(id) < 1 {
+			return 0, errors.New("invalid id string")
+		}
+		id = strings.Replace(id, "N", "0x", 1)
+		return strconv.ParseInt(id, 0, 32)
+	default:
 		return 0, errors.New("invalid id string")
 	}
-	id = strings.Replace(id, "N", "0x", 1)
-	return strconv.ParseInt(id, 0, 32)
 }
-
 
 func FmtNodeIdHass(nodeid int64) string {
 	return fmt.Sprintf("127.%d.%d.%d", (nodeid>>16)&0xFF, (nodeid>>8)&0xFF, nodeid&0xFF)
 }
-
-
 
 func FmtPath2Str(path []int64) string {
 	var _path string

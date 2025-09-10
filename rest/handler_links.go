@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"leguru.net/m/v2/graph"
+	"leguru.net/m/v2/utils"
 
 	gr "gonum.org/v1/gonum/graph"
 )
@@ -25,8 +26,8 @@ func fillLinkStruct(edge gr.WeightedEdge) MeshLink {
 
 	return MeshLink{
 		ID:          uint(from.ID()) + uint(to.ID())<<24,
-		From:        uint(from.ID()),
-		To:          uint(to.ID()),
+		From:        utils.FmtNodeId(from.ID()),
+		To:          utils.FmtNodeId(to.ID()),
 		Weight:      float32(edge.Weight()),
 		Description: fmt.Sprintf("from: %s to: %s", from.Device().Tag(), to.Device().Tag()),
 	}
@@ -51,8 +52,8 @@ func (h *Handler) getLinks(c *gin.Context) {
 
 	p := req.toGetListParams()
 
-	filter_to := smartInteger(p.Filter["to"])
-	filter_from := smartInteger(p.Filter["from"])
+	filter_to, _ := utils.ParseNodeId(p.Filter["to"])
+	filter_from, _ := utils.ParseNodeId(p.Filter["from"])
 	filter_any := smartInteger(p.Filter["any"])
 
 	network := graph.GetMainNetwork()
