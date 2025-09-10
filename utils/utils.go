@@ -19,12 +19,17 @@ func FmtNodeId(nodeid int64) string {
 	return fmt.Sprintf("N%06X", nodeid)
 }
 
-func ParseDeviceId(id string) (int64, error) {
-	if len(id) < 1 {
+func ParseDeviceId(id any) (int64, error) {
+	switch id := id.(type) {
+	case string:
+		if len(id) < 1 {
+			return 0, errors.New("invalid id string")
+		}
+		id = strings.Replace(id, "N", "0x", 1)
+		return strconv.ParseInt(id, 0, 32)
+	default:
 		return 0, errors.New("invalid id string")
 	}
-	id = strings.Replace(id, "N", "0x", 1)
-	return strconv.ParseInt(id, 0, 32)
 }
 
 

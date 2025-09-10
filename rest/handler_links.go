@@ -52,8 +52,8 @@ func (h *Handler) getLinks(c *gin.Context) {
 
 	p := req.toGetListParams()
 
-	filter_to, _ := utils.ParseDeviceId(p.Filter["to"].(string))
-	filter_from, _ := utils.ParseDeviceId(p.Filter["from"].(string))
+	filter_to, _ := utils.ParseDeviceId(p.Filter["to"])
+	filter_from, _ := utils.ParseDeviceId(p.Filter["from"])
 	filter_any := smartInteger(p.Filter["any"])
 
 	network := graph.GetMainNetwork()
