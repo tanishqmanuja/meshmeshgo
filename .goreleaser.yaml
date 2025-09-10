@@ -6,7 +6,12 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj
 
+project_name: meshmeshgo
 version: 2
+
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
+
 
 before:
   hooks:
@@ -37,6 +42,9 @@ archives:
     format_overrides:
       - goos: windows
         formats: [zip]
+    files:
+      - LICENSE.txt
+      - meshmeshgo.json
 
 changelog:
   sort: asc
