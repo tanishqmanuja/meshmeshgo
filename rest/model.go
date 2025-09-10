@@ -123,6 +123,7 @@ type CtrlDiscoveryRequest struct {
 
 type MeshNeighbor struct {
 	ID      uint    `json:"id"`
+	Node	string  `json:"node"`
 	Address string  `json:"address"`
 	Current float32 `json:"current"`
 	Next    float32 `json:"next"`

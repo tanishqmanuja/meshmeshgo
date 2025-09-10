@@ -86,7 +86,7 @@ func (h *Handler) getNeighbors(c *gin.Context) {
 	for k, neighbor := range h.discoveryProcedure.Neighbors {
 		jsonNeighbors = append(jsonNeighbors, MeshNeighbor{
 			ID:      uint(k),
-			Address: utils.FmtNodeId(k),
+			Node:    utils.FmtNodeId(k),
 			Current: float32(neighbor.Current),
 			Next:    float32(neighbor.Next),
 			Delta:   float32(neighbor.Next - neighbor.Current),

@@ -31,10 +31,10 @@ export const Discovery = () => {
                         <RefreshDiscoveryButton />
                     </Grid>
                     <Grid size={8}>
-                        <Typography variant="h6">Discovery: {discovery?.status}, CurrentId: {"0x" + discovery?.current_id.toString(16).toUpperCase()} Repetitions: {discovery?.repeat}</Typography>
+                        <Typography variant="h6">Discovery: {discovery?.status}, CurrentId: {discovery?.current_id} Repetitions: {discovery?.repeat}</Typography>
                     </Grid>
                 </Grid>
-                <Grid>
+                <Grid id="networkmap">
                     <Grid size={12}>
                         <div style={{ position: 'relative', width: '100%', height: '450px', border: '1px solid #ccc' }}>
                             <NetworkGraph />
@@ -43,7 +43,7 @@ export const Discovery = () => {
                 </Grid>
                 <List resource="neighbors" queryOptions={{ refetchInterval: 2500}}>
                     <DataTable>
-                        <DataTable.Col source="id" />
+                        <DataTable.Col source="node" />
                         <DataTable.Col source="current" />
                         <DataTable.Col source="next" />
                         <DataTable.Col source="delta" />
