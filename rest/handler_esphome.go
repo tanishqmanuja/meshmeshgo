@@ -56,6 +56,7 @@ func (h *Handler) getEsphomeConnections(c *gin.Context) {
 
 		jsonClients = append(jsonClients, EsphomeClient{
 			ID:       index,
+			Node:     utils.FmtNodeId(int64(nodeId)),
 			Address:  utils.FmtNodeIdHass(int64(nodeId)),
 			Tag:      dev.Device().Tag(),
 			Active:   connection.IsActive(),

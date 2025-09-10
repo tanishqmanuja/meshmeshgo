@@ -5,7 +5,7 @@ import { NetworkGraph } from "./networkgraph";
 
 export const Discovery = () => {
     const { data: discovery } = useGetOne('neighbors/discovery', { id: 0}, { refetchInterval: 2500 });
-    
+
     const StartDiscoveryButton = () => {
         const [create, { isPending }] = useCreate('neighbors/discovery', {data: {}});
         const startDiscoveryHandler = () => {
@@ -19,7 +19,7 @@ export const Discovery = () => {
         const refreshDiscoveryHandler = () => {
             create();
         };
-        return <Button variant="contained" color="primary" disabled={isPending || discovery?.status === 'running'} label="Refresh discovery" onClick={refreshDiscoveryHandler} />
+        return <Button variant="contained" color="primary" disabled={isPending || discovery?.status === 'running'} label="Discovery" onClick={refreshDiscoveryHandler} />
     };
 
     return (
@@ -28,12 +28,9 @@ export const Discovery = () => {
             <CardContent>
                 <Grid container spacing={2}>
                     <Grid size={2}>
-                        <StartDiscoveryButton />
-                    </Grid>
-                    <Grid size={3}>
                         <RefreshDiscoveryButton />
                     </Grid>
-                    <Grid size={6}>
+                    <Grid size={8}>
                         <Typography variant="h6">Discovery: {discovery?.status}, CurrentId: {"0x" + discovery?.current_id.toString(16).toUpperCase()} Repetitions: {discovery?.repeat}</Typography>
                     </Grid>
                 </Grid>

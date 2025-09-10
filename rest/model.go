@@ -14,7 +14,7 @@ type SortFieldType int
 
 const (
 	sortFieldTypeID SortFieldType = iota
-	sortFieldTypeHExId
+	sortFieldTypeNode
 	sortFieldTypeFrom
 	sortFieldTypeTo
 	sortFieldTypeWeight
@@ -49,6 +49,7 @@ type MeshNodeFirmware struct {
 
 type MeshNode struct {
 	ID       uint               `json:"id"`
+	Node	 string             `json:"node"`
 	Tag      string             `json:"tag"`
 	InUse    bool               `json:"in_use"`
 	IsLocal  bool               `json:"is_local"`
@@ -72,8 +73,8 @@ type UpdateLinkRequest struct {
 
 type MeshLink struct {
 	ID          uint    `json:"id"`
-	From        uint    `json:"from"`
-	To          uint    `json:"to"`
+	From        string    `json:"from"`
+	To          string    `json:"to"`
 	Weight      float32 `json:"weight"`
 	Description string  `json:"description"`
 }
@@ -84,7 +85,7 @@ func (l MeshLink) Sort(other MeshLink, sortType SortType, sortBy SortFieldType) 
 		switch sortBy {
 		case sortFieldTypeID:
 			return l.ID < other.ID
-		case sortFieldTypeHExId:
+		case sortFieldTypeNode:
 			return l.ID < other.ID
 		case sortFieldTypeFrom:
 			return l.From < other.From
@@ -100,7 +101,7 @@ func (l MeshLink) Sort(other MeshLink, sortType SortType, sortBy SortFieldType) 
 		switch sortBy {
 		case sortFieldTypeID:
 			return l.ID > other.ID
-		case sortFieldTypeHExId:
+		case sortFieldTypeNode:
 			return l.ID > other.ID
 		case sortFieldTypeFrom:
 			return l.From > other.From
@@ -131,7 +132,7 @@ type MeshNeighbor struct {
 type MeshDiscoveryState struct {
 	ID        int64  `json:"id"`
 	Status    string `json:"status"`
-	CurrentId int64  `json:"current_id"`
+	CurrentId string `json:"current_id"`
 	Repeat    int    `json:"repeat"`
 }
 
@@ -162,6 +163,8 @@ type EsphomeServer struct {
 
 type EsphomeClient struct {
 	ID       uint   `json:"id"`
+	Node     string `json:"Nodfr"`
+
 	Address  string `json:"address"`
 	Tag      string `json:"tag"`
 	Active   bool   `json:"active"`
@@ -193,8 +196,8 @@ func parseSortFieldType(s string) SortFieldType {
 	switch s {
 	case "id":
 		return sortFieldTypeID
-	case "hex_id":
-		return sortFieldTypeHExId
+	case "Node":
+		return sortFieldTypeNode
 	case "from":
 		return sortFieldTypeFrom
 	case "to":
