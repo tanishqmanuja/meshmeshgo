@@ -27,8 +27,8 @@ const (
 	startApiFrame      byte = 0xFE
 	escapeApiFrame     byte = 0xEA
 	stopApiFrame       byte = 0xEF
-	startLogMsg		   byte = 0x1B
-	stopLogMsg		   byte = 0x0A
+	startLogMsg        byte = 0x1B
+	stopLogMsg         byte = 0x0A
 )
 
 const echoApiRequest uint8 = 0
@@ -69,6 +69,19 @@ const nodeIdApiReply uint8 = 5
 type NodeIdApiReply struct {
 	Id     uint8      `struct:"uint8"`
 	Serial MeshNodeId `struct:"uint32"`
+}
+
+const nodeGetTagApiRequest uint8 = 6
+
+type NodeGetTagApiRequest struct {
+	Id uint8 `struct:"uint8"`
+}
+
+const nodeGetTagApiReply = 7
+
+type NodeGetTagApiReply struct {
+	Id  uint8  `struct:"uint8"`
+	Tag []byte `struct:"[31]byte"`
 }
 
 const nodeSetTagApiRequest = 8
@@ -536,6 +549,10 @@ func (frame *ApiFrame) Decode() (interface{}, error) {
 		v := NodeIdApiReply{}
 		restruct.Unpack(frame.data, binary.LittleEndian, &v)
 		return v, nil
+	case nodeGetTagApiReply:
+		v := NodeGetTagApiReply{}
+		restruct.Unpack(frame.data, binary.LittleEndian, &v)
+		return v, nil
 	case nodeSetTagApiReply:
 		v := NodeSetTagApiReply{}
 		restruct.Unpack(frame.data, binary.LittleEndian, &v)
@@ -650,6 +667,9 @@ func EncodeBuffer(cmd interface{}) ([]byte, error) {
 		b, err = restruct.Pack(binary.LittleEndian, &v)
 	case NodeIdApiRequest:
 		v.Id = nodeIdApiRequest
+		b, err = restruct.Pack(binary.LittleEndian, &v)
+	case NodeGetTagApiRequest:
+		v.Id = nodeGetTagApiRequest
 		b, err = restruct.Pack(binary.LittleEndian, &v)
 	case NodeSetTagApiRequest:
 		v.Id = nodeSetTagApiRequest
