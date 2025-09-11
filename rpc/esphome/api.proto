@@ -1,5 +1,12 @@
 syntax = "proto3";
 
+option go_package = "leguru.net/m/v2/rpc/esphome";
+option java_multiple_files = true;
+option java_package = "leguru.net.esphome";
+option java_outer_classname = "ESPhomeProto";
+
+package esphome;
+
 import "api_options.proto";
 
 service APIConnection {

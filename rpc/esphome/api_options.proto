@@ -1,6 +1,6 @@
 syntax = "proto2";
 import "google/protobuf/descriptor.proto";
-
+option go_package = "leguru.net/m/v2/rpc/esphome";
 
 enum APISourceType {
     SOURCE_BOTH = 0;
