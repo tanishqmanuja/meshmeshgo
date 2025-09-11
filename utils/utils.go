@@ -32,7 +32,7 @@ func ParseNodeId(id any) (int64, error) {
 		id = strings.Replace(id, "N", "0x", 1)
 		return strconv.ParseInt(id, 0, 32)
 	default:
-		return 0, errors.New("invalid id string")
+		return -1, errors.New("invalid id string")
 	}
 }
 
