@@ -207,6 +207,27 @@ func (d *DiscoveryProcedure) Step() error {
 		return err
 	}
 
+	// Get tag string from device and if the graph description is empty set the same as the tag on the device.
+	_reply, err := d.serial.SendReceiveApiProt(NodeGetTagApiRequest{}, protocol, MeshNodeId(d.currentDeviceId), d.network)
+	if err != nil {
+		return err
+	}
+	tagReply, ok := _reply.(NodeGetTagApiReply)
+	if !ok {
+		return errors.New("strcuture is not a NodeGetTagApiReply")
+	} else {
+		logger.Log().Printf("[%s] Tag: %s", utils.FmtNodeId(d.currentDeviceId), tagReply.Tag)
+	}
+
+	_device, err := d.network.GetNodeDevice(d.currentDeviceId)
+	if err != nil {
+		return err
+	}
+
+	if len(_device.Device().Tag()) == 0 {
+		_device.Device().SetTag(utils.TruncateZeros(tagReply.Tag))
+	}
+
 	time.Sleep(5 * time.Second)
 
 	reply1, err := d.serial.SendReceiveApiProt(DiscTableSizeApiRequest{}, protocol, MeshNodeId(d.currentDeviceId), d.network)
