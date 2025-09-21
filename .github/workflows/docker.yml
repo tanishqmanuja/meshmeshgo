@@ -2,9 +2,11 @@ name: Build and Push Docker Image
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
+    tags:
+      - 'v*'
+#    branches:
+#      - main
+#  pull_request:
 
 jobs:
   build:
