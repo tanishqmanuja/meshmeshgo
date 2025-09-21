@@ -1,43 +1,22 @@
-ARG BUILD_FROM
-FROM ${BUILD_FROM}
+# Stage 1: Build
+FROM golang:1.24 AS builder
 
-ARG NOWTALK_SRV_VERSION
+WORKDIR /app
 
+COPY go.mod go.sum ./
+RUN go mod download
 
-# Environment configuration
-ENV \
-    S6_KILL_GRACETIME=30000 \
-    S6_SERVICES_GRACETIME=30000
+COPY . .
 
-# Install NODE JS
+RUN CGO_ENABLED=0 GOOS=linux go build -o meshmeshgo .
 
-WORKDIR /usr/src
-RUN \
-    set -x \
-    && apk add --no-cache \
-    nodejs \
-    npm \
-    && apk add --no-cache --virtual .build-dependencies \
-    build-base \
-    git \
-    linux-headers \
-    python3 \
-    \
-    && npm rebuild --build-from-source @serialport/bindings-cpp \
-    && apk del --no-cache \
-    .build-dependencies
+# Stage 2: Runner
+FROM alpine:3.20
 
-WORKDIR /
+WORKDIR /root/
 
-ENV PATH=/usr/src/node_modules/.bin:$PATH
+COPY --from=builder /app/meshmeshgo .
 
-COPY /app/package.json package.json
-COPY /app/package-lock.json package-lock.json
+EXPOSE 4040
 
-RUN npm install
-
-COPY /app /
-
-WORKDIR /data
-
-CMD [ "node", "/app.mjs" ]
+CMD ["./meshmeshgo"]
