@@ -44,7 +44,6 @@ func (h *Handler) nodeInfoGetCmd(m *MeshNode) error {
 func (h *Handler) fillNodeStruct(dev graph.NodeDevice, withInfo bool, network *graph.Network) MeshNode {
 	jsonNode := MeshNode{
 		ID:       uint(dev.ID()),
-		Node:     utils.FmtNodeId(dev.ID()),
 		Tag:      string(dev.Device().Tag()),
 		InUse:    dev.Device().InUse(),
 		Path:     graph.FmtNodePath(network, dev),
@@ -89,7 +88,6 @@ func (h *Handler) getNodes(c *gin.Context) {
 		dev := nodes.Node().(graph.NodeDevice)
 		jsonNodes = append(jsonNodes, MeshNode{
 			ID:      uint(dev.ID()),
-			Node:    string(utils.FmtNodeId(dev.ID())),
 			Tag:     string(dev.Device().Tag()),
 			InUse:   dev.Device().InUse(),
 			Path:    graph.FmtNodePath(network, dev),

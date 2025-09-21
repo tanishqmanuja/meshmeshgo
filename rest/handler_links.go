@@ -20,14 +20,20 @@ func parseFromToId(id uint) (from, to uint) {
 	return from, to
 }
 
+func linkIdFromToId(id uint) (from, to uint) {
+	from = uint(id) & 0x00FFFFFF
+	to = uint(id) >> 24
+	return from, to
+}
+
 func fillLinkStruct(edge gr.WeightedEdge) MeshLink {
 	from := edge.From().(graph.NodeDevice)
 	to := edge.To().(graph.NodeDevice)
 
 	return MeshLink{
 		ID:          uint(from.ID()) + uint(to.ID())<<24,
-		From:        utils.FmtNodeId(from.ID()),
-		To:          utils.FmtNodeId(to.ID()),
+		From:        from.ID(),
+		To:          to.ID(),
 		Weight:      float32(edge.Weight()),
 		Description: fmt.Sprintf("from: %s to: %s", from.Device().Tag(), to.Device().Tag()),
 	}

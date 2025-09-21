@@ -3,6 +3,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import { Typography } from "@mui/material";
+import { formatNodeId } from "../utils";
 
 const CreateToolbar = () => {
     return (
@@ -20,7 +21,7 @@ export const MeshNodeEdit = () => {
     return <Edit mutationMode="pessimistic">
         <TabbedForm toolbar={<CreateToolbar />}>
             <TabbedForm.Tab label="General" icon={<EditNoteIcon />} iconPosition="start" sx={{ maxWidth: '40em', minHeight: 48 }}>
-                <TextInput source="node" disabled />
+                <TextInput source="id" format={v => formatNodeId(v)} disabled />
                 <TextInput source="tag" />
                 <BooleanInput source="in_use" />
                 <FileInput source="firmware" accept={{ 'application/octet-stream': ['.bin'] }} multiple={false}>
@@ -47,8 +48,8 @@ export const MeshNodeEdit = () => {
             <TabbedForm.Tab label="Links">
                 <List resource="links" actions={false} pagination={false} filter={{ 'any': recordId }}>
                     <DataTable storeKey="links.of.node" bulkActionButtons={false} size="small">
-                        <DataTable.Col source="from" />
-                        <DataTable.Col source="to" />
+                        <DataTable.Col source="from" render={record => formatNodeId(record.from)} />
+                        <DataTable.Col source="to" render={record => formatNodeId(record.to)} />
                         <DataTable.Col source="weight" />
                     </DataTable>
                 </List>

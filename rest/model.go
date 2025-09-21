@@ -49,7 +49,6 @@ type MeshNodeFirmware struct {
 
 type MeshNode struct {
 	ID       uint               `json:"id"`
-	Node	 string             `json:"node"`
 	Tag      string             `json:"tag"`
 	InUse    bool               `json:"in_use"`
 	IsLocal  bool               `json:"is_local"`
@@ -73,8 +72,8 @@ type UpdateLinkRequest struct {
 
 type MeshLink struct {
 	ID          uint    `json:"id"`
-	From        string    `json:"from"`
-	To          string    `json:"to"`
+	From        int64   `json:"from"`
+	To          int64   `json:"to"`
 	Weight      float32 `json:"weight"`
 	Description string  `json:"description"`
 }
@@ -123,7 +122,7 @@ type CtrlDiscoveryRequest struct {
 
 type MeshNeighbor struct {
 	ID      uint    `json:"id"`
-	Node	string  `json:"node"`
+	Node    string  `json:"node"`
 	Address string  `json:"address"`
 	Current float32 `json:"current"`
 	Next    float32 `json:"next"`
@@ -163,8 +162,8 @@ type EsphomeServer struct {
 }
 
 type EsphomeClient struct {
-	ID       uint   `json:"id"`
-	Node     string `json:"Nodfr"`
+	ID   uint   `json:"id"`
+	Node string `json:"Nodfr"`
 
 	Address  string `json:"address"`
 	Tag      string `json:"tag"`
